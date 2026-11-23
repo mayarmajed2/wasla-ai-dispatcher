@@ -3,35 +3,65 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Wasla AI — مركز عمليات الكاشير (MOKA)</title>
+  <title>Wasla AI — Commercial Operations Console (MOKA)</title>
   <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
-  <div class="app-shell">
-    <!-- Sidebar Navigation -->
-    <aside class="sidebar" id="sidebar">
+  <!-- Authentication Gate -->
+  <div id="loginScreen" class="login-screen" style="min-height:100vh;display:grid;place-items:center;background:#0f172a;padding:20px;">
+    <form id="loginForm" style="background:#fff;width:min(400px,100%);padding:28px;border-radius:16px;box-shadow:0 20px 50px rgb(0 0 0 / 30%);display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div class="brand-mark">W</div>
+        <div>
+          <h2 style="font-size:18px;">Wasla AI — تسجيل الدخول</h2>
+          <p class="subtitle">لوحة عمليات مطعم MOKA الإنتاجية</p>
+        </div>
+      </div>
+      <label style="font-size:13px;font-weight:600;">اسم المستخدم
+        <input id="loginUser" type="text" required autocomplete="username" class="search-input full-width" style="margin-top:4px;min-width:0;" placeholder="admin">
+      </label>
+      <label style="font-size:13px;font-weight:600;">كلمة المرور
+        <input id="loginPass" type="password" required autocomplete="current-password" class="search-input full-width" style="margin-top:4px;min-width:0;" placeholder="••••••••">
+      </label>
+      <div id="loginError" style="color:#dc2626;font-size:13px;" hidden></div>
+      <button type="submit" class="btn btn-primary full-width">دخول للوحة العمليات</button>
+    </form>
+  </div>
+
+  <!-- Production Operations Shell -->
+  <div id="appShell" class="app-shell" hidden>
+    <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">W</div>
         <div>
           <strong>Wasla AI</strong>
-          <span>MOKA Operations Console</span>
+          <span>MOKA Production Console</span>
         </div>
       </div>
 
       <nav class="nav" aria-label="التنقل الرئيسي">
         <button class="nav-item active" data-view="ordersView" type="button">
-          <span class="nav-icon">📋</span>
-          <span>لوحة الطلبات الحية</span>
+          <span>📋</span><span data-i18n="nav_orders">الطلبات الحية</span>
           <span class="nav-badge" id="navNewBadge">0</span>
         </button>
+        <button class="nav-item" data-view="conversationsView" type="button">
+          <span>💬</span><span data-i18n="nav_convs">محادثات العملاء</span>
+        </button>
         <button class="nav-item" data-view="menuView" type="button">
-          <span class="nav-icon">🍽️</span>
-          <span>توافر المنيو (MOKA)</span>
+          <span>🍽️</span><span data-i18n="nav_menu">المنيو والتوافر</span>
           <span class="nav-badge muted" id="navOutBadge">0</span>
         </button>
-        <button class="nav-item" data-view="aiView" type="button">
-          <span class="nav-icon">🤖</span>
-          <span>محاكي الوكيل الذكي</span>
+        <button class="nav-item" data-view="analyticsView" type="button">
+          <span>📊</span><span data-i18n="nav_analytics">تحليلات المبيعات</span>
+        </button>
+        <button class="nav-item" data-view="healthView" type="button">
+          <span>🔌</span><span data-i18n="nav_health">حالة AI والتكاملات</span>
+        </button>
+        <button class="nav-item" data-view="staffView" id="staffNavBtn" type="button">
+          <span>👥</span><span data-i18n="nav_staff">الموظفين والصلاحيات</span>
+        </button>
+        <button class="nav-item" data-view="settingsView" type="button">
+          <span>⚙️</span><span data-i18n="nav_settings">الإعدادات</span>
         </button>
       </nav>
 
@@ -40,53 +70,34 @@
           <span class="dot" id="wsDot"></span>
           <span id="connection">جاري الاتصال...</span>
         </div>
-        <button id="enableSound" type="button" class="btn btn-ghost full-width">
-          🔔 تفعيل صوت التنبيهات
-        </button>
+        <button id="enableSound" type="button" class="btn btn-ghost full-width">🔔 تفعيل التنبيه الصوتي</button>
+        <button id="logoutBtn" type="button" class="btn btn-outline full-width" style="background:#1e293b;color:#f87171;border-color:#334155;">تسجيل الخروج</button>
       </div>
     </aside>
 
-    <!-- Main Workspace -->
     <div class="main-wrap">
       <header class="topbar">
         <div>
-          <h1 id="viewTitle">لوحة الطلبات الحية</h1>
-          <p class="subtitle">تحديث لحظي عبر WebSockets • مطعم MOKA</p>
+          <h1 id="viewTitle">الطلبات الحية</h1>
+          <p class="subtitle" id="currentUserLabel">MOKA Restaurant • بيانات تشغيلية حقيقية فقط</p>
         </div>
-        <div class="topbar-actions">
-          <button id="refreshBtn" type="button" class="btn btn-outline">↻ تحديث البيانات</button>
+        <div class="topbar-actions" style="display:flex;gap:8px;">
+          <button id="langToggle" type="button" class="btn btn-outline">EN / عربي</button>
+          <button id="refreshBtn" type="button" class="btn btn-outline">↻ تحديث</button>
         </div>
       </header>
 
       <div id="toastStack" class="toast-stack" aria-live="polite"></div>
 
-      <!-- VIEW 1: LIVE ORDERS -->
+      <!-- 1. LIVE ORDERS -->
       <section id="ordersView" class="view active">
         <div class="kpi-grid">
-          <article class="kpi-card accent-blue">
-            <span class="kpi-label">طلبات جديدة</span>
-            <strong class="kpi-value" id="kpiNew">0</strong>
-          </article>
-          <article class="kpi-card accent-amber">
-            <span class="kpi-label">في المطبخ</span>
-            <strong class="kpi-value" id="kpiKitchen">0</strong>
-          </article>
-          <article class="kpi-card accent-indigo">
-            <span class="kpi-label">خرج للتوصيل</span>
-            <strong class="kpi-value" id="kpiDispatched">0</strong>
-          </article>
-          <article class="kpi-card accent-green">
-            <span class="kpi-label">تم التسليم</span>
-            <strong class="kpi-value" id="kpiFulfilled">0</strong>
-          </article>
-          <article class="kpi-card accent-orange">
-            <span class="kpi-label">إجمالي المبيعات</span>
-            <strong class="kpi-value" id="kpiRevenue">0.00 ج.م</strong>
-          </article>
-          <article class="kpi-card">
-            <span class="kpi-label">تحويل للكاشير / تقييم</span>
-            <strong class="kpi-value" id="kpiHandoffRating">0 / —</strong>
-          </article>
+          <article class="kpi-card accent-blue"><span class="kpi-label">طلبات جديدة</span><strong class="kpi-value" id="kpiNew">0</strong></article>
+          <article class="kpi-card accent-amber"><span class="kpi-label">في المطبخ</span><strong class="kpi-value" id="kpiKitchen">0</strong></article>
+          <article class="kpi-card accent-indigo"><span class="kpi-label">خرج للتوصيل</span><strong class="kpi-value" id="kpiDispatched">0</strong></article>
+          <article class="kpi-card accent-green"><span class="kpi-label">تم التسليم</span><strong class="kpi-value" id="kpiFulfilled">0</strong></article>
+          <article class="kpi-card accent-orange"><span class="kpi-label">إجمالي المبيعات</span><strong class="kpi-value" id="kpiRevenue">0.00 ج.م</strong></article>
+          <article class="kpi-card"><span class="kpi-label">تحويل للكاشير / تقييم</span><strong class="kpi-value" id="kpiHandoffRating">0 / —</strong></article>
         </div>
 
         <div class="toolbar">
@@ -101,94 +112,107 @@
           </div>
           <input id="orderSearch" type="search" class="search-input" placeholder="ابحث باسم العميل أو رقم الطلب أو الموبايل...">
         </div>
-
         <div id="orders" class="orders-grid" aria-live="polite"></div>
       </section>
 
-      <!-- VIEW 2: LIVE MENU AVAILABILITY -->
+      <!-- 2. CUSTOMER CONVERSATIONS -->
+      <section id="conversationsView" class="view">
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr><th>رقم العميل</th><th>الطلب المرتبط</th><th>آخر نية (Intent)</th><th>تدخل بشري</th><th>إجراء</th></tr>
+            </thead>
+            <tbody id="conversationsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 3. MENU & INVENTORY -->
       <section id="menuView" class="view">
         <div class="toolbar">
-          <select id="categoryFilter" class="select-input">
-            <option value="ALL">كل الأقسام</option>
-          </select>
-          <input id="menuSearch" type="search" class="search-input" placeholder="ابحث عن صنف في منيو MOKA (145 صنف)...">
+          <select id="categoryFilter" class="select-input"><option value="ALL">كل الأقسام</option></select>
+          <input id="menuSearch" type="search" class="search-input" placeholder="ابحث في منيو MOKA (145 صنف)...">
         </div>
         <div class="table-card">
           <table class="data-table">
             <thead>
-              <tr>
-                <th>#</th>
-                <th>الصنف</th>
-                <th>القسم</th>
-                <th>السعر الأساسي</th>
-                <th>الحالة</th>
-                <th>إجراء</th>
-              </tr>
+              <tr><th>#</th><th>الصنف</th><th>القسم</th><th>السعر الأساسي</th><th>الحالة</th><th>إجراء</th></tr>
             </thead>
             <tbody id="menuTableBody"></tbody>
           </table>
         </div>
       </section>
 
-      <!-- VIEW 3: WASLA AI LIVE SIMULATOR -->
-      <section id="aiView" class="view">
-        <div class="ai-layout">
-          <div class="chat-panel">
-            <div class="chat-header">
-              <div>
-                <h2>محاكي واتساب — Wasla AI Dispatcher</h2>
-                <p class="subtitle">اختبر فهم العامية المصرية واستخراج الطلبات وتثبيتها مباشرة في لوحة الكاشير</p>
-              </div>
-              <input id="simPhone" type="text" class="phone-input" value="01012345678" aria-label="رقم موبايل العميل">
-            </div>
-            <div id="chatMessages" class="chat-messages">
-              <div class="msg assistant">أهلاً بك في محاكي Wasla AI لمطعم MOKA! جرب تكتب مثلاً: "عايز بيتزا مارجريتا كبير حبة كاملة" أو "كريب كريسبي بكام؟"</div>
-            </div>
-            <form id="chatForm" class="chat-form">
-              <input id="chatInput" type="text" required placeholder="اكتب رسالة العميل بالعامية المصرية..." autocomplete="off">
-              <button type="submit" class="btn btn-primary">إرسال</button>
-            </form>
-          </div>
+      <!-- 4. SALES ANALYTICS -->
+      <section id="analyticsView" class="view">
+        <div class="kpi-grid" id="analyticsGrid"></div>
+      </section>
 
-          <aside class="inspector-panel">
-            <h3>مراقب الذكاء الاصطناعي (Live Telemetry)</h3>
-            <div class="inspector-block">
-              <span class="label">آخر نية مكتشفة (Intent)</span>
-              <code id="inspIntent">—</code>
-            </div>
-            <div class="inspector-block">
-              <span class="label">الموديل المستخدم</span>
-              <code id="inspModel">—</code>
-            </div>
-            <div class="inspector-block">
-              <span class="label">حالة السلة الحية</span>
-              <pre id="inspCart">{}</pre>
-            </div>
-          </aside>
+      <!-- 5. AI & INTEGRATION HEALTH -->
+      <section id="healthView" class="view">
+        <div class="kpi-grid" id="healthGrid"></div>
+      </section>
+
+      <!-- 6. STAFF & PERMISSIONS (ADMIN) -->
+      <section id="staffView" class="view">
+        <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:18px;">
+          <form id="createStaffForm" class="kpi-card" style="display:flex;flex-direction:column;gap:10px;">
+            <h3>إضافة موظف جديد</h3>
+            <input id="staffUsername" type="text" required placeholder="اسم المستخدم (مثال: cashier1)" class="search-input" style="min-width:0;">
+            <input id="staffFullName" type="text" required placeholder="الاسم بالكامل" class="search-input" style="min-width:0;">
+            <input id="staffPassword" type="password" required minlength="8" placeholder="كلمة المرور (8 أحرف على الأقل)" class="search-input" style="min-width:0;">
+            <select id="staffRole" class="select-input" style="min-width:0;">
+              <option value="cashier">كاشير (Cashier)</option>
+              <option value="admin">مدير (Admin)</option>
+            </select>
+            <button type="submit" class="btn btn-primary">إنشاء الحساب</button>
+          </form>
+          <div class="table-card">
+            <table class="data-table">
+              <thead><tr><th>المستخدم</th><th>الاسم</th><th>الصلاحية</th><th>الحالة</th></tr></thead>
+              <tbody id="staffTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <h3 style="margin:20px 0 10px;">سجل التدقيق الأمني (Audit Logs)</h3>
+        <div class="table-card">
+          <table class="data-table">
+            <thead><tr><th>الوقت</th><th>المستخدم</th><th>الإجراء</th><th>الهدف</th></tr></thead>
+            <tbody id="auditTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 7. SETTINGS -->
+      <section id="settingsView" class="view">
+        <div class="kpi-card" style="max-width:560px;display:flex;flex-direction:column;gap:12px;">
+          <h3>إعدادات التشغيل واللغة</h3>
+          <p class="subtitle">المطعم: <strong>MOKA Restaurant &amp; Cafe</strong> • العملة: <strong>EGP</strong></p>
+          <p class="subtitle">تبديل اتجاه الواجهة بين العربية (RTL) والإنجليزية (LTR) متاح من الشريط العلوي.</p>
+          <p class="subtitle">يتم ضبط مفاتيح Google Gemini و Groq و Meta WhatsApp Cloud API و PostgreSQL عبر متغيرات البيئة (<code>.env</code>) فقط ولا تُعرض أبداً في الواجهة.</p>
         </div>
       </section>
     </div>
   </div>
 
-  <!-- Smart Cashier Directive Modal -->
+  <!-- Cashier Directive Modal -->
   <dialog id="directiveModal" class="modal">
     <form id="directiveForm" method="dialog">
       <div class="modal-head">
-        <h2>توجيه ذكي للعميل (Human-in-the-Loop)</h2>
+        <h2>توجيه مباشر للعميل (Human-in-the-Loop)</h2>
         <button type="button" id="closeDirectiveX" class="icon-btn" aria-label="إغلاق">✕</button>
       </div>
-      <p class="subtitle" style="margin-bottom:12px;">اختر أمراً سريعاً أو اكتب توجيهاً حراً وسيقوم Wasla AI بصياغة رسالة مهذبة بالعامية المصرية:</p>
       <div class="preset-row">
-        <button type="button" class="btn btn-outline btn-sm" data-preset="unreachable_client">🚨 الطيار تحت المنزل (لا يرد)</button>
+        <button type="button" class="btn btn-outline btn-sm" data-preset="unreachable_client">🚨 الطيار تحت المنزل</button>
         <button type="button" class="btn btn-outline btn-sm" data-preset="kitchen_delay">⏱️ تأخير مطبخ 15 دقيقة</button>
-        <button type="button" class="btn btn-outline btn-sm" data-preset="out_of_stock">⚠️ صنف غير متوفر (بديل)</button>
+        <button type="button" class="btn btn-outline btn-sm" data-preset="out_of_stock">⚠️ صنف غير متوفر</button>
       </div>
       <input type="hidden" id="directiveType" value="free_text">
-      <textarea id="directiveText" required minlength="3" placeholder="مثال: الاستربس خلصان، اعرض كريب زنجر حار كبديل..."></textarea>
+      <textarea id="directiveText" required minlength="3" placeholder="اكتب التوجيه للعميل..."></textarea>
       <div id="directivePreview" class="directive-preview" hidden></div>
       <div class="modal-actions">
         <button type="button" id="cancelDirective" class="btn btn-outline">إغلاق</button>
-        <button type="submit" class="btn btn-primary">إرسال التوجيه عبر Wasla AI</button>
+        <button type="submit" class="btn btn-primary">إرسال التوجيه</button>
       </div>
     </form>
   </dialog>

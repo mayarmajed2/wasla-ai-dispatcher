@@ -15,6 +15,12 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     rate_limit_per_minute: int = 120
 
+    # Authentication & RBAC
+    auth_secret_key: str = "change-me-in-production-min-32-chars-secret"
+    auth_token_ttl_hours: int = 12
+    bootstrap_admin_username: str = "admin"
+    bootstrap_admin_password: str = "WaslaAdmin2026!"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

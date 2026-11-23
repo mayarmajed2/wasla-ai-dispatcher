@@ -35,11 +35,20 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from app.auth import (
+    create_access_token,
+    get_current_user,
+    hash_password,
+    log_audit,
+    require_admin,
+    verify_password,
+)
 from app.cart_calculator import calculate_cart
 from app.config import settings
 from app.database import Base, SessionLocal, engine, get_db
 from app.meta_service import MetaWhatsAppClient
 from app.models import (
+    AuditLog,
     ChatSession,
     FeedbackRequest,
     MenuItem,
@@ -48,6 +57,7 @@ from app.models import (
     OrderStatus,
     Outbox,
     ProcessedMessage,
+    User,
 )
 from app.ws_manager import ws_manager
 
@@ -223,10 +233,31 @@ async def feedback_worker() -> None:
         await asyncio.sleep(30)
 
 
+def seed_initial_admin_if_empty() -> None:
+    """Create initial admin account if users table is empty."""
+    db = SessionLocal()
+    try:
+        if db.scalar(select(User).limit(1)) is not None:
+            return
+        db.add(
+            User(
+                username=settings.bootstrap_admin_username,
+                full_name="مدير النظام (Admin)",
+                password_hash=hash_password(settings.bootstrap_admin_password),
+                role="admin",
+                is_active=True,
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     _migrate_sqlite_columns()
     seed_moka_menu_if_empty()
+    seed_initial_admin_if_empty()
     worker_task = asyncio.create_task(feedback_worker())
     try:
         yield
@@ -311,6 +342,22 @@ class FeedbackInput(BaseModel):
 
 class AvailabilityUpdate(BaseModel):
     is_available: bool
+
+
+class PriceUpdate(BaseModel):
+    base_price: Decimal = Field(gt=0)
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=2)
+    password: str = Field(min_length=4)
+
+
+class CreateStaffRequest(BaseModel):
+    username: str = Field(min_length=3, max_length=64)
+    full_name: str = Field(min_length=2, max_length=120)
+    password: str = Field(min_length=8)
+    role: str = Field(default="cashier", pattern="^(admin|cashier)$")
 
 
 class AIChatRequest(BaseModel):
@@ -454,8 +501,106 @@ def readiness(db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/auth/login")
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    user = db.scalar(select(User).where(User.username == payload.username.strip(), User.is_active.is_(True)))
+    if not user or not verify_password(payload.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="اسم المستخدم أو كلمة المرور غير صحيحة")
+    token = create_access_token(user)
+    log_audit(db, user.username, "login", target=user.username)
+    db.commit()
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": {"id": user.id, "username": user.username, "full_name": user.full_name, "role": user.role},
+    }
+
+
+@app.get("/api/auth/me")
+def get_me(user: User = Depends(get_current_user)):
+    return {"id": user.id, "username": user.username, "full_name": user.full_name, "role": user.role}
+
+
+@app.get("/api/staff")
+def list_staff(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    users = db.scalars(select(User).order_by(User.id.asc())).all()
+    return [
+        {
+            "id": u.id,
+            "username": u.username,
+            "full_name": u.full_name,
+            "role": u.role,
+            "is_active": u.is_active,
+            "created_at": u.created_at.isoformat(),
+        }
+        for u in users
+    ]
+
+
+@app.post("/api/staff", status_code=201)
+def create_staff(payload: CreateStaffRequest, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    existing = db.scalar(select(User).where(User.username == payload.username.strip()))
+    if existing:
+        raise HTTPException(status_code=409, detail="اسم المستخدم مسجل بالفعل")
+    new_user = User(
+        username=payload.username.strip(),
+        full_name=payload.full_name.strip(),
+        password_hash=hash_password(payload.password),
+        role=payload.role,
+        is_active=True,
+    )
+    db.add(new_user)
+    log_audit(db, admin.username, "create_staff", target=new_user.username, details={"role": new_user.role})
+    db.commit()
+    return {"id": new_user.id, "username": new_user.username, "full_name": new_user.full_name, "role": new_user.role}
+
+
+@app.get("/api/audit-logs")
+def list_audit_logs(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    logs = db.scalars(select(AuditLog).order_by(AuditLog.created_at.desc()).limit(100)).all()
+    return [
+        {
+            "id": l.id,
+            "actor_username": l.actor_username,
+            "action": l.action,
+            "target": l.target,
+            "details": l.details,
+            "created_at": l.created_at.isoformat(),
+        }
+        for l in logs
+    ]
+
+
+@app.get("/api/conversations")
+def list_conversations(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    sessions = db.scalars(select(ChatSession).order_by(ChatSession.id.desc())).all()
+    return [
+        {
+            "id": s.id,
+            "phone_number": s.phone_number,
+            "active_order_id": s.active_order_id,
+            "needs_human_takeover": s.needs_human_takeover,
+            "conversation_state": s.conversation_state,
+            "pending_cart": s.pending_cart,
+            "latest_directive": s.latest_directive,
+        }
+        for s in sessions
+    ]
+
+
+@app.post("/api/conversations/{phone_number}/resolve-handoff")
+def resolve_handoff(phone_number: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    session = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_number))
+    if not session:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    session.needs_human_takeover = False
+    log_audit(db, user.username, "resolve_handoff", target=phone_number)
+    db.commit()
+    return {"phone_number": phone_number, "needs_human_takeover": False}
+
+
 @app.get("/api/metrics")
-def get_metrics(db: Session = Depends(get_db)):
+def get_metrics(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """Real SQL-backed operational metrics — strictly excludes simulator/test orders from production totals."""
     all_orders = db.scalars(select(Order)).all()
     real_orders = [o for o in all_orders if not getattr(o, "is_test", False)]
@@ -508,7 +653,7 @@ def get_menu(db: Session = Depends(get_db)):
 
 
 @app.get("/api/menu/all")
-def get_all_menu_items(db: Session = Depends(get_db)):
+def get_all_menu_items(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     items = db.scalars(select(MenuItem).order_by(MenuItem.id.asc())).all()
     return [
         {
@@ -525,11 +670,17 @@ def get_all_menu_items(db: Session = Depends(get_db)):
 
 
 @app.patch("/api/menu/{item_id}/availability")
-async def toggle_menu_availability(item_id: int, payload: AvailabilityUpdate, db: Session = Depends(get_db)):
+async def toggle_menu_availability(
+    item_id: int,
+    payload: AvailabilityUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     item = db.get(MenuItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Menu item not found")
     item.is_available = payload.is_available
+    log_audit(db, user.username, "toggle_availability", target=str(item.id), details={"is_available": payload.is_available})
     db.commit()
 
     pid = (item.modifiers_json or {}).get("product_id")
@@ -549,9 +700,28 @@ async def toggle_menu_availability(item_id: int, payload: AvailabilityUpdate, db
     return {"id": item.id, "name": item.name, "is_available": item.is_available}
 
 
+@app.patch("/api/menu/{item_id}/price")
+def update_menu_price(
+    item_id: int,
+    payload: PriceUpdate,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    item = db.get(MenuItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Menu item not found")
+    old_price = str(item.base_price)
+    item.base_price = payload.base_price
+    log_audit(db, admin.username, "update_price", target=str(item.id), details={"old": old_price, "new": str(payload.base_price)})
+    db.commit()
+    return {"id": item.id, "name": item.name, "base_price": str(item.base_price)}
+
+
 @app.post("/api/ai/chat")
 async def ai_chat(payload: AIChatRequest, db: Session = Depends(get_db)):
-    """Interactive Wasla AI Simulator endpoint — explicitly tags generated orders as simulator/is_test=True."""
+    """Disabled in production (no simulator in production)."""
+    if settings.app_env.lower() == "production":
+        raise HTTPException(status_code=404, detail="Not found")
     resp = await ai_dispatcher.handle_text(
         payload.phone_number,
         payload.message,
@@ -581,8 +751,15 @@ async def confirm_order(payload: ConfirmOrder, db: Session = Depends(get_db)):
 
 
 @app.get("/api/orders")
-def list_orders(db: Session = Depends(get_db)):
-    orders = db.scalars(select(Order).order_by(Order.created_at.desc())).all()
+def list_orders(
+    include_test: bool = Query(default=False),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    stmt = select(Order).order_by(Order.created_at.desc())
+    if not include_test or settings.app_env.lower() == "production":
+        stmt = stmt.where(Order.is_test.is_(False))
+    orders = db.scalars(stmt).all()
     result = []
     for order in orders:
         feedback = db.scalar(select(FeedbackRequest).where(FeedbackRequest.order_id == order.id))
@@ -623,7 +800,12 @@ def list_orders(db: Session = Depends(get_db)):
 
 
 @app.patch("/api/orders/{order_id}/status")
-async def update_status(order_id: int, payload: StatusUpdate, db: Session = Depends(get_db)):
+async def update_status(
+    order_id: int,
+    payload: StatusUpdate,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -631,6 +813,7 @@ async def update_status(order_id: int, payload: StatusUpdate, db: Session = Depe
     if payload.status not in ALLOWED_TRANSITIONS[current]:
         raise HTTPException(status_code=409, detail=f"Cannot change {current.value} to {payload.status.value}")
     order.status = payload.status
+    log_audit(db, user.username, "update_order_status", target=str(order.id), details={"status": payload.status.value})
     db.add(OrderEvent(order_id=order.id, event_type="status_changed", payload={"status": payload.status.value}))
     db.add(
         Outbox(
@@ -664,37 +847,20 @@ async def update_status(order_id: int, payload: StatusUpdate, db: Session = Depe
     return {"id": order.id, "status": order.status}
 
 
-@app.post("/api/orders/{order_id}/reset-demo")
-async def reset_order_for_demo(order_id: int, db: Session = Depends(get_db)):
-    order = db.get(Order, order_id)
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    order.status = OrderStatus.IN_KITCHEN
-    db.add(OrderEvent(order_id=order.id, event_type="demo_reset", payload={"status": OrderStatus.IN_KITCHEN.value}))
-    feedback = db.scalar(select(FeedbackRequest).where(FeedbackRequest.order_id == order.id))
-    if feedback:
-        db.delete(feedback)
-    db.commit()
-    await ws_manager.broadcast(
-        {
-            "event_id": str(uuid.uuid4()),
-            "event_type": "order_status_changed",
-            "order_id": order.id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "schema_version": 1,
-            "payload": {"status": OrderStatus.IN_KITCHEN.value, "demo_reset": True},
-        }
-    )
-    return {"id": order.id, "status": order.status}
-
-
 @app.post("/api/orders/{order_id}/instruct")
-async def instruct_customer(order_id: int, payload: Directive, db: Session = Depends(get_db)):
+async def instruct_customer(
+    order_id: int,
+    payload: Directive,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     order = db.get(Order, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if not payload.directive.strip():
         raise HTTPException(status_code=400, detail="Directive cannot be empty")
+
+    log_audit(db, user.username, "cashier_directive", target=str(order.id), details={"type": payload.directive_type})
 
     interpreted = ai_dispatcher.interpret_cashier_directive(
         CashierDirectiveRequest(

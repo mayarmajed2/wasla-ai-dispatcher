@@ -1,24 +1,116 @@
-const ordersContainer = document.querySelector("#orders");
-const modal = document.querySelector("#directiveModal");
-const directiveText = document.querySelector("#directiveText");
-const directiveType = document.querySelector("#directiveType");
-const directivePreview = document.querySelector("#directivePreview");
-const toastStack = document.querySelector("#toastStack");
-
+let authToken = localStorage.getItem("wasla_token") || "";
+let currentUser = null;
 let allOrders = [];
 let allMenuItems = [];
 let activeStatusFilter = "ALL";
 let directiveOrderId = null;
 let audioContext = null;
 
-function showToast(message) {
+const loginScreen = document.getElementById("loginScreen");
+const appShell = document.getElementById("appShell");
+const ordersContainer = document.getElementById("orders");
+const modal = document.getElementById("directiveModal");
+const directiveText = document.getElementById("directiveText");
+const directiveType = document.getElementById("directiveType");
+const directivePreview = document.getElementById("directivePreview");
+const toastStack = document.getElementById("toastStack");
+
+function showToast(msg) {
   const el = document.createElement("div");
   el.className = "toast";
-  el.textContent = message;
+  el.textContent = msg;
   toastStack.appendChild(el);
-  setTimeout(() => el.remove(), 5000);
+  setTimeout(() => el.remove(), 4500);
 }
 
+function escapeHtml(val) {
+  const el = document.createElement("span");
+  el.textContent = val ?? "";
+  return el.innerHTML;
+}
+
+async function apiFetch(url, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+  const res = await fetch(url, { ...options, headers });
+  if (res.status === 401) {
+    logout();
+    throw new Error("Unauthorized");
+  }
+  return res;
+}
+
+function logout() {
+  authToken = "";
+  currentUser = null;
+  localStorage.removeItem("wasla_token");
+  appShell.hidden = true;
+  loginScreen.hidden = false;
+}
+
+document.getElementById("logoutBtn").addEventListener("click", logout);
+
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const errBox = document.getElementById("loginError");
+  errBox.hidden = true;
+  const res = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: document.getElementById("loginUser").value.trim(),
+      password: document.getElementById("loginPass").value,
+    }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    errBox.textContent = data.detail || "فشل تسجيل الدخول";
+    errBox.hidden = false;
+    return;
+  }
+  const data = await res.json();
+  authToken = data.access_token;
+  currentUser = data.user;
+  localStorage.setItem("wasla_token", authToken);
+  enterApp();
+});
+
+async function bootstrapAuth() {
+  if (!authToken) {
+    loginScreen.hidden = false;
+    appShell.hidden = true;
+    return;
+  }
+  try {
+    const res = await apiFetch("/api/auth/me");
+    if (!res.ok) throw new Error();
+    currentUser = await res.json();
+    enterApp();
+  } catch {
+    logout();
+  }
+}
+
+function enterApp() {
+  loginScreen.hidden = true;
+  appShell.hidden = false;
+  document.getElementById("currentUserLabel").textContent =
+    `${currentUser.full_name} (${currentUser.role}) • بيانات تشغيلية حقيقية فقط`;
+  document.getElementById("staffNavBtn").hidden = currentUser.role !== "admin";
+  loadOrders();
+  loadMetrics();
+  connectWS();
+}
+
+// Language RTL / LTR Toggle
+document.getElementById("langToggle").addEventListener("click", () => {
+  const html = document.documentElement;
+  const isRtl = html.dir === "rtl";
+  html.dir = isRtl ? "ltr" : "rtl";
+  html.lang = isRtl ? "en" : "ar";
+});
+
+// Sound
 function playChime() {
   if (!audioContext) return;
   const now = audioContext.currentTime;
@@ -37,19 +129,24 @@ function playChime() {
   });
 }
 
-document.querySelector("#enableSound").addEventListener("click", async () => {
+document.getElementById("enableSound").addEventListener("click", async () => {
   audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
   await audioContext.resume();
   playChime();
-  document.querySelector("#enableSound").textContent = "🔊 الصوت مفعّل";
+  document.getElementById("enableSound").textContent = "🔊 الصوت مفعّل";
 });
 
-// Sidebar View Switching
+// Navigation
 const viewTitles = {
-  ordersView: "لوحة الطلبات الحية",
-  menuView: "إدارة توافر المنيو (MOKA)",
-  aiView: "محاكي الوكيل الذكي (Wasla AI)",
+  ordersView: "الطلبات الحية",
+  conversationsView: "محادثات العملاء",
+  menuView: "إدارة المنيو والتوافر (MOKA)",
+  analyticsView: "تحليلات المبيعات الفعلية",
+  healthView: "حالة الذكاء الاصطناعي والتكاملات",
+  staffView: "الموظفين والصلاحيات وسجل التدقيق",
+  settingsView: "الإعدادات",
 };
+
 document.querySelectorAll(".nav-item").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.remove("active"));
@@ -58,17 +155,15 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
     const target = btn.dataset.view;
     document.getElementById(target).classList.add("active");
     document.getElementById("viewTitle").textContent = viewTitles[target] || "";
-    if (target === "menuView" && !allMenuItems.length) loadMenu();
+    if (target === "menuView") loadMenu();
+    if (target === "conversationsView") loadConversations();
+    if (target === "analyticsView") loadMetrics();
+    if (target === "healthView") loadHealth();
+    if (target === "staffView") loadStaffAndLogs();
   });
 });
 
-function escapeHtml(val) {
-  const el = document.createElement("span");
-  el.textContent = val ?? "";
-  return el.innerHTML;
-}
-
-function statusLabel(status) {
+function statusLabel(st) {
   return {
     SUBMITTED: "طلب جديد",
     IN_KITCHEN: "في المطبخ",
@@ -76,11 +171,11 @@ function statusLabel(status) {
     UNREACHABLE_ALERT: "لا يمكن الوصول",
     FULFILLED: "تم التسليم",
     CANCELLED: "ملغي",
-  }[status] || status;
+  }[st] || st;
 }
 
 async function loadMetrics() {
-  const res = await fetch("/api/metrics");
+  const res = await apiFetch("/api/metrics");
   if (!res.ok) return;
   const m = await res.json();
   document.getElementById("kpiNew").textContent = m.by_status.SUBMITTED || 0;
@@ -91,10 +186,19 @@ async function loadMetrics() {
   document.getElementById("kpiHandoffRating").textContent = `${m.human_handoffs} / ${m.average_rating ?? "—"}`;
   document.getElementById("navNewBadge").textContent = m.by_status.SUBMITTED || 0;
   document.getElementById("navOutBadge").textContent = m.menu_out_of_stock || 0;
+
+  document.getElementById("analyticsGrid").innerHTML = `
+    <article class="kpi-card"><span class="kpi-label">إجمالي الطلبات الفعلية</span><strong class="kpi-value">${m.total_orders}</strong></article>
+    <article class="kpi-card accent-orange"><span class="kpi-label">إجمالي الإيرادات الفعلية</span><strong class="kpi-value">${m.total_revenue_egp} ج.م</strong></article>
+    <article class="kpi-card accent-green"><span class="kpi-label">الطلبات المكتملة</span><strong class="kpi-value">${m.by_status.FULFILLED || 0}</strong></article>
+    <article class="kpi-card"><span class="kpi-label">الطلبات الملغاة</span><strong class="kpi-value">${m.by_status.CANCELLED || 0}</strong></article>
+    <article class="kpi-card"><span class="kpi-label">أصناف المنيو المتوفرة</span><strong class="kpi-value">${m.menu_available} / ${m.menu_total}</strong></article>
+    <article class="kpi-card"><span class="kpi-label">المحادثات النشطة</span><strong class="kpi-value">${m.active_conversations}</strong></article>
+  `;
 }
 
 async function loadOrders() {
-  const res = await fetch("/api/orders");
+  const res = await apiFetch("/api/orders");
   if (!res.ok) return;
   allOrders = await res.json();
   renderOrders();
@@ -106,10 +210,7 @@ function actionButtons(order) {
     IN_KITCHEN: [["خرج للتوصيل", "DISPATCHED", "btn-blue"]],
     DISPATCHED: [["العميل لا يرد", "UNREACHABLE_ALERT", "btn-outline"], ["تم التسليم", "FULFILLED", "btn-primary"]],
     UNREACHABLE_ALERT: [["الطيار وصل للعميل", "DISPATCHED", "btn-blue"], ["إلغاء", "CANCELLED", "btn-outline"]],
-    FULFILLED: [["إعادة للاختبار", "RESET_DEMO", "btn-outline"]],
-    CANCELLED: [["إعادة للاختبار", "RESET_DEMO", "btn-outline"]],
   }[order.status] || [];
-
   return actions
     .map(([label, st, cls]) => `<button class="btn btn-sm ${cls}" data-status="${st}" data-order="${order.id}">${label}</button>`)
     .join("");
@@ -123,13 +224,12 @@ function renderOrders() {
     return (
       String(o.id).includes(q) ||
       (o.customer_name || "").toLowerCase().includes(q) ||
-      (o.customer_phone || "").includes(q) ||
-      (o.delivery_address || "").toLowerCase().includes(q)
+      (o.customer_phone || "").includes(q)
     );
   });
 
   if (!filtered.length) {
-    ordersContainer.innerHTML = `<div class="empty-state">لا توجد طلبات مطابقة حالياً. يمكنك إنشاء طلب تجريبي من "محاكي الوكيل الذكي".</div>`;
+    ordersContainer.innerHTML = `<div class="empty-state">لا توجد طلبات حتى الآن</div>`;
     return;
   }
 
@@ -137,7 +237,7 @@ function renderOrders() {
     <article class="order-card ${order.status === "SUBMITTED" ? "new" : ""}">
       <div class="order-head">
         <div>
-          <span class="order-id">طلب #${order.id}${order.is_test ? ' • <strong style="color:#d97706;">🧪 تجريبي (DEMO)</strong>' : ''}</span>
+          <span class="order-id">طلب #${order.id} • ${escapeHtml(order.data_source)}</span>
           <h2>${escapeHtml(order.customer_name)}</h2>
         </div>
         <span class="status-badge ${order.status.toLowerCase()}">${statusLabel(order.status)}</span>
@@ -147,28 +247,17 @@ function renderOrders() {
         <span>📞 ${escapeHtml(order.customer_phone)}${order.backup_phone ? ` | بديل: ${escapeHtml(order.backup_phone)}` : ""}</span>
       </div>
       <div class="items-list">
-        ${(order.items || []).map((item) => `
-          <div class="item-row">
-            <span>${item.quantity} × ${escapeHtml(item.name)}</span>
-            <strong>${escapeHtml(item.line_total || "")} ج.م</strong>
-          </div>
-        `).join("")}
+        ${(order.items || []).map((i) => `<div class="item-row"><span>${i.quantity} × ${escapeHtml(i.name)}</span><strong>${escapeHtml(i.line_total || "")} ج.م</strong></div>`).join("")}
       </div>
-      ${order.latest_modification ? `<div class="notice-box">✏️ تعديل العميل: ${escapeHtml(order.latest_modification.message)}</div>` : ""}
-      ${order.feedback && order.feedback.rating ? `<div class="feedback-box">⭐ تقييم العميل: ${"★".repeat(order.feedback.rating)} ${escapeHtml(order.feedback.comment || "")}</div>` : ""}
-      <div class="total-bar">
-        <span>الإجمالي شامل التوصيل</span>
-        <span>${escapeHtml(order.total_amount)} ج.م</span>
-      </div>
+      <div class="total-bar"><span>الإجمالي</span><span>${escapeHtml(order.total_amount)} ج.م</span></div>
       <div class="actions">
         ${actionButtons(order)}
-        <button class="btn btn-sm btn-dark" data-direct="${order.id}">💬 توجيه ذكي</button>
+        <button class="btn btn-sm btn-dark" data-direct="${order.id}">💬 توجيه للعميل</button>
       </div>
     </article>
   `).join("");
 }
 
-// Filters & Search
 document.getElementById("statusFilters").addEventListener("click", (e) => {
   const pill = e.target.closest(".pill");
   if (!pill) return;
@@ -181,30 +270,21 @@ document.getElementById("orderSearch").addEventListener("input", renderOrders);
 document.getElementById("refreshBtn").addEventListener("click", () => {
   loadOrders();
   loadMetrics();
-  if (allMenuItems.length) loadMenu();
-  showToast("تم تحديث البيانات");
+  showToast("تم التحديث");
 });
 
-// Order Card Actions
 ordersContainer.addEventListener("click", async (e) => {
   const statusBtn = e.target.closest("[data-status]");
   if (statusBtn) {
-    const id = statusBtn.dataset.order;
-    const st = statusBtn.dataset.status;
-    if (st === "RESET_DEMO") {
-      await fetch(`/api/orders/${id}/reset-demo`, { method: "POST" });
-    } else {
-      await fetch(`/api/orders/${id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: st }),
-      });
-    }
+    await apiFetch(`/api/orders/${statusBtn.dataset.order}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: statusBtn.dataset.status }),
+    });
     loadOrders();
     loadMetrics();
     return;
   }
-
   const directBtn = e.target.closest("[data-direct]");
   if (directBtn) {
     directiveOrderId = directBtn.dataset.direct;
@@ -215,57 +295,50 @@ ordersContainer.addEventListener("click", async (e) => {
   }
 });
 
-// Cashier Directive Presets & Submission
-document.querySelectorAll("[data-preset]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const type = btn.dataset.preset;
-    directiveType.value = type;
-    if (type === "unreachable_client") directiveText.value = "الكابتن وصل تحت المنزل والعميل لا يرد";
-    if (type === "kitchen_delay") directiveText.value = "تأخير مطبخ 15 دقيقة بسبب ضغط الطلبات";
-    if (type === "out_of_stock") directiveText.value = "الاستربس خلصان، اعرض كريب زنجر حار كبديل";
-  });
+// Conversations
+async function loadConversations() {
+  const res = await apiFetch("/api/conversations");
+  if (!res.ok) return;
+  const rows = await res.json();
+  const body = document.getElementById("conversationsBody");
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#64748b;padding:28px;">لا توجد محادثات حتى الآن</td></tr>`;
+    return;
+  }
+  body.innerHTML = rows.map((c) => `
+    <tr>
+      <td><strong>${escapeHtml(c.phone_number)}</strong></td>
+      <td>${c.active_order_id ? `#${c.active_order_id}` : "—"}</td>
+      <td>${escapeHtml((c.conversation_state || {}).last_intent || "—")}</td>
+      <td><span class="status-badge ${c.needs_human_takeover ? "unreachable_alert" : "fulfilled"}">${c.needs_human_takeover ? "مطلوب كاشير" : "آلي"}</span></td>
+      <td>${c.needs_human_takeover ? `<button class="btn btn-sm btn-primary" data-resolve="${escapeHtml(c.phone_number)}">تم التعامل</button>` : "—"}</td>
+    </tr>
+  `).join("");
+}
+
+document.getElementById("conversationsBody").addEventListener("click", async (e) => {
+  const btn = e.target.closest("[data-resolve]");
+  if (!btn) return;
+  await apiFetch(`/api/conversations/${encodeURIComponent(btn.dataset.resolve)}/resolve-handoff`, { method: "POST" });
+  loadConversations();
+  loadMetrics();
 });
 
-document.getElementById("cancelDirective").addEventListener("click", () => modal.close());
-document.getElementById("closeDirectiveX").addEventListener("click", () => modal.close());
-
-document.getElementById("directiveForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const body = {
-    directive: directiveText.value,
-    directive_type: directiveType.value,
-    extra_delay_minutes: directiveType.value === "kitchen_delay" ? 15 : null,
-  };
-  const res = await fetch(`/api/orders/${directiveOrderId}/instruct`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  directivePreview.hidden = false;
-  directivePreview.innerHTML = `<strong>الرسالة الجاهزة للعميل (Wasla AI):</strong><br>${escapeHtml(data.customer_message_ar)}${data.warnings && data.warnings.length ? `<br><small>⚠️ ${escapeHtml(data.warnings.join(" | "))}</small>` : ""}`;
-  showToast(`تم تجهيز توجيه طلب #${directiveOrderId}`);
-});
-
-// Menu Availability View
+// Menu & Inventory
 async function loadMenu() {
-  const res = await fetch("/api/menu/all");
+  const res = await apiFetch("/api/menu/all");
   if (!res.ok) return;
   allMenuItems = await res.json();
   const cats = [...new Set(allMenuItems.map((m) => m.category))];
-  const select = document.getElementById("categoryFilter");
-  select.innerHTML = `<option value="ALL">كل الأقسام (${allMenuItems.length})</option>` + cats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  document.getElementById("categoryFilter").innerHTML =
+    `<option value="ALL">كل الأقسام (${allMenuItems.length})</option>` + cats.map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
   renderMenu();
 }
 
 function renderMenu() {
   const cat = document.getElementById("categoryFilter").value;
   const q = (document.getElementById("menuSearch").value || "").trim().toLowerCase();
-  const rows = allMenuItems.filter((m) => {
-    if (cat !== "ALL" && m.category !== cat) return false;
-    if (q && !m.name.toLowerCase().includes(q) && !m.category.toLowerCase().includes(q)) return false;
-    return true;
-  });
+  const rows = allMenuItems.filter((m) => (cat === "ALL" || m.category === cat) && (!q || m.name.toLowerCase().includes(q)));
   document.getElementById("menuTableBody").innerHTML = rows.map((m) => `
     <tr>
       <td>${m.id}</td>
@@ -273,11 +346,7 @@ function renderMenu() {
       <td>${escapeHtml(m.category)}</td>
       <td>${escapeHtml(m.base_price)} ج.م</td>
       <td><span class="status-badge ${m.is_available ? "fulfilled" : "unreachable_alert"}">${m.is_available ? "متوفر" : "نفذ"}</span></td>
-      <td>
-        <button class="btn btn-sm ${m.is_available ? "btn-outline" : "btn-primary"}" data-toggle-item="${m.id}" data-next="${!m.is_available}">
-          ${m.is_available ? "تعيين غير متوفر" : "إعادة للتوفر"}
-        </button>
-      </td>
+      <td><button class="btn btn-sm ${m.is_available ? "btn-outline" : "btn-primary"}" data-toggle-item="${m.id}" data-next="${!m.is_available}">${m.is_available ? "إيقاف" : "تفعيل"}</button></td>
     </tr>
   `).join("");
 }
@@ -287,80 +356,106 @@ document.getElementById("menuSearch").addEventListener("input", renderMenu);
 document.getElementById("menuTableBody").addEventListener("click", async (e) => {
   const btn = e.target.closest("[data-toggle-item]");
   if (!btn) return;
-  const id = btn.dataset.toggleItem;
-  const isAvailable = btn.dataset.next === "true";
-  await fetch(`/api/menu/${id}/availability`, {
+  await apiFetch(`/api/menu/${btn.dataset.toggleItem}/availability`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ is_available: isAvailable }),
+    body: JSON.stringify({ is_available: btn.dataset.next === "true" }),
   });
-  await loadMenu();
-  await loadMetrics();
-  showToast(isAvailable ? "تم إعادة الصنف للمنيو" : "تم إيقاف الصنف مؤقتاً");
+  loadMenu();
+  loadMetrics();
 });
 
-// Wasla AI Live Simulator
-document.getElementById("chatForm").addEventListener("submit", async (e) => {
+// Integration Health (100% honest live status from /api/ready)
+async function loadHealth() {
+  const res = await fetch("/api/ready");
+  const d = await res.json();
+  const badge = (ok) => `<span class="status-badge ${ok ? "fulfilled" : "unreachable_alert"}">${ok ? "متصل" : "غير متصل"}</span>`;
+  document.getElementById("healthGrid").innerHTML = `
+    <article class="kpi-card"><span class="kpi-label">قاعدة البيانات (${escapeHtml(d.database_dialect)})</span>${badge(d.database_connected)}</article>
+    <article class="kpi-card"><span class="kpi-label">Google Gemini LLM</span>${badge(d.providers.gemini_llm_configured)}</article>
+    <article class="kpi-card"><span class="kpi-label">Groq Whisper Audio</span>${badge(d.providers.groq_whisper_configured)}</article>
+    <article class="kpi-card"><span class="kpi-label">Meta WhatsApp Cloud API (v27.0)</span>${badge(d.providers.meta_whatsapp_configured)}</article>
+    <article class="kpi-card"><span class="kpi-label">توقيع HMAC للـ Webhook</span>${badge(d.providers.meta_webhook_hmac_enabled)}</article>
+  `;
+}
+
+// Staff & Audit Logs
+async function loadStaffAndLogs() {
+  if (currentUser.role !== "admin") return;
+  const [sRes, aRes] = await Promise.all([apiFetch("/api/staff"), apiFetch("/api/audit-logs")]);
+  const staff = await sRes.json();
+  const logs = await aRes.json();
+  document.getElementById("staffTableBody").innerHTML = staff.map((u) => `
+    <tr><td>${escapeHtml(u.username)}</td><td>${escapeHtml(u.full_name)}</td><td>${escapeHtml(u.role)}</td><td>${u.is_active ? "نشط" : "معطل"}</td></tr>
+  `).join("");
+  document.getElementById("auditTableBody").innerHTML = logs.map((l) => `
+    <tr><td>${escapeHtml(l.created_at)}</td><td>${escapeHtml(l.actor_username)}</td><td>${escapeHtml(l.action)}</td><td>${escapeHtml(l.target)}</td></tr>
+  `).join("");
+}
+
+document.getElementById("createStaffForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const input = document.getElementById("chatInput");
-  const phone = document.getElementById("simPhone").value.trim() || "01012345678";
-  const text = input.value.trim();
-  if (!text) return;
-
-  const box = document.getElementById("chatMessages");
-  box.innerHTML += `<div class="msg customer">${escapeHtml(text)}</div>`;
-  input.value = "";
-  box.scrollTop = box.scrollHeight;
-
-  const res = await fetch("/api/ai/chat", {
+  const res = await apiFetch("/api/staff", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phone_number: phone, message: text }),
+    body: JSON.stringify({
+      username: document.getElementById("staffUsername").value.trim(),
+      full_name: document.getElementById("staffFullName").value.trim(),
+      password: document.getElementById("staffPassword").value,
+      role: document.getElementById("staffRole").value,
+    }),
   });
-  const data = await res.json();
-  box.innerHTML += `<div class="msg assistant">${escapeHtml(data.reply_ar || "حدث خطأ")}</div>`;
-  box.scrollTop = box.scrollHeight;
-
-  document.getElementById("inspIntent").textContent = `${data.intent} (conf: ${data.confidence})`;
-  document.getElementById("inspModel").textContent = data.model_used || "—";
-  document.getElementById("inspCart").textContent = JSON.stringify(data.cart, null, 2);
-
-  if (data.order_id) {
-    showToast(`🎉 تم تثبيت طلب #${data.order_id} عبر Wasla AI!`);
-    loadOrders();
-    loadMetrics();
+  if (res.ok) {
+    showToast("تم إنشاء الحساب بنجاح");
+    e.target.reset();
+    loadStaffAndLogs();
+  } else {
+    const err = await res.json().catch(() => ({}));
+    showToast(err.detail || "تعذر إنشاء الحساب");
   }
 });
 
-// WebSocket Connection
+// Directive Modal
+document.querySelectorAll("[data-preset]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    directiveType.value = btn.dataset.preset;
+    if (btn.dataset.preset === "unreachable_client") directiveText.value = "الكابتن وصل تحت المنزل والعميل لا يرد";
+    if (btn.dataset.preset === "kitchen_delay") directiveText.value = "تأخير مطبخ 15 دقيقة بسبب ضغط الطلبات";
+    if (btn.dataset.preset === "out_of_stock") directiveText.value = "الاستربس خلصان، اعرض كريب زنجر حار كبديل";
+  });
+});
+document.getElementById("cancelDirective").addEventListener("click", () => modal.close());
+document.getElementById("closeDirectiveX").addEventListener("click", () => modal.close());
+document.getElementById("directiveForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const res = await apiFetch(`/api/orders/${directiveOrderId}/instruct`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      directive: directiveText.value,
+      directive_type: directiveType.value,
+      extra_delay_minutes: directiveType.value === "kitchen_delay" ? 15 : null,
+    }),
+  });
+  const data = await res.json();
+  directivePreview.hidden = false;
+  directivePreview.innerHTML = `<strong>الرسالة للعميل:</strong><br>${escapeHtml(data.customer_message_ar)}`;
+});
+
+// WebSocket
 function connectWS() {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const ws = new WebSocket(`${protocol}//${location.host}/ws/cashier`);
   const dot = document.getElementById("wsDot");
   const conn = document.getElementById("connection");
-
-  ws.onopen = () => {
-    dot.className = "dot online";
-    conn.textContent = "متصل لحظياً (WS)";
-  };
-  ws.onclose = () => {
-    dot.className = "dot offline";
-    conn.textContent = "إعادة الاتصال...";
-    setTimeout(connectWS, 2500);
-  };
+  ws.onopen = () => { dot.className = "dot online"; conn.textContent = "متصل لحظياً (WS)"; };
+  ws.onclose = () => { dot.className = "dot offline"; conn.textContent = "إعادة الاتصال..."; setTimeout(connectWS, 2500); };
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    if (["order_created", "order_modified", "customer_alert"].includes(data.event_type)) {
-      playChime();
-      document.body.classList.add("alert");
-      setTimeout(() => document.body.classList.remove("alert"), 1200);
-    }
+    if (["order_created", "order_modified", "customer_alert"].includes(data.event_type)) playChime();
     loadOrders();
     loadMetrics();
   };
 }
 
-loadOrders();
-loadMetrics();
-connectWS();
-setInterval(() => { loadOrders(); loadMetrics(); }, 30000);
+bootstrapAuth();

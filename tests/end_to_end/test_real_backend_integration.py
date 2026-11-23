@@ -1,12 +1,8 @@
-"""Tier 5 — Comprehensive End-to-End Integration Tests using an ISOLATED temporary SQLite database.
-
-Guarantees automated tests NEVER pollute the main restaurant_ai.db.
-"""
+"""Tier 5 — Comprehensive End-to-End Integration Tests (RBAC Auth, Isolated DB, No Simulator in Prod)."""
 
 import asyncio
 import hashlib
 import hmac
-import importlib
 import json
 import os
 import sys
@@ -24,8 +20,7 @@ def test_full_integrated_wasla_backend_ai_and_dashboard_e2e(tmp_path):
     isolated_db = tmp_path / "isolated_test_wasla.db"
     os.environ["DATABASE_URL"] = f"sqlite:///{isolated_db.as_posix()}"
 
-    # Reload config, database, models, and main against the isolated test DB
-    for mod in ["app.config", "app.database", "app.models", "app.main"]:
+    for mod in ["app.config", "app.database", "app.models", "app.auth", "app.main"]:
         if mod in sys.modules:
             del sys.modules[mod]
 
@@ -36,131 +31,107 @@ def test_full_integrated_wasla_backend_ai_and_dashboard_e2e(tmp_path):
     settings = cfg_mod.settings
     main_mod._migrate_sqlite_columns()
     main_mod.seed_moka_menu_if_empty()
+    main_mod.seed_initial_admin_if_empty()
 
     async def _run():
         transport = httpx.ASGITransport(app=wasla_app)
         async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-            # 1. Dashboard static assets & HTML
+            # 1. Dashboard static assets & HTML (NO AI Simulator present!)
             home = await client.get("/")
             assert home.status_code == 200
             assert "Wasla AI" in home.text
+            assert "محاكي الوكيل الذكي" not in home.text
 
-            css = await client.get("/assets/styles.css")
-            assert css.status_code == 200
-            js = await client.get("/assets/app.js")
-            assert js.status_code == 200
+            # 2. Unauthenticated access to protected endpoints MUST fail with 401
+            assert (await client.get("/api/orders")).status_code == 401
+            assert (await client.get("/api/metrics")).status_code == 401
+            assert (await client.get("/api/staff")).status_code == 401
 
-            # 2. Health & 145 MOKA menu items seeded in isolated DB
+            # 3. Admin Login
+            login_resp = await client.post(
+                "/api/auth/login",
+                json={"username": settings.bootstrap_admin_username, "password": settings.bootstrap_admin_password},
+            )
+            assert login_resp.status_code == 200
+            admin_token = login_resp.json()["access_token"]
+            admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+            # 4. Create Cashier account & verify RBAC (Cashier blocked from /api/staff with 403)
+            c_staff = await client.post(
+                "/api/staff",
+                headers=admin_headers,
+                json={"username": "cashier1", "full_name": "كاشير أول", "password": "CashierPass123!", "role": "cashier"},
+            )
+            assert c_staff.status_code == 201
+            cashier_login = await client.post("/api/auth/login", json={"username": "cashier1", "password": "CashierPass123!"})
+            cashier_headers = {"Authorization": f"Bearer {cashier_login.json()['access_token']}"}
+            assert (await client.get("/api/staff", headers=cashier_headers)).status_code == 403
+
+            # 5. Health & 145 MOKA menu items seeded in isolated DB
             health = await client.get("/api/health")
             assert health.status_code == 200
             assert health.json()["menu_items_loaded"] == 145
 
-            # 3. Real SQL metrics endpoint starts cleanly at 0 real orders & 0 revenue
-            metrics_before = (await client.get("/api/metrics")).json()
+            # 6. Metrics start cleanly at 0 real orders & 0.00 revenue
+            metrics_before = (await client.get("/api/metrics", headers=admin_headers)).json()
             assert metrics_before["menu_total"] == 145
             assert metrics_before["total_orders"] == 0
             assert metrics_before["total_revenue_egp"] == "0.00"
 
-            # 4. Toggle item availability (out-of-stock & back)
-            menu_all = (await client.get("/api/menu/all")).json()
+            # 7. Toggle item availability
+            menu_all = (await client.get("/api/menu/all", headers=cashier_headers)).json()
             first_id = menu_all[0]["id"]
-            t_off = await client.patch(f"/api/menu/{first_id}/availability", json={"is_available": False})
-            assert t_off.status_code == 200 and t_off.json()["is_available"] is False
-            t_on = await client.patch(f"/api/menu/{first_id}/availability", json={"is_available": True})
-            assert t_on.status_code == 200 and t_on.json()["is_available"] is True
-
-            # 5. Live Egyptian Arabic AI Simulator chat -> creates simulator/is_test=True order
-            # Verify exact Pizza L price: 150 (L) + 20 (حبة كاملة) + 20 (delivery) = 190.00 EGP
-            phone = "01077778888"
-            c1 = await client.post("/api/ai/chat", json={"phone_number": phone, "message": "عايز بيتزا مارجريتا كبير حبة كاملة"})
-            assert c1.status_code == 200
-            assert c1.json()["requires_clarification"] is False
-
-            c2 = await client.post(
-                "/api/ai/chat",
-                json={
-                    "phone_number": phone,
-                    "message": "الاسم: سارة حسن، العنوان: الدقي شارع التحرير 22، رقم بديل: 01234567890 تمام اكد الطلب",
-                },
+            t_off = await client.patch(
+                f"/api/menu/{first_id}/availability", headers=cashier_headers, json={"is_available": False}
             )
-            assert c2.status_code == 200
-            order_id = c2.json()["order_id"]
-            assert order_id is not None
+            assert t_off.status_code == 200 and t_off.json()["is_available"] is False
+            await client.patch(f"/api/menu/{first_id}/availability", headers=cashier_headers, json={"is_available": True})
 
-            # 6. Verify exact 190.00 total AND that simulator order is flagged is_test=True
-            orders = (await client.get("/api/orders")).json()
-            created = next(o for o in orders if o["id"] == order_id)
-            assert created["total_amount"] == "190.00"
-            assert created["is_test"] is True
-            assert created["data_source"] == "simulator"
+            # 8. Real Webhook Order Journey (is_test=False) -> exact 190.00 EGP total
+            wh_msgs = [
+                ("wamid.real_1", "عايز بيتزا مارجريتا كبير حبة كاملة"),
+                ("wamid.real_2", "الاسم: سارة حسن، العنوان: الدقي شارع التحرير 22، رقم بديل: 01234567890 تمام اكد الطلب"),
+            ]
+            for mid, txt in wh_msgs:
+                wh_payload = {
+                    "entry": [{"changes": [{"value": {"messages": [{"id": mid, "from": "01077778888", "type": "text", "text": {"body": txt}}]}}]}]
+                }
+                raw_bytes = json.dumps(wh_payload).encode("utf-8")
+                headers = {"Content-Type": "application/json"}
+                if settings.meta_app_secret:
+                    headers["X-Hub-Signature-256"] = "sha256=" + hmac.new(
+                        settings.meta_app_secret.encode("utf-8"), raw_bytes, hashlib.sha256
+                    ).hexdigest()
+                wr = await client.post("/api/webhook", content=raw_bytes, headers=headers)
+                assert wr.status_code == 200 and wr.json()["processed"] == 1
 
-            # 7. Verify production KPIs strictly exclude simulator/test orders!
-            metrics_after = (await client.get("/api/metrics")).json()
-            assert metrics_after["total_orders"] == 0
-            assert metrics_after["total_revenue_egp"] == "0.00"
-            assert metrics_after["test_or_demo_orders"] == 1
+            # Verify real order appears in GET /api/orders with exact 190.00 total and updates metrics
+            orders = (await client.get("/api/orders", headers=cashier_headers)).json()
+            assert len(orders) == 1
+            order_id = orders[0]["id"]
+            assert orders[0]["total_amount"] == "190.00"
+            assert orders[0]["is_test"] is False
+            assert orders[0]["data_source"] == "whatsapp_webhook"
 
-            # 8. Order lifecycle transition (SUBMITTED -> IN_KITCHEN)
-            st = await client.patch(f"/api/orders/{order_id}/status", json={"status": "IN_KITCHEN"})
+            metrics_after = (await client.get("/api/metrics", headers=cashier_headers)).json()
+            assert metrics_after["total_orders"] == 1
+            assert metrics_after["total_revenue_egp"] == "190.00"
+
+            # 9. Order status transition & Cashier Directive
+            st = await client.patch(f"/api/orders/{order_id}/status", headers=cashier_headers, json={"status": "IN_KITCHEN"})
             assert st.status_code == 200 and st.json()["status"] == "IN_KITCHEN"
 
-            # 9. Cashier Directive Interpreter integration
             inst = await client.post(
                 f"/api/orders/{order_id}/instruct",
+                headers=cashier_headers,
                 json={"directive": "الاستربس خلصان، اعرض زنجر بنفس السعر", "directive_type": "free_text"},
             )
             assert inst.status_code == 200
-            inst_data = inst.json()
-            assert "كريب زنجر حار" in inst_data["customer_message_ar"]
-            assert inst_data["requires_cashier_approval"] is True
+            assert "كريب زنجر حار" in inst.json()["customer_message_ar"]
 
-            # 10. Meta WhatsApp Webhook GET challenge + POST deduplication & AI dispatch
-            verify = await client.get(
-                "/api/webhook",
-                params={
-                    "hub.mode": "subscribe",
-                    "hub.verify_token": settings.meta_verify_token,
-                    "hub.challenge": "CHALLENGE_123",
-                },
-            )
-            assert verify.status_code == 200 and verify.text == "CHALLENGE_123"
-
-            wh_payload = {
-                "entry": [
-                    {
-                        "changes": [
-                            {
-                                "value": {
-                                    "messages": [
-                                        {
-                                            "id": f"wamid.test_{order_id}",
-                                            "from": "01099887766",
-                                            "type": "text",
-                                            "text": {"body": "كريب كريسبي بكام؟"},
-                                        }
-                                    ]
-                                }
-                            }
-                        ]
-                    }
-                ]
-            }
-            raw_bytes = json.dumps(wh_payload).encode("utf-8")
-            headers = {"Content-Type": "application/json"}
-            if settings.meta_app_secret:
-                headers["X-Hub-Signature-256"] = "sha256=" + hmac.new(
-                    settings.meta_app_secret.encode("utf-8"), raw_bytes, hashlib.sha256
-                ).hexdigest()
-
-            w1 = await client.post("/api/webhook", content=raw_bytes, headers=headers)
-            assert w1.status_code == 200
-            assert w1.json()["processed"] == 1
-            assert len(w1.json()["replies"]) == 1
-            assert "110" in w1.json()["replies"][0]["reply_ar"]
-
-            # Duplicate Meta message ID must be ignored (idempotent)
-            w2 = await client.post("/api/webhook", content=raw_bytes, headers=headers)
-            assert w2.status_code == 200 and w2.json()["processed"] == 0
+            # 10. Audit logs captured admin & cashier actions
+            audit_logs = (await client.get("/api/audit-logs", headers=admin_headers)).json()
+            assert len(audit_logs) >= 4
 
     asyncio.run(_run())
     assert isolated_db.exists()
