@@ -50,7 +50,8 @@ class GeminiLLMClient:
             raise RuntimeError("GEMINI_API_KEY is not configured.")
 
         model = self.config.ai_fallback_model if use_fallback_model else self.config.ai_primary_model
-        url = f"{GEMINI_API_BASE}/{model}:generateContent?key={self.config.gemini_api_key}"
+        url = f"{GEMINI_API_BASE}/{model}:generateContent"
+        headers = {"x-goog-api-key": self.config.gemini_api_key, "Content-Type": "application/json"}
         payload = {
             "systemInstruction": {"parts": [{"text": system_prompt}]},
             "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
@@ -60,7 +61,7 @@ class GeminiLLMClient:
             },
         }
         async with httpx.AsyncClient(timeout=20.0) as client:
-            resp = await client.post(url, json=payload)
+            resp = await client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
 

@@ -32,7 +32,7 @@ class WaslaConfig:
     app_env: str = field(default_factory=lambda: os.getenv("APP_ENV", "development"))
     log_level: str = field(default_factory=lambda: os.getenv("LOG_LEVEL", "INFO"))
 
-    # Active Gemini models (Nov 2026: gemini-2.5-flash deprecated Dec 1, 2026)
+    # Verified active Gemini models on Google AI Studio (Nov 2026)
     gemini_api_key: str = field(default_factory=lambda: os.getenv("GEMINI_API_KEY", ""))
     ai_primary_model: str = field(default_factory=lambda: os.getenv("AI_PRIMARY_MODEL", "gemini-3.5-flash-lite"))
     ai_fallback_model: str = field(default_factory=lambda: os.getenv("AI_FALLBACK_MODEL", "gemini-3.8-flash"))

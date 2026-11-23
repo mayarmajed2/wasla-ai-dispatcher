@@ -62,7 +62,8 @@ class HybridAudioPipeline:
 
         started = time.perf_counter()
         b64_audio = base64.b64encode(audio.audio_bytes).decode("ascii")
-        url = f"{GEMINI_API_BASE}/{self.config.ai_primary_model}:generateContent?key={self.config.gemini_api_key}"
+        url = f"{GEMINI_API_BASE}/{self.config.ai_primary_model}:generateContent"
+        headers = {"x-goog-api-key": self.config.gemini_api_key, "Content-Type": "application/json"}
         payload = {
             "contents": [
                 {
@@ -80,7 +81,7 @@ class HybridAudioPipeline:
             "generationConfig": {"temperature": 0.0},
         }
         async with httpx.AsyncClient(timeout=25.0) as client:
-            resp = await client.post(url, json=payload)
+            resp = await client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
             data = resp.json()
 

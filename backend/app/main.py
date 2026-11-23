@@ -98,6 +98,14 @@ def _migrate_sqlite_columns() -> None:
             connection.execute(
                 text("ALTER TABLE orders ADD COLUMN is_test BOOLEAN NOT NULL DEFAULT 0")
             )
+        user_cols = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info(users)")).fetchall()
+        }
+        if user_cols and "must_change_password" not in user_cols:
+            connection.execute(
+                text("ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT 0")
+            )
 
 
 def seed_moka_menu_if_empty() -> int:
@@ -233,8 +241,20 @@ async def feedback_worker() -> None:
         await asyncio.sleep(30)
 
 
+def _validate_production_security() -> None:
+    """Refuse to boot in production with insecure default secrets or SQLite fallback."""
+    if settings.app_env.lower() != "production":
+        return
+    if "change-me" in settings.auth_secret_key or len(settings.auth_secret_key) < 32:
+        raise RuntimeError("SECURITY FATAL: Set a strong 32+ char AUTH_SECRET_KEY in production.")
+    if settings.bootstrap_admin_password == "WaslaAdmin2026!":
+        raise RuntimeError("SECURITY FATAL: Change BOOTSTRAP_ADMIN_PASSWORD before running in production.")
+    if settings.database_url.startswith("sqlite"):
+        raise RuntimeError("PRODUCTION FATAL: SQLite is forbidden in production. Configure PostgreSQL DATABASE_URL.")
+
+
 def seed_initial_admin_if_empty() -> None:
-    """Create initial admin account if users table is empty."""
+    """Create initial admin account if users table is empty (flags must_change_password in prod)."""
     db = SessionLocal()
     try:
         if db.scalar(select(User).limit(1)) is not None:
@@ -246,6 +266,7 @@ def seed_initial_admin_if_empty() -> None:
                 password_hash=hash_password(settings.bootstrap_admin_password),
                 role="admin",
                 is_active=True,
+                must_change_password=(settings.app_env.lower() == "production"),
             )
         )
         db.commit()
@@ -255,6 +276,7 @@ def seed_initial_admin_if_empty() -> None:
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    _validate_production_security()
     _migrate_sqlite_columns()
     seed_moka_menu_if_empty()
     seed_initial_admin_if_empty()
@@ -516,9 +538,38 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     }
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=4)
+    new_password: str = Field(min_length=8)
+
+
+@app.post("/api/auth/change-password")
+def change_password(
+    payload: ChangePasswordRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db_user = db.get(User, user.id)
+    if not db_user or not verify_password(payload.current_password, db_user.password_hash):
+        raise HTTPException(status_code=400, detail="كلمة المرور الحالية غير صحيحة")
+    if payload.new_password == payload.current_password:
+        raise HTTPException(status_code=400, detail="كلمة المرور الجديدة يجب أن تختلف عن الحالية")
+    db_user.password_hash = hash_password(payload.new_password)
+    db_user.must_change_password = False
+    log_audit(db, db_user.username, "change_password", target=db_user.username)
+    db.commit()
+    return {"status": "password_updated", "must_change_password": False}
+
+
 @app.get("/api/auth/me")
 def get_me(user: User = Depends(get_current_user)):
-    return {"id": user.id, "username": user.username, "full_name": user.full_name, "role": user.role}
+    return {
+        "id": user.id,
+        "username": user.username,
+        "full_name": user.full_name,
+        "role": user.role,
+        "must_change_password": getattr(user, "must_change_password", False),
+    }
 
 
 @app.get("/api/staff")
