@@ -48,3 +48,10 @@ Thumbs.db
 *.wav.tmp
 *.ogg.tmp
 *.mp3.tmp
+
+# Local SQLite databases & raw archives
+*.db
+*.sqlite
+*.sqlite3
+*.zip
+existing_system/
