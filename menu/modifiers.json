@@ -1,0 +1,93 @@
+[
+  {
+    "modifier_id": "mod_crepe_mozzarella",
+    "name_ar": "موتزريلا",
+    "name_en": "Mozzarella",
+    "price": 25,
+    "applies_to_categories": [
+      "cat_crepes",
+      "cat_special_crepes"
+    ],
+    "needs_confirmation": false,
+    "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+  },
+  {
+    "modifier_id": "mod_crepe_jalapeno",
+    "name_ar": "هالبينو",
+    "name_en": "Jalapeno",
+    "price": 10,
+    "applies_to_categories": [
+      "cat_crepes",
+      "cat_special_crepes"
+    ],
+    "needs_confirmation": false,
+    "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+  },
+  {
+    "modifier_id": "mod_crepe_caramelized_onion",
+    "name_ar": "بصل مكرمل",
+    "name_en": "Caramelized Onion",
+    "price": 25,
+    "applies_to_categories": [
+      "cat_crepes",
+      "cat_special_crepes"
+    ],
+    "needs_confirmation": false,
+    "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+  },
+  {
+    "modifier_id": "mod_crepe_sauce_choice",
+    "name_ar": "صوص من اختيارك",
+    "name_en": "Sauce of Your Choice",
+    "price": 20,
+    "applies_to_categories": [
+      "cat_crepes",
+      "cat_special_crepes"
+    ],
+    "needs_confirmation": true,
+    "confirmation_note": "Available sauce list is not printed on the menu image.",
+    "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+  },
+  {
+    "modifier_id": "mod_pizza_stuffed_crust",
+    "name_ar": "حشو اطراف",
+    "name_en": "Stuffed Crust",
+    "price": 40,
+    "applies_to_categories": [
+      "cat_pizza_cheese",
+      "cat_pizza_beef",
+      "cat_pizza_chicken"
+    ],
+    "needs_confirmation": true,
+    "confirmation_note": "Confirm whether +40 EGP applies to both M and L sizes.",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+  },
+  {
+    "modifier_id": "mod_pizza_extra_pastrami_pepperoni",
+    "name_ar": "اكسترا (بسطرمه، بيبروني)",
+    "name_en": "Extra Pastrami / Pepperoni",
+    "price": 50,
+    "applies_to_categories": [
+      "cat_pizza_cheese",
+      "cat_pizza_beef",
+      "cat_pizza_chicken"
+    ],
+    "needs_confirmation": true,
+    "confirmation_note": "Confirm whether +50 EGP is per topping (Pastrami OR Pepperoni) or both combined, and whether it applies to both M and L.",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+  },
+  {
+    "modifier_id": "mod_pizza_extra_cheese_typo",
+    "name_ar": "جبه كامله",
+    "name_en": "Extra Cheese (Typo on menu: جبه كامله)",
+    "price": 20,
+    "applies_to_categories": [
+      "cat_pizza_cheese",
+      "cat_pizza_beef",
+      "cat_pizza_chicken"
+    ],
+    "needs_confirmation": true,
+    "confirmation_note": "Printed as \"جبه كامله\" on menu image — confirm if this means \"جبنة كاملة\" (Extra Cheese).",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+  }
+]

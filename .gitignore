@@ -1,0 +1,50 @@
+# Environment & Secrets (NEVER commit)
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+credentials.json
+service_account*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Node / Frontend tools (if any)
+node_modules/
+
+# Logs & Temporary Files
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+.DS_Store
+Thumbs.db
+
+# IDE / Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Audio / Media temporary processing artifacts
+*.wav.tmp
+*.ogg.tmp
+*.mp3.tmp

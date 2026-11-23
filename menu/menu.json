@@ -1,0 +1,3105 @@
+{
+  "restaurant_name": "MOKA",
+  "currency": "EGP",
+  "extracted_at": "2026-11-23",
+  "source_images_count": 7,
+  "summary": {
+    "total_categories": 23,
+    "total_products": 145,
+    "total_modifiers": 7,
+    "items_requiring_confirmation": 12
+  },
+  "availability_note": "All product availability fields are null by design. Live inventory and stock availability must come exclusively from the real Backend.",
+  "categories": [
+    {
+      "category_id": "cat_crepes",
+      "name_en": "Crepes",
+      "name_ar": "كريب",
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_special_crepes",
+      "name_en": "Special Crepes",
+      "name_ar": "كريب سبيشال",
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_meals",
+      "name_en": "Meals",
+      "name_ar": "وجبات موكا",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.54.56 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_pasta",
+      "name_en": "Pasta",
+      "name_ar": "الباستا",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.02 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_pizza_cheese",
+      "name_en": "Pizza Cheese",
+      "name_ar": "بيتزا جبن",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_pizza_beef",
+      "name_en": "Pizza Beef",
+      "name_ar": "بيتزا لحوم",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_pizza_chicken",
+      "name_en": "Pizza Chicken",
+      "name_ar": "بيتزا فراخ",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_sandwich_pizza",
+      "name_en": "Sandwich Pizza",
+      "name_ar": "ساندوتش بيتزا",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_beef_burger",
+      "name_en": "Beef Burger",
+      "name_ar": "برجر لحم",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_chicken_burger",
+      "name_en": "Chicken Burger",
+      "name_ar": "برجر فراخ",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_appetizer",
+      "name_en": "Appetizer",
+      "name_ar": "مقبلات",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_hot_drinks",
+      "name_en": "Hot Drinks",
+      "name_ar": "مشروبات ساخنة",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_mix_soda",
+      "name_en": "Mix Soda",
+      "name_ar": "ميكس صودا",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_milk_shake",
+      "name_en": "Milk Shake",
+      "name_ar": "ميلك شيك",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_cafe_unlabeled_fruit_drinks",
+      "name_en": "UNLABELED_CATEGORY_CONFIRM_REQUIRED",
+      "name_ar": "تصنيف غير مسمى (يرجى التأكيد: سموذي / عصائر؟)",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "needs_confirmation": true,
+      "confirmation_note": "Orange header bar above Kiwi/Mango/Strawberry/Blueberry/Passion Fruit/Peach has no printed title on the menu image."
+    },
+    {
+      "category_id": "cat_iced_coffee",
+      "name_en": "Iced Coffee",
+      "name_ar": "آيس كوفي",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_frappuccino",
+      "name_en": "Frappuccino",
+      "name_ar": "فرابتشينو",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_red_bull_mix",
+      "name_en": "Red Bull Mix",
+      "name_ar": "ريد بول ميكس",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_pancake",
+      "name_en": "Pan Cake",
+      "name_ar": "بان كيك",
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_kashtota",
+      "name_en": "Kashtota",
+      "name_ar": "قشطوطة",
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_dessert",
+      "name_en": "Dessert",
+      "name_ar": "حلويات",
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_tawgen",
+      "name_en": "Tawgen",
+      "name_ar": "طواجن",
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg",
+      "needs_confirmation": false
+    },
+    {
+      "category_id": "cat_waffle",
+      "name_en": "Waffle",
+      "name_ar": "وافل",
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg",
+      "needs_confirmation": false
+    }
+  ],
+  "modifiers": [
+    {
+      "modifier_id": "mod_crepe_mozzarella",
+      "name_ar": "موتزريلا",
+      "name_en": "Mozzarella",
+      "price": 25,
+      "applies_to_categories": [
+        "cat_crepes",
+        "cat_special_crepes"
+      ],
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "modifier_id": "mod_crepe_jalapeno",
+      "name_ar": "هالبينو",
+      "name_en": "Jalapeno",
+      "price": 10,
+      "applies_to_categories": [
+        "cat_crepes",
+        "cat_special_crepes"
+      ],
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "modifier_id": "mod_crepe_caramelized_onion",
+      "name_ar": "بصل مكرمل",
+      "name_en": "Caramelized Onion",
+      "price": 25,
+      "applies_to_categories": [
+        "cat_crepes",
+        "cat_special_crepes"
+      ],
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "modifier_id": "mod_crepe_sauce_choice",
+      "name_ar": "صوص من اختيارك",
+      "name_en": "Sauce of Your Choice",
+      "price": 20,
+      "applies_to_categories": [
+        "cat_crepes",
+        "cat_special_crepes"
+      ],
+      "needs_confirmation": true,
+      "confirmation_note": "Available sauce list is not printed on the menu image.",
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "modifier_id": "mod_pizza_stuffed_crust",
+      "name_ar": "حشو اطراف",
+      "name_en": "Stuffed Crust",
+      "price": 40,
+      "applies_to_categories": [
+        "cat_pizza_cheese",
+        "cat_pizza_beef",
+        "cat_pizza_chicken"
+      ],
+      "needs_confirmation": true,
+      "confirmation_note": "Confirm whether +40 EGP applies to both M and L sizes.",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "modifier_id": "mod_pizza_extra_pastrami_pepperoni",
+      "name_ar": "اكسترا (بسطرمه، بيبروني)",
+      "name_en": "Extra Pastrami / Pepperoni",
+      "price": 50,
+      "applies_to_categories": [
+        "cat_pizza_cheese",
+        "cat_pizza_beef",
+        "cat_pizza_chicken"
+      ],
+      "needs_confirmation": true,
+      "confirmation_note": "Confirm whether +50 EGP is per topping (Pastrami OR Pepperoni) or both combined, and whether it applies to both M and L.",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "modifier_id": "mod_pizza_extra_cheese_typo",
+      "name_ar": "جبه كامله",
+      "name_en": "Extra Cheese (Typo on menu: جبه كامله)",
+      "price": 20,
+      "applies_to_categories": [
+        "cat_pizza_cheese",
+        "cat_pizza_beef",
+        "cat_pizza_chicken"
+      ],
+      "needs_confirmation": true,
+      "confirmation_note": "Printed as \"جبه كامله\" on menu image — confirm if this means \"جبنة كاملة\" (Extra Cheese).",
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    }
+  ],
+  "products": [
+    {
+      "product_id": "item_001",
+      "name_ar": "كريب بطاطس",
+      "name_en": "Fries Crepe",
+      "category_id": "cat_crepes",
+      "description_ar": null,
+      "base_price": 60,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_002",
+      "name_ar": "كريب ميكس جبن",
+      "name_en": "Mix Cheese Crepe",
+      "category_id": "cat_crepes",
+      "description_ar": null,
+      "base_price": 60,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_003",
+      "name_ar": "كريب بانيه",
+      "name_en": "Pane Crepe",
+      "category_id": "cat_crepes",
+      "description_ar": null,
+      "base_price": 70,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_004",
+      "name_ar": "كريب هوت دوج",
+      "name_en": "Hot Dog Crepe",
+      "category_id": "cat_crepes",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_005",
+      "name_ar": "كريب كريسبي",
+      "name_en": "Crispy Crepe",
+      "category_id": "cat_crepes",
+      "description_ar": "ستربس فريش",
+      "base_price": 110,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_006",
+      "name_ar": "كريب زنجر حار",
+      "name_en": "Spicy Zinger Crepe",
+      "category_id": "cat_crepes",
+      "description_ar": null,
+      "base_price": 110,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_007",
+      "name_ar": "كريب سوبر كرانشي",
+      "name_en": "Super Crunchy Crepe",
+      "category_id": "cat_crepes",
+      "description_ar": "ستربس فريش + بطاطس",
+      "base_price": 110,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_008",
+      "name_ar": "كريب شاورما",
+      "name_en": "Shawarma Crepe",
+      "category_id": "cat_crepes",
+      "description_ar": null,
+      "base_price": 110,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_009",
+      "name_ar": "كريب شيش",
+      "name_en": "Shish Tawook Crepe",
+      "category_id": "cat_crepes",
+      "description_ar": null,
+      "base_price": 110,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_010",
+      "name_ar": "كريب مكس لحوم",
+      "name_en": "Mix Meat Crepe",
+      "category_id": "cat_crepes",
+      "description_ar": "سجق + سوسيس + برجر",
+      "base_price": 130,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_011",
+      "name_ar": "كريب مشكل فراخ",
+      "name_en": "Mix Chicken Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "ستربس فريش + شورما + بانيه + صوص شيدر",
+      "base_price": 135,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_012",
+      "name_ar": "كريب شنغهاي",
+      "name_en": "Shanghai Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "ستربس فريش + شورما + صوص سويت شيلي",
+      "base_price": 130,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_013",
+      "name_ar": "كريب تشكن رانش",
+      "name_en": "Chicken Ranch Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "ستربس فريش + صوص رانش + تركي",
+      "base_price": 130,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_014",
+      "name_ar": "كريب اكس فاير",
+      "name_en": "X-Fire Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "ستربس فريش + صوص تستي + هالبينو + تركي",
+      "base_price": 140,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_015",
+      "name_ar": "كريب تشيز كرانشي",
+      "name_en": "Cheese Crunchy Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "ستربس فريش + صوص شيدر + هالبينو",
+      "base_price": 120,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_016",
+      "name_ar": "كريب ميجا",
+      "name_en": "Mega Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "ستربس فريش + هوت دوج + شورما + صوص تستي",
+      "base_price": 140,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_017",
+      "name_ar": "كريب سموك كرانشي",
+      "name_en": "Smoke Crunchy Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "ستربس فريش + صوص باربيكيو + بيف مدخن",
+      "base_price": 130,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_018",
+      "name_ar": "كريب بوشينكي",
+      "name_en": "Pochinki Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "ستربس فريش + شيش + كوردن بلو + صوص شيدر",
+      "base_price": 140,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_019",
+      "name_ar": "كريب تشيز دوريتوز",
+      "name_en": "Cheese Doritos Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "ستربس فريش + دوريتوز + صوص شيدر",
+      "base_price": 130,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_020",
+      "name_ar": "كريب كوردن بلو",
+      "name_en": "Cordon Bleu Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "ستربس فريش + صوص باربيكيو + بيف مدخن",
+      "base_price": 140,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": true,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg",
+      "confirmation_note": "Printed description is identical to Smoke Crunchy Crepe (ستربس فريش + صوص باربيكيو + بيف مدخن). Confirm actual ingredients of Cordon Bleu Crepe."
+    },
+    {
+      "product_id": "item_021",
+      "name_ar": "كريب مكس تشيز بسطرمه",
+      "name_en": "Mix Cheese Pastrami Crepe",
+      "category_id": "cat_special_crepes",
+      "description_ar": "مكس جبن + بسطرمه",
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [
+        "mod_crepe_mozzarella",
+        "mod_crepe_jalapeno",
+        "mod_crepe_caramelized_onion",
+        "mod_crepe_sauce_choice"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_022",
+      "name_ar": "وجبة شيش طاووق",
+      "name_en": "Shish Tawook Meal",
+      "category_id": "cat_meals",
+      "description_ar": "٢ سيخ شيش طاووق + رز بسمتي + توميه + بطاطس + مخلل",
+      "base_price": 150,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.54.56 PM.jpeg"
+    },
+    {
+      "product_id": "item_023",
+      "name_ar": "وجبة كريسبي تشيكن",
+      "name_en": "Crispy Chicken Meal",
+      "category_id": "cat_meals",
+      "description_ar": "قطع كريسبي دجاج + رز بسمتي + توميه + بطاطس + مخلل",
+      "base_price": 150,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.54.56 PM.jpeg"
+    },
+    {
+      "product_id": "item_024",
+      "name_ar": "وجبة تشكن جريل",
+      "name_en": "Grilled Chicken Meal",
+      "category_id": "cat_meals",
+      "description_ar": "صدور دجاج علي الجريل + رز بسمتي + كابوتشي",
+      "base_price": 140,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.54.56 PM.jpeg"
+    },
+    {
+      "product_id": "item_025",
+      "name_ar": "نجرسكو فراخ",
+      "name_en": "Chicken Negresco Pasta",
+      "category_id": "cat_pasta",
+      "description_ar": "مكرونة في صوص النجرسكو بقطع الفراخ المغطاة بطبقة من الموزاريلا وتدخل الفرن",
+      "base_price": 140,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.02 PM.jpeg"
+    },
+    {
+      "product_id": "item_026",
+      "name_ar": "باستا تشكن الفريدو",
+      "name_en": "Chicken Alfredo Pasta",
+      "category_id": "cat_pasta",
+      "description_ar": "مكرونة بالوايت صوص والكريمة + شرائح تشكن جريل + مشروم + بطاطس (تدخل الفرن مع موزاريلا)",
+      "base_price": 170,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.02 PM.jpeg"
+    },
+    {
+      "product_id": "item_027",
+      "name_ar": "باستا وايت ستربس",
+      "name_en": "White Sauce Strips Pasta",
+      "category_id": "cat_pasta",
+      "description_ar": "مكرونة بالوايت صوص والكريمة + ستربس دجاج جريل + بطاطس (تدخل الفرن مع موزاريلا)",
+      "base_price": 170,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.02 PM.jpeg"
+    },
+    {
+      "product_id": "item_028",
+      "name_ar": "باستا نجرسكو كرانشي",
+      "name_en": "Crunchy Negresco Pasta",
+      "category_id": "cat_pasta",
+      "description_ar": "مكرونة في صوص النجرسكو بقطع الدجاج الكرانشي ومغطاة بطبقة من الموزاريلا وتدخل الفرن",
+      "base_price": 150,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.02 PM.jpeg"
+    },
+    {
+      "product_id": "item_029",
+      "name_ar": "بيتزا مارجريتا",
+      "name_en": "Margherita Pizza",
+      "category_id": "cat_pizza_cheese",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 125
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 150
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_030",
+      "name_ar": "بيتزا مكس جبن",
+      "name_en": "Mix Cheese Pizza",
+      "category_id": "cat_pizza_cheese",
+      "description_ar": "جبنة موزريلا + جبنة شيدر + جبنة رومي + صوص بيتزا + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 140
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 160
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_031",
+      "name_ar": "بيتزا مكس تشيز بسطرمه",
+      "name_en": "Mix Cheese Pastrami Pizza",
+      "category_id": "cat_pizza_cheese",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + جبنة رومي + جبنة شيدر + بسطرمه + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 160
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 180
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_032",
+      "name_ar": "بيتزا سجق",
+      "name_en": "Sausage Pizza",
+      "category_id": "cat_pizza_beef",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + سجق + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 160
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 190
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_033",
+      "name_ar": "بيتزا بيبروني",
+      "name_en": "Pepperoni Pizza",
+      "category_id": "cat_pizza_beef",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + بيبروني + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 170
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 200
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_034",
+      "name_ar": "بيتزا سوبر سوبريم",
+      "name_en": "Super Supreme Pizza",
+      "category_id": "cat_pizza_beef",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + سجق + سوسيس + بسطرمه + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 170
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 200
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_035",
+      "name_ar": "بيتزا سوبر بوسطن",
+      "name_en": "Super Boston Pizza",
+      "category_id": "cat_pizza_beef",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + سجق + بسطرمه + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 170
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 200
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_036",
+      "name_ar": "بيتزا تشكن هالبينو",
+      "name_en": "Chicken Jalapeno Pizza",
+      "category_id": "cat_pizza_chicken",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + فراخ كريسبي + هالبينو + صوص شيدر + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 150
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 180
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_037",
+      "name_ar": "بيتزا تشكن رانش/باربكيو",
+      "name_en": "Chicken Ranch/BBQ Pizza",
+      "category_id": "cat_pizza_chicken",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + فراخ جريل + صوص رانش او باربيكيو + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 160
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 190
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [
+        {
+          "option_group": "sauce",
+          "required": true,
+          "choices": [
+            "رانش",
+            "باربيكيو"
+          ]
+        }
+      ],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_038",
+      "name_ar": "بيتزا تشكن الا ترك",
+      "name_en": "Chicken Ala Turk Pizza",
+      "category_id": "cat_pizza_chicken",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + فراخ جريل + تركي مدخن + صوص سموكي + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 160
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 190
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_039",
+      "name_ar": "بيتزا تشكن سوبريم",
+      "name_en": "Chicken Supreme Pizza",
+      "category_id": "cat_pizza_chicken",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + فراخ جريل + فراخ كرسبي + بانيه + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 170
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 200
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_040",
+      "name_ar": "بيتزا تشكن كاوبوي",
+      "name_en": "Chicken Cowboy Pizza",
+      "category_id": "cat_pizza_chicken",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + فراخ كرسبي + بيبروني + صوص سموكي + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 180
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 210
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_041",
+      "name_ar": "بيتزا تشكن كينج",
+      "name_en": "Chicken King Pizza",
+      "category_id": "cat_pizza_chicken",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + بيبروني + بسطرمه + فراخ جريل + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 180
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 210
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_042",
+      "name_ar": "بيتزا تشكن كريسبي",
+      "name_en": "Chicken Crispy Pizza",
+      "category_id": "cat_pizza_chicken",
+      "description_ar": "جبنة موزريلا + صوص بيتزا + قطع ستربس + فلفل رومي + زعتر + زيتون",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "M",
+          "name_ar": "وسط",
+          "name_en": "Medium",
+          "price": 150
+        },
+        {
+          "code": "L",
+          "name_ar": "كبير",
+          "name_en": "Large",
+          "price": 180
+        }
+      ],
+      "modifiers": [
+        "mod_pizza_stuffed_crust",
+        "mod_pizza_extra_pastrami_pepperoni",
+        "mod_pizza_extra_cheese_typo"
+      ],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_043",
+      "name_ar": "سندوتش ميكس تشيز",
+      "name_en": "Mix Cheese Pizza Sandwich",
+      "category_id": "cat_sandwich_pizza",
+      "description_ar": null,
+      "base_price": 150,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_044",
+      "name_ar": "سندوتش تشيكن هالبينو",
+      "name_en": "Chicken Jalapeno Pizza Sandwich",
+      "category_id": "cat_sandwich_pizza",
+      "description_ar": null,
+      "base_price": 170,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_045",
+      "name_ar": "سندوتش تشكن رانش",
+      "name_en": "Chicken Ranch Pizza Sandwich",
+      "category_id": "cat_sandwich_pizza",
+      "description_ar": null,
+      "base_price": 180,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_046",
+      "name_ar": "سندوتش تشيكن باربيكيو",
+      "name_en": "Chicken BBQ Pizza Sandwich",
+      "category_id": "cat_sandwich_pizza",
+      "description_ar": null,
+      "base_price": 180,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_047",
+      "name_ar": "سندوتش تشيكن سوبريم",
+      "name_en": "Chicken Supreme Pizza Sandwich",
+      "category_id": "cat_sandwich_pizza",
+      "description_ar": null,
+      "base_price": 190,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_048",
+      "name_ar": "سندوتش سجق",
+      "name_en": "Sausage Pizza Sandwich",
+      "category_id": "cat_sandwich_pizza",
+      "description_ar": null,
+      "base_price": 180,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_049",
+      "name_ar": "سندوتش سوبر سوبريم",
+      "name_en": "Super Supreme Pizza Sandwich",
+      "category_id": "cat_sandwich_pizza",
+      "description_ar": null,
+      "base_price": 190,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
+    },
+    {
+      "product_id": "item_050",
+      "name_ar": "كلاسيك برجر",
+      "name_en": "Classic Beef Burger",
+      "category_id": "cat_beef_burger",
+      "description_ar": "شريحة برجر لحم 150 جرام + خس + طماطم + خيار مخلل + بصل + صوص بيج تيستي",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 120
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 170
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_051",
+      "name_ar": "تشيز برجر",
+      "name_en": "Cheese Beef Burger",
+      "category_id": "cat_beef_burger",
+      "description_ar": "شريحة برجر لحم 150 جرام + خس + طماطم + خيار مخلل + بصل + صوص شيدر",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 120
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 170
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_052",
+      "name_ar": "سموكي برجر",
+      "name_en": "Smoky Beef Burger",
+      "category_id": "cat_beef_burger",
+      "description_ar": "شريحة برجر لحم 150 جرام + خس + طماطم + خيار مخلل + بصل + صوص باربيكيو + شريحة روز بيف",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 130
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 180
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_053",
+      "name_ar": "تشيزي لافرز برجر",
+      "name_en": "Cheesy Lovers Beef Burger",
+      "category_id": "cat_beef_burger",
+      "description_ar": "شريحة برجر لحم 150 + موزاريلا ستيك + طماطم + خيار مخلل + خس + صوص شيدر",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 140
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 190
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_054",
+      "name_ar": "باربكيو برجر",
+      "name_en": "BBQ Beef Burger",
+      "category_id": "cat_beef_burger",
+      "description_ar": "شريحة برجر لحم 150 + بصل مكرمل + خس + طماطم + خيار مخلل + صوص باربيكيو",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 130
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 180
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_055",
+      "name_ar": "وايلد برجر",
+      "name_en": "Wild Beef Burger",
+      "category_id": "cat_beef_burger",
+      "description_ar": "شريحة برجر لحم 150 + بسطرمه + خس + طماطم + خيار مخلل + جبنة كيري + صوص شيدر",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 160
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 200
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": true,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_056",
+      "name_ar": "تشكين بومب",
+      "name_en": "Chicken Bomb Burger",
+      "category_id": "cat_chicken_burger",
+      "description_ar": "قطعتين ستربس فريش + خس + طماطم + خيار + بيبروني + باربيكيو + صوص شيدر",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 130
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 180
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": true,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_057",
+      "name_ar": "سلو تشكين",
+      "name_en": "Slaw Chicken Burger",
+      "category_id": "cat_chicken_burger",
+      "description_ar": "قطعتين ستربس فريش + خس + طماطم + خيار + صوص رانش + كولسلو",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 120
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 170
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": true,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_058",
+      "name_ar": "رينجو تشكين",
+      "name_en": "Ringo Chicken Burger",
+      "category_id": "cat_chicken_burger",
+      "description_ar": "قطعتين ستربس فريش + خس + طماطم + خيار مخلل + صوص رانش + شريحة تركي",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 130
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 180
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": true,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_059",
+      "name_ar": "كلاسيك تشكن",
+      "name_en": "Classic Chicken Burger",
+      "category_id": "cat_chicken_burger",
+      "description_ar": "قطعتين ستربس فريش + خس + طماطم + خيار + صوص تيستي",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 110
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 160
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_060",
+      "name_ar": "تشيز تشكين",
+      "name_en": "Cheese Chicken Burger",
+      "category_id": "cat_chicken_burger",
+      "description_ar": "قطعتين ستربس فريش + خس + طماطم + خيار مخلل + صوص شيدر",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 110
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 160
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_061",
+      "name_ar": "تشيزي لافرز تشكين",
+      "name_en": "Cheesy Lovers Chicken Burger",
+      "category_id": "cat_chicken_burger",
+      "description_ar": "قطعتين ستربس فريش + موزاريلا ستيك + طماطم + خيار مخلل + خس + صوص شيدر",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 130
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 180
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_062",
+      "name_ar": "باربكيو تشكين",
+      "name_en": "BBQ Chicken Burger",
+      "category_id": "cat_chicken_burger",
+      "description_ar": "قطعتين ستربس فريش + بصل مكرمل + خس + طماطم + خيار مخلل + صوص باربيكيو",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 120
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 170
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_063",
+      "name_ar": "سموك تشكين",
+      "name_en": "Smoke Chicken Burger",
+      "category_id": "cat_chicken_burger",
+      "description_ar": "قطعتين ستربس فريش + خس + طماطم + خيار مخلل + صوص باربيكيو + شريحة تركي",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 120
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 170
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_064",
+      "name_ar": "شيدر كراميل تشكن",
+      "name_en": "Cheddar Caramel Chicken Burger",
+      "category_id": "cat_chicken_burger",
+      "description_ar": "قطعتين ستربس فريش + بصل مكرمل + خس + طماطم + خيار + صوص شيدر + صوص باربيكيو",
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "S",
+          "name_ar": "سنجل",
+          "name_en": "Single",
+          "price": 130
+        },
+        {
+          "code": "D",
+          "name_ar": "دبل",
+          "name_en": "Double",
+          "price": 180
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": true,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_065",
+      "name_ar": "باكت بطاطس",
+      "name_en": "Fries Packet",
+      "category_id": "cat_appetizer",
+      "description_ar": null,
+      "base_price": 30,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_066",
+      "name_ar": "بطاطس شيدر هالبينو",
+      "name_en": "Cheddar Jalapeno Fries",
+      "category_id": "cat_appetizer",
+      "description_ar": null,
+      "base_price": 65,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_067",
+      "name_ar": "بطاطس ستربس شيدر",
+      "name_en": "Strips Cheddar Fries",
+      "category_id": "cat_appetizer",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_068",
+      "name_ar": "بطاطس سويت شيلي",
+      "name_en": "Sweet Chili Fries",
+      "category_id": "cat_appetizer",
+      "description_ar": null,
+      "base_price": 60,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_069",
+      "name_ar": "بطاطس سماش شيدر",
+      "name_en": "Smash Cheddar Fries",
+      "category_id": "cat_appetizer",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_070",
+      "name_ar": "بطاطس تركي رانش",
+      "name_en": "Turkey Ranch Fries",
+      "category_id": "cat_appetizer",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_071",
+      "name_ar": "كولسلو كبير",
+      "name_en": "Large Coleslaw",
+      "category_id": "cat_appetizer",
+      "description_ar": null,
+      "base_price": 30,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_072",
+      "name_ar": "كولسلو صغير",
+      "name_en": "Small Coleslaw",
+      "category_id": "cat_appetizer",
+      "description_ar": null,
+      "base_price": 20,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg"
+    },
+    {
+      "product_id": "item_073",
+      "name_ar": "اسبرسو",
+      "name_en": "Espresso",
+      "category_id": "cat_hot_drinks",
+      "description_ar": null,
+      "base_price": 40,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_074",
+      "name_ar": "كوفي لاتيه",
+      "name_en": "Coffee Latte",
+      "category_id": "cat_hot_drinks",
+      "description_ar": null,
+      "base_price": 60,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_075",
+      "name_ar": "كابوتشينو",
+      "name_en": "Cappuccino",
+      "category_id": "cat_hot_drinks",
+      "description_ar": null,
+      "base_price": 60,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_076",
+      "name_ar": "هوت شوكلت",
+      "name_en": "Hot Chocolate",
+      "category_id": "cat_hot_drinks",
+      "description_ar": null,
+      "base_price": 70,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_077",
+      "name_ar": "هوت اوريو",
+      "name_en": "Hot Oreo",
+      "category_id": "cat_hot_drinks",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_078",
+      "name_ar": "هوت لوتس",
+      "name_en": "Hot Lotus",
+      "category_id": "cat_hot_drinks",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_079",
+      "name_ar": "قهوه تركي",
+      "name_en": "Turkish Coffee",
+      "category_id": "cat_hot_drinks",
+      "description_ar": null,
+      "base_price": 30,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_080",
+      "name_ar": "قهوه نوتيلا",
+      "name_en": "Nutella Coffee",
+      "category_id": "cat_hot_drinks",
+      "description_ar": null,
+      "base_price": 40,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_081",
+      "name_ar": "ميكس صودا تروبيكال",
+      "name_en": "Tropical Mix Soda",
+      "category_id": "cat_mix_soda",
+      "description_ar": null,
+      "base_price": 70,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_082",
+      "name_ar": "ميكس صودا مانجو لوكو",
+      "name_en": "Mango Loco Mix Soda",
+      "category_id": "cat_mix_soda",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_083",
+      "name_ar": "ميكس صودا باشون فروت",
+      "name_en": "Passion Fruit Mix Soda",
+      "category_id": "cat_mix_soda",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_084",
+      "name_ar": "ميكس صودا كلاسيك",
+      "name_en": "Classic Mix Soda",
+      "category_id": "cat_mix_soda",
+      "description_ar": null,
+      "base_price": 60,
+      "sizes": [],
+      "modifiers": [],
+      "options": [
+        {
+          "option_group": "flavor",
+          "required": true,
+          "choices": [
+            "فراوله",
+            "صن شاين",
+            "كيوي",
+            "مانجو",
+            "توت",
+            "خوخ"
+          ]
+        }
+      ],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_085",
+      "name_ar": "ميلك شيك اوريو",
+      "name_en": "Oreo Milkshake",
+      "category_id": "cat_milk_shake",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_086",
+      "name_ar": "ميلك شيك فانيلا",
+      "name_en": "Vanilla Milkshake",
+      "category_id": "cat_milk_shake",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_087",
+      "name_ar": "ميلك شيك شوكليت",
+      "name_en": "Chocolate Milkshake",
+      "category_id": "cat_milk_shake",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_088",
+      "name_ar": "ميلك شيك كراميل",
+      "name_en": "Caramel Milkshake",
+      "category_id": "cat_milk_shake",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_089",
+      "name_ar": "ميلك شيك نوتيلا",
+      "name_en": "Nutella Milkshake",
+      "category_id": "cat_milk_shake",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_090",
+      "name_ar": "ميلك شيك لوتس",
+      "name_en": "Lotus Milkshake",
+      "category_id": "cat_milk_shake",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_091",
+      "name_ar": "ميلك شيك كيندر",
+      "name_en": "Kinder Milkshake",
+      "category_id": "cat_milk_shake",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_092",
+      "name_ar": "ميلك شيك سنيكرز",
+      "name_en": "Snickers Milkshake",
+      "category_id": "cat_milk_shake",
+      "description_ar": null,
+      "base_price": 120,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_093",
+      "name_ar": "ميلك شيك بستاشيو",
+      "name_en": "Pistachio Milkshake",
+      "category_id": "cat_milk_shake",
+      "description_ar": null,
+      "base_price": 120,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_094",
+      "name_ar": "كيوي",
+      "name_en": "Kiwi (Category TBD)",
+      "category_id": "cat_cafe_unlabeled_fruit_drinks",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": true,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    },
+    {
+      "product_id": "item_095",
+      "name_ar": "مانجو",
+      "name_en": "Mango (Category TBD)",
+      "category_id": "cat_cafe_unlabeled_fruit_drinks",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": true,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    },
+    {
+      "product_id": "item_096",
+      "name_ar": "فراولة",
+      "name_en": "Strawberry (Category TBD)",
+      "category_id": "cat_cafe_unlabeled_fruit_drinks",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": true,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    },
+    {
+      "product_id": "item_097",
+      "name_ar": "بلو بيري",
+      "name_en": "Blueberry (Category TBD)",
+      "category_id": "cat_cafe_unlabeled_fruit_drinks",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": true,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    },
+    {
+      "product_id": "item_098",
+      "name_ar": "باشون فروت",
+      "name_en": "Passion Fruit (Category TBD)",
+      "category_id": "cat_cafe_unlabeled_fruit_drinks",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": true,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    },
+    {
+      "product_id": "item_099",
+      "name_ar": "خوخ",
+      "name_en": "Peach (Category TBD)",
+      "category_id": "cat_cafe_unlabeled_fruit_drinks",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": true,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+      "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    },
+    {
+      "product_id": "item_100",
+      "name_ar": "ايس لاتيه",
+      "name_en": "Iced Latte",
+      "category_id": "cat_iced_coffee",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_101",
+      "name_ar": "كراميل لاتيه",
+      "name_en": "Caramel Iced Latte",
+      "category_id": "cat_iced_coffee",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_102",
+      "name_ar": "سبانش لاتيه",
+      "name_en": "Spanish Iced Latte",
+      "category_id": "cat_iced_coffee",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_103",
+      "name_ar": "ايس وايت موكا",
+      "name_en": "Iced White Mocha",
+      "category_id": "cat_iced_coffee",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_104",
+      "name_ar": "ايس دارك موكا",
+      "name_en": "Iced Dark Mocha",
+      "category_id": "cat_iced_coffee",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_105",
+      "name_ar": "سولتد كراميل",
+      "name_en": "Salted Caramel Iced Coffee",
+      "category_id": "cat_iced_coffee",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_106",
+      "name_ar": "فرابتشينو كراميل",
+      "name_en": "Caramel Frappuccino",
+      "category_id": "cat_frappuccino",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_107",
+      "name_ar": "فرابتشينو موكا",
+      "name_en": "Mocha Frappuccino",
+      "category_id": "cat_frappuccino",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_108",
+      "name_ar": "فرابتشينو نوتيلا",
+      "name_en": "Nutella Frappuccino",
+      "category_id": "cat_frappuccino",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_109",
+      "name_ar": "ريد بول ميكس تروبيكال",
+      "name_en": "Tropical Red Bull Mix",
+      "category_id": "cat_red_bull_mix",
+      "description_ar": null,
+      "base_price": 110,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_110",
+      "name_ar": "ريد بول ميكس باشون فروت",
+      "name_en": "Passion Fruit Red Bull Mix",
+      "category_id": "cat_red_bull_mix",
+      "description_ar": null,
+      "base_price": 110,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_111",
+      "name_ar": "ريد بول ميكس مانجو لوكو",
+      "name_en": "Mango Loco Red Bull Mix",
+      "category_id": "cat_red_bull_mix",
+      "description_ar": null,
+      "base_price": 110,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_112",
+      "name_ar": "بان كيك نوتيلا",
+      "name_en": "Nutella Pancake",
+      "category_id": "cat_pancake",
+      "description_ar": null,
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "10PCS",
+          "name_ar": "10 قطع",
+          "name_en": "10 Pieces",
+          "price": 50
+        },
+        {
+          "code": "20PCS",
+          "name_ar": "20 قطعة",
+          "name_en": "20 Pieces",
+          "price": 100
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_113",
+      "name_ar": "بان كيك لوتس",
+      "name_en": "Lotus Pancake",
+      "category_id": "cat_pancake",
+      "description_ar": null,
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "10PCS",
+          "name_ar": "10 قطع",
+          "name_en": "10 Pieces",
+          "price": 60
+        },
+        {
+          "code": "20PCS",
+          "name_ar": "20 قطعة",
+          "name_en": "20 Pieces",
+          "price": 120
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_114",
+      "name_ar": "بان كيك وايت شوكليت",
+      "name_en": "White Chocolate Pancake",
+      "category_id": "cat_pancake",
+      "description_ar": null,
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "10PCS",
+          "name_ar": "10 قطع",
+          "name_en": "10 Pieces",
+          "price": 60
+        },
+        {
+          "code": "20PCS",
+          "name_ar": "20 قطعة",
+          "name_en": "20 Pieces",
+          "price": 120
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_115",
+      "name_ar": "بان كيك نوتيلا ميكس وايت",
+      "name_en": "Nutella Mix White Pancake",
+      "category_id": "cat_pancake",
+      "description_ar": null,
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "10PCS",
+          "name_ar": "10 قطع",
+          "name_en": "10 Pieces",
+          "price": 60
+        },
+        {
+          "code": "20PCS",
+          "name_ar": "20 قطعة",
+          "name_en": "20 Pieces",
+          "price": 120
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_116",
+      "name_ar": "بان كيك نوتيلا ميكس لوتس",
+      "name_en": "Nutella Mix Lotus Pancake",
+      "category_id": "cat_pancake",
+      "description_ar": null,
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "10PCS",
+          "name_ar": "10 قطع",
+          "name_en": "10 Pieces",
+          "price": 60
+        },
+        {
+          "code": "20PCS",
+          "name_ar": "20 قطعة",
+          "name_en": "20 Pieces",
+          "price": 120
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_117",
+      "name_ar": "بان كيك كيندر",
+      "name_en": "Kinder Pancake",
+      "category_id": "cat_pancake",
+      "description_ar": null,
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "10PCS",
+          "name_ar": "10 قطع",
+          "name_en": "10 Pieces",
+          "price": 60
+        },
+        {
+          "code": "20PCS",
+          "name_ar": "20 قطعة",
+          "name_en": "20 Pieces",
+          "price": 120
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_118",
+      "name_ar": "بان كيك بستاشيو",
+      "name_en": "Pistachio Pancake",
+      "category_id": "cat_pancake",
+      "description_ar": null,
+      "base_price": null,
+      "sizes": [
+        {
+          "code": "10PCS",
+          "name_ar": "10 قطع",
+          "name_en": "10 Pieces",
+          "price": 75
+        },
+        {
+          "code": "20PCS",
+          "name_ar": "20 قطعة",
+          "name_en": "20 Pieces",
+          "price": 150
+        }
+      ],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_119",
+      "name_ar": "قشطوطة نوتيلا",
+      "name_en": "Nutella Kashtota",
+      "category_id": "cat_kashtota",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_120",
+      "name_ar": "قشطوطة لوتس",
+      "name_en": "Lotus Kashtota",
+      "category_id": "cat_kashtota",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_121",
+      "name_ar": "قشطوطة كراميل",
+      "name_en": "Caramel Kashtota",
+      "category_id": "cat_kashtota",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_122",
+      "name_ar": "قشطوطة كيندر",
+      "name_en": "Kinder Kashtota",
+      "category_id": "cat_kashtota",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_123",
+      "name_ar": "قشطوطة بستاشيو",
+      "name_en": "Pistachio Kashtota",
+      "category_id": "cat_kashtota",
+      "description_ar": null,
+      "base_price": 130,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_124",
+      "name_ar": "تشيز كيك",
+      "name_en": "Cheesecake",
+      "category_id": "cat_dessert",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_125",
+      "name_ar": "مولتن كيك",
+      "name_en": "Molten Cake",
+      "category_id": "cat_dessert",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_126",
+      "name_ar": "كوكيز كيك",
+      "name_en": "Cookies Cake",
+      "category_id": "cat_dessert",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_127",
+      "name_ar": "سان سباستيان",
+      "name_en": "San Sebastian Cheesecake",
+      "category_id": "cat_dessert",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_128",
+      "name_ar": "ماتيلدا",
+      "name_en": "Matilda Cake",
+      "category_id": "cat_dessert",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_129",
+      "name_ar": "تيراميسو",
+      "name_en": "Tiramisu",
+      "category_id": "cat_dessert",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_130",
+      "name_ar": "طاجن نوتيلا",
+      "name_en": "Nutella Tajine",
+      "category_id": "cat_tawgen",
+      "description_ar": null,
+      "base_price": 50,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_131",
+      "name_ar": "طاجن كيندر",
+      "name_en": "Kinder Tajine",
+      "category_id": "cat_tawgen",
+      "description_ar": null,
+      "base_price": 60,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_132",
+      "name_ar": "طاجن اوريو",
+      "name_en": "Oreo Tajine",
+      "category_id": "cat_tawgen",
+      "description_ar": null,
+      "base_price": 60,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_133",
+      "name_ar": "طاجن لوتس",
+      "name_en": "Lotus Tajine",
+      "category_id": "cat_tawgen",
+      "description_ar": null,
+      "base_price": 60,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_134",
+      "name_ar": "طاجن كيت كات",
+      "name_en": "KitKat Tajine",
+      "category_id": "cat_tawgen",
+      "description_ar": null,
+      "base_price": 70,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_135",
+      "name_ar": "طاجن سنيكرز",
+      "name_en": "Snickers Tajine",
+      "category_id": "cat_tawgen",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_136",
+      "name_ar": "طاجن ميكس موكا",
+      "name_en": "Mix Moka Tajine",
+      "category_id": "cat_tawgen",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_137",
+      "name_ar": "وافل نوتيلا",
+      "name_en": "Nutella Waffle",
+      "category_id": "cat_waffle",
+      "description_ar": null,
+      "base_price": 80,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_138",
+      "name_ar": "وافل لوتس",
+      "name_en": "Lotus Waffle",
+      "category_id": "cat_waffle",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_139",
+      "name_ar": "وافل وايت شوكليت",
+      "name_en": "White Chocolate Waffle",
+      "category_id": "cat_waffle",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_140",
+      "name_ar": "وافل نوتيلا و وايت",
+      "name_en": "Nutella & White Chocolate Waffle",
+      "category_id": "cat_waffle",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_141",
+      "name_ar": "وافل نوتيلا و لوتس",
+      "name_en": "Nutella & Lotus Waffle",
+      "category_id": "cat_waffle",
+      "description_ar": null,
+      "base_price": 90,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_142",
+      "name_ar": "وافل كيندر",
+      "name_en": "Kinder Waffle",
+      "category_id": "cat_waffle",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_143",
+      "name_ar": "وافل بستاشيو",
+      "name_en": "Pistachio Waffle",
+      "category_id": "cat_waffle",
+      "description_ar": null,
+      "base_price": 120,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_144",
+      "name_ar": "فته وافل",
+      "name_en": "Waffle Fatteh",
+      "category_id": "cat_waffle",
+      "description_ar": null,
+      "base_price": 100,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    },
+    {
+      "product_id": "item_145",
+      "name_ar": "كب وافل",
+      "name_en": "Waffle Cup",
+      "category_id": "cat_waffle",
+      "description_ar": null,
+      "base_price": 50,
+      "sizes": [],
+      "modifiers": [],
+      "options": [],
+      "is_new": false,
+      "available": null,
+      "needs_confirmation": false,
+      "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg"
+    }
+  ]
+}

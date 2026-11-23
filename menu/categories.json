@@ -1,0 +1,164 @@
+[
+  {
+    "category_id": "cat_crepes",
+    "name_en": "Crepes",
+    "name_ar": "كريب",
+    "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_special_crepes",
+    "name_en": "Special Crepes",
+    "name_ar": "كريب سبيشال",
+    "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_meals",
+    "name_en": "Meals",
+    "name_ar": "وجبات موكا",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.54.56 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_pasta",
+    "name_en": "Pasta",
+    "name_ar": "الباستا",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.02 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_pizza_cheese",
+    "name_en": "Pizza Cheese",
+    "name_ar": "بيتزا جبن",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_pizza_beef",
+    "name_en": "Pizza Beef",
+    "name_ar": "بيتزا لحوم",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_pizza_chicken",
+    "name_en": "Pizza Chicken",
+    "name_ar": "بيتزا فراخ",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_sandwich_pizza",
+    "name_en": "Sandwich Pizza",
+    "name_ar": "ساندوتش بيتزا",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_beef_burger",
+    "name_en": "Beef Burger",
+    "name_ar": "برجر لحم",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_chicken_burger",
+    "name_en": "Chicken Burger",
+    "name_ar": "برجر فراخ",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_appetizer",
+    "name_en": "Appetizer",
+    "name_ar": "مقبلات",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.55.202 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_hot_drinks",
+    "name_en": "Hot Drinks",
+    "name_ar": "مشروبات ساخنة",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_mix_soda",
+    "name_en": "Mix Soda",
+    "name_ar": "ميكس صودا",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_milk_shake",
+    "name_en": "Milk Shake",
+    "name_ar": "ميلك شيك",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_cafe_unlabeled_fruit_drinks",
+    "name_en": "UNLABELED_CATEGORY_CONFIRM_REQUIRED",
+    "name_ar": "تصنيف غير مسمى (يرجى التأكيد: سموذي / عصائر؟)",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+    "needs_confirmation": true,
+    "confirmation_note": "Orange header bar above Kiwi/Mango/Strawberry/Blueberry/Passion Fruit/Peach has no printed title on the menu image."
+  },
+  {
+    "category_id": "cat_iced_coffee",
+    "name_en": "Iced Coffee",
+    "name_ar": "آيس كوفي",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_frappuccino",
+    "name_en": "Frappuccino",
+    "name_ar": "فرابتشينو",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_red_bull_mix",
+    "name_en": "Red Bull Mix",
+    "name_ar": "ريد بول ميكس",
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_pancake",
+    "name_en": "Pan Cake",
+    "name_ar": "بان كيك",
+    "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_kashtota",
+    "name_en": "Kashtota",
+    "name_ar": "قشطوطة",
+    "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_dessert",
+    "name_en": "Dessert",
+    "name_ar": "حلويات",
+    "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_tawgen",
+    "name_en": "Tawgen",
+    "name_ar": "طواجن",
+    "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg",
+    "needs_confirmation": false
+  },
+  {
+    "category_id": "cat_waffle",
+    "name_en": "Waffle",
+    "name_ar": "وافل",
+    "source_image": "WhatsApp Image 2026-11-323 at 3.55.05 PM.jpeg",
+    "needs_confirmation": false
+  }
+]
