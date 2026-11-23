@@ -98,12 +98,11 @@
     "needs_confirmation": false
   },
   {
-    "category_id": "cat_cafe_unlabeled_fruit_drinks",
-    "name_en": "UNLABELED_CATEGORY_CONFIRM_REQUIRED",
-    "name_ar": "تصنيف غير مسمى (يرجى التأكيد: سموذي / عصائر؟)",
+    "category_id": "cat_fruit_milk_shake",
+    "name_en": "Fruit Milk Shake",
+    "name_ar": "ميلك شيك فواكه",
     "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
-    "needs_confirmation": true,
-    "confirmation_note": "Orange header bar above Kiwi/Mango/Strawberry/Blueberry/Passion Fruit/Peach has no printed title on the menu image."
+    "needs_confirmation": false
   },
   {
     "category_id": "cat_iced_coffee",

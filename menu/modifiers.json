@@ -38,14 +38,14 @@
   {
     "modifier_id": "mod_crepe_sauce_choice",
     "name_ar": "صوص من اختيارك",
-    "name_en": "Sauce of Your Choice",
+    "name_en": "Any Available Sauce",
     "price": 20,
     "applies_to_categories": [
       "cat_crepes",
       "cat_special_crepes"
     ],
-    "needs_confirmation": true,
-    "confirmation_note": "Available sauce list is not printed on the menu image.",
+    "needs_confirmation": false,
+    "note": "Customer may select any sauce available in the restaurant.",
     "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
   },
   {
@@ -58,8 +58,8 @@
       "cat_pizza_beef",
       "cat_pizza_chicken"
     ],
-    "needs_confirmation": true,
-    "confirmation_note": "Confirm whether +40 EGP applies to both M and L sizes.",
+    "needs_confirmation": false,
+    "note": "Same price for both Medium (M) and Large (L) sizes.",
     "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
   },
   {
@@ -72,22 +72,22 @@
       "cat_pizza_beef",
       "cat_pizza_chicken"
     ],
-    "needs_confirmation": true,
-    "confirmation_note": "Confirm whether +50 EGP is per topping (Pastrami OR Pepperoni) or both combined, and whether it applies to both M and L.",
+    "needs_confirmation": false,
+    "note": "Same price for both Medium (M) and Large (L) sizes.",
     "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
   },
   {
-    "modifier_id": "mod_pizza_extra_cheese_typo",
-    "name_ar": "جبه كامله",
-    "name_en": "Extra Cheese (Typo on menu: جبه كامله)",
+    "modifier_id": "mod_pizza_whole_wheat_crust",
+    "name_ar": "حبة كاملة",
+    "name_en": "Whole Wheat Crust",
     "price": 20,
     "applies_to_categories": [
       "cat_pizza_cheese",
       "cat_pizza_beef",
       "cat_pizza_chicken"
     ],
-    "needs_confirmation": true,
-    "confirmation_note": "Printed as \"جبه كامله\" on menu image — confirm if this means \"جبنة كاملة\" (Extra Cheese).",
+    "needs_confirmation": false,
+    "note": "Whole wheat flour crust option; same price for M and L sizes.",
     "source_image": "WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg"
   }
 ]

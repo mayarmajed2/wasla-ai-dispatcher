@@ -27,47 +27,16 @@
 
 ---
 
-## 2. Items & Details Requiring Your Confirmation (DO NOT ASSUME)
+## 2. Owner-Confirmed Clarifications (RESOLVED — 0 Pending Items)
 
-The following items are unclear, missing labels, or potentially contain menu printing typos. They have been marked with `"needs_confirmation": true` in the JSON files and require your confirmation before finalizing business rules:
+All 6 previously flagged menu ambiguities were explicitly confirmed by the project owner on **2026-11-23** and applied to the canonical JSON files (`items_requiring_confirmation = 0`):
 
-### 2.1. Unlabeled Category in Cafe Drinks Menu
-- **Source Image:** `WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg`
-- **Details:** Directly below `MILK SHAKE`, there is an orange category header bar with **no text printed on it**, followed by 6 items:
-  - `كيوي` (80 EGP)
-  - `مانجو` (80 EGP)
-  - `فراولة` (80 EGP)
-  - `بلو بيري` (80 EGP)
-  - `باشون فروت` (100 EGP)
-  - `خوخ` (80 EGP)
-- **Question:** What is the exact category name for these 6 items? (e.g., **Smoothie / سموذي**, **Fresh Juice / عصائر فريش**, or **Fruit Milkshake**?)
-
-### 2.2. Possible Typo in Pizza Extra: `جبه كامله` (+20 EGP)
-- **Source Image:** `WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg`
-- **Details:** Listed under Pizza `EXTRA` as `جبه كامله` — 20 EGP.
-- **Question:** Is this a printing typo for **`جبنة كاملة`** (Extra Cheese / Full Mozzarella)?
-
-### 2.3. Possible Description Typo on `كريب كوردن بلو` (140 EGP)
-- **Source Image:** `WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg`
-- **Details:** Under `SPECIAL CREPES`, `كريب كوردن بلو` (140 EGP) has the exact same printed description as `كريب سموك كرانشي` (130 EGP): `(ستربس فريش + صوص باربيكيو + بيف مدخن)`.
-- **Question:** What are the actual ingredients of `كريب كوردن بلو` so the AI answers customer ingredient questions accurately?
-
-### 2.4. Sauce Choices for `صوص من اختيارك` (+20 EGP) in Crepes
-- **Source Image:** `WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg`
-- **Details:** Listed under Crepe `EXTRA` without enumerating the available sauces.
-- **Question:** Which exact sauces can customers select for this modifier? (e.g., شيدر، رانش، باربيكيو، سويت شيلي، بيج تيستي، سموكي، توميه؟)
-
-### 2.5. Pizza Extras Pricing Rules (`حشو اطراف` +40 EGP, `اكسترا بسطرمه / بيبروني` +50 EGP)
-- **Source Image:** `WhatsApp Image 2026-11-23 at 3.55.04 PM.jpeg`
-- **Question:**
-  1. Do these extra prices apply identically to both **Medium (M)** and **Large (L)** pizzas?
-  2. Is `اكسترا (بسطرمه، بيبروني)` **+50 EGP per topping** (e.g., +50 for Pastrami OR +50 for Pepperoni) or +50 for both together?
-
-### 2.6. Missing Modifier / Customization Rules on Other Categories
-- **Burgers (Beef & Chicken):** Are paid extras (extra patty, extra cheese, caramelized onion, sauces, combo upgrades) allowed, or only free removals (e.g., بدون بصل / بدون مخلل)?
-- **Pasta (`باستا تشكن الفريدو` & `باستا وايت ستربس`):** Both descriptions explicitly include `+ بطاطس` on the image. Confirm this is intentional.
-- **Cafe & Desserts:** Do drinks/desserts have required customization choices (e.g., sugar level for `قهوه تركي`, topping/sauce for `تشيز كيك`, `فته وافل`, `كب وافل`)?
-- **Delivery Zones, Delivery Fees, Taxes / Service Fees:** Not listed on the menu images. Confirm whether these will be supplied exclusively by the Backend, and whether we should use placeholder test zones in the Mock Backend.
+1. **Fruit Milk Shake (`cat_fruit_milk_shake`):** The 6 fruit items under Milk Shake (`كيوي 80`, `مانجو 80`, `فراولة 80`, `بلو بيري 80`, `باشون فروت 100`, `خوخ 80`) are confirmed as **Milkshake drinks** (`ميلك شيك فواكه`).
+2. **Whole Wheat Pizza Crust (`mod_pizza_whole_wheat_crust`):** Confirmed as **`حبة كاملة`** (Whole Wheat flour crust, +20 EGP) — NOT a typo for cheese.
+3. **`كريب كوردن بلو` (140 EGP):** Confirmed to contain **كوردن بلو** (Cordon Bleu); the printed description matching Smoke Crunchy was a menu print typo.
+4. **`صوص من اختيارك` (+20 EGP):** Confirmed to allow **any sauce available in the restaurant**.
+5. **Pizza Extras Pricing (`حشو اطراف` +40, `اكسترا بسطرمه/بيبروني` +50, `حبة كاملة` +20):** Confirmed to apply at the **same price** for both Medium (`M`) and Large (`L`) sizes.
+6. **Other Categories (Burgers, Pasta, Cafe):** Confirmed **no additional paid extras** beyond what is printed on the menu (free removals/notes such as "من غير بصل" remain supported).
 
 ---
 

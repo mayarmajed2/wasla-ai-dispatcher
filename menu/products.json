@@ -384,7 +384,7 @@
     "name_ar": "كريب كوردن بلو",
     "name_en": "Cordon Bleu Crepe",
     "category_id": "cat_special_crepes",
-    "description_ar": "ستربس فريش + صوص باربيكيو + بيف مدخن",
+    "description_ar": "كوردن بلو",
     "base_price": 140,
     "sizes": [],
     "modifiers": [
@@ -396,9 +396,8 @@
     "options": [],
     "is_new": false,
     "available": null,
-    "needs_confirmation": true,
-    "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg",
-    "confirmation_note": "Printed description is identical to Smoke Crunchy Crepe (ستربس فريش + صوص باربيكيو + بيف مدخن). Confirm actual ingredients of Cordon Bleu Crepe."
+    "needs_confirmation": false,
+    "source_image": "WhatsApp Image 2026-11-23 at 13.55.04 PM.jpeg"
   },
   {
     "product_id": "item_021",
@@ -549,7 +548,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -581,7 +580,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -613,7 +612,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -645,7 +644,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -677,7 +676,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -709,7 +708,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -741,7 +740,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -773,7 +772,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -805,7 +804,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [
       {
@@ -846,7 +845,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -878,7 +877,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -910,7 +909,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -942,7 +941,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -974,7 +973,7 @@
     "modifiers": [
       "mod_pizza_stuffed_crust",
       "mod_pizza_extra_pastrami_pepperoni",
-      "mod_pizza_extra_cheese_typo"
+      "mod_pizza_whole_wheat_crust"
     ],
     "options": [],
     "is_new": false,
@@ -1957,9 +1956,9 @@
   },
   {
     "product_id": "item_094",
-    "name_ar": "كيوي",
-    "name_en": "Kiwi (Category TBD)",
-    "category_id": "cat_cafe_unlabeled_fruit_drinks",
+    "name_ar": "ميلك شيك كيوي",
+    "name_en": "Kiwi Milkshake",
+    "category_id": "cat_fruit_milk_shake",
     "description_ar": null,
     "base_price": 80,
     "sizes": [],
@@ -1967,15 +1966,14 @@
     "options": [],
     "is_new": false,
     "available": null,
-    "needs_confirmation": true,
-    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
-    "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    "needs_confirmation": false,
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
   },
   {
     "product_id": "item_095",
-    "name_ar": "مانجو",
-    "name_en": "Mango (Category TBD)",
-    "category_id": "cat_cafe_unlabeled_fruit_drinks",
+    "name_ar": "ميلك شيك مانجو",
+    "name_en": "Mango Milkshake",
+    "category_id": "cat_fruit_milk_shake",
     "description_ar": null,
     "base_price": 80,
     "sizes": [],
@@ -1983,15 +1981,14 @@
     "options": [],
     "is_new": false,
     "available": null,
-    "needs_confirmation": true,
-    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
-    "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    "needs_confirmation": false,
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
   },
   {
     "product_id": "item_096",
-    "name_ar": "فراولة",
-    "name_en": "Strawberry (Category TBD)",
-    "category_id": "cat_cafe_unlabeled_fruit_drinks",
+    "name_ar": "ميلك شيك فراولة",
+    "name_en": "Strawberry Milkshake",
+    "category_id": "cat_fruit_milk_shake",
     "description_ar": null,
     "base_price": 80,
     "sizes": [],
@@ -1999,15 +1996,14 @@
     "options": [],
     "is_new": false,
     "available": null,
-    "needs_confirmation": true,
-    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
-    "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    "needs_confirmation": false,
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
   },
   {
     "product_id": "item_097",
-    "name_ar": "بلو بيري",
-    "name_en": "Blueberry (Category TBD)",
-    "category_id": "cat_cafe_unlabeled_fruit_drinks",
+    "name_ar": "ميلك شيك بلو بيري",
+    "name_en": "Blueberry Milkshake",
+    "category_id": "cat_fruit_milk_shake",
     "description_ar": null,
     "base_price": 80,
     "sizes": [],
@@ -2015,15 +2011,14 @@
     "options": [],
     "is_new": false,
     "available": null,
-    "needs_confirmation": true,
-    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
-    "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    "needs_confirmation": false,
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
   },
   {
     "product_id": "item_098",
-    "name_ar": "باشون فروت",
-    "name_en": "Passion Fruit (Category TBD)",
-    "category_id": "cat_cafe_unlabeled_fruit_drinks",
+    "name_ar": "ميلك شيك باشون فروت",
+    "name_en": "Passion Fruit Milkshake",
+    "category_id": "cat_fruit_milk_shake",
     "description_ar": null,
     "base_price": 100,
     "sizes": [],
@@ -2031,15 +2026,14 @@
     "options": [],
     "is_new": false,
     "available": null,
-    "needs_confirmation": true,
-    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
-    "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    "needs_confirmation": false,
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
   },
   {
     "product_id": "item_099",
-    "name_ar": "خوخ",
-    "name_en": "Peach (Category TBD)",
-    "category_id": "cat_cafe_unlabeled_fruit_drinks",
+    "name_ar": "ميلك شيك خوخ",
+    "name_en": "Peach Milkshake",
+    "category_id": "cat_fruit_milk_shake",
     "description_ar": null,
     "base_price": 80,
     "sizes": [],
@@ -2047,9 +2041,8 @@
     "options": [],
     "is_new": false,
     "available": null,
-    "needs_confirmation": true,
-    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg",
-    "confirmation_note": "Category header is blank on the Cafe Drinks menu image. Confirm whether these are Smoothies, Fresh Juices, or Milkshakes."
+    "needs_confirmation": false,
+    "source_image": "WhatsApp Image 2026-11-23 at 3.556.05 PM.jpeg"
   },
   {
     "product_id": "item_100",
