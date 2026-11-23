@@ -15,6 +15,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
@@ -321,12 +322,17 @@ async def lifespan(_app: FastAPI):
         worker_task.cancel()
 
 
+_space_host = os.getenv("SPACE_HOST", "").strip()
+if _space_host and settings.dashboard_public_url == "http://127.0.0.1:8000":
+    settings.dashboard_public_url = f"https://{_space_host}"
+
 _cors_origins = list(
     dict.fromkeys(
         o
         for o in [
             "http://localhost:8000",
             "http://127.0.0.1:8000",
+            f"https://{_space_host}" if _space_host else "",
             settings.dashboard_public_url.rstrip("/"),
         ]
         if o
@@ -359,7 +365,10 @@ async def security_and_rate_limit_middleware(request: Request, call_next):
 
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
+    if os.getenv("SPACE_ID") and request.url.path == "/":
+        response.headers["Content-Security-Policy"] = "frame-ancestors 'self' https://huggingface.co https://*.hf.space"
+    else:
+        response.headers["X-Frame-Options"] = "DENY"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 

@@ -1,0 +1,48 @@
+name: Deploy to Hugging Face Spaces (Zero-Cost Docker)
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  deploy-hf-space:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Stage & upload clean runtime bundle to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
+        run: |
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_SPACE_ID" ]; then
+            echo "Skipping HF Space deploy: set GitHub Secrets HF_TOKEN and HF_SPACE_ID (e.g. username/wasla-moka-ai) to enable."
+            exit 0
+          fi
+          python -m pip install --quiet huggingface_hub
+          mkdir -p /tmp/hf_stage
+          cp Dockerfile requirements.txt /tmp/hf_stage/
+          cp deploy/hf_space_README.md /tmp/hf_stage/README.md
+          cp -r ai_service backend dashboard menu scripts /tmp/hf_stage/
+          find /tmp/hf_stage -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+          python - << 'EOF'
+          import os
+          from huggingface_hub import HfApi
+          api = HfApi(token=os.environ["HF_TOKEN"].strip())
+          space_id = os.environ["HF_SPACE_ID"].strip()
+          api.upload_folder(
+              folder_path="/tmp/hf_stage",
+              repo_id=space_id,
+              repo_type="space",
+              commit_message="Deploy Wasla AI production bundle from GitHub Actions",
+              delete_patterns=["ai_service/**", "backend/**", "dashboard/**", "menu/**", "scripts/**", "Dockerfile", "requirements.txt"],
+          )
+          print(f"Uploaded cleanly to Hugging Face Space: https://huggingface.co/spaces/{space_id}")
+          EOF

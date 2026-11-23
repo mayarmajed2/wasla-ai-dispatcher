@@ -126,7 +126,7 @@ jobs:
             wasla-prod:ci
 
           for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8000/api/ready | grep -q '"database_connected":true'; then
+            if curl -fsS http://127.0.0.1:7860/api/ready | grep -q '"database_connected":true'; then
               echo "Container ready on attempt $i"
               break
             fi
@@ -135,7 +135,7 @@ jobs:
           docker logs wasla-prod
 
           python scripts/verify_whatsapp_e2e_live.py \
-            --base-url http://127.0.0.1:8000 \
+            --base-url http://127.0.0.1:7860 \
             --verify-token ci_meta_verify_token \
             --app-secret ci_meta_app_secret_key \
             --admin-user ciadmin \
@@ -146,7 +146,7 @@ jobs:
           echo "Restarting container to verify PostgreSQL persistence & zero data loss..."
           docker restart wasla-prod
           for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8000/api/ready | grep -q '"database_connected":true'; then
+            if curl -fsS http://127.0.0.1:7860/api/ready | grep -q '"database_connected":true'; then
               echo "Container recovered after restart on attempt $i"
               break
             fi
@@ -154,7 +154,7 @@ jobs:
           done
 
           python scripts/verify_whatsapp_e2e_live.py \
-            --base-url http://127.0.0.1:8000 \
+            --base-url http://127.0.0.1:7860 \
             --verify-token ci_meta_verify_token \
             --app-secret ci_meta_app_secret_key \
             --admin-user ciadmin \
