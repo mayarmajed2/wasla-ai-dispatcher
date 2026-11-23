@@ -68,8 +68,12 @@ class WaslaAIDispatcher:
         phone_number: str,
         text: str,
         input_type: str = "text",
+        data_source: str = "api",
+        is_test: bool = False,
     ) -> DispatcherResponse:
         session = self.get_session(phone_number)
+        self._current_source = data_source
+        self._current_is_test = is_test
         clean_text = text.strip()
         if self.config.redact_pii_in_logs:
             logger.info("Incoming turn [%s]: %s", redact_pii(phone_number), redact_pii(clean_text))
@@ -315,6 +319,8 @@ class WaslaAIDispatcher:
                 "backup_phone": session.backup_phone,
                 "delivery_address": session.delivery_address,
                 "confirmed_by_customer": True,
+                "data_source": getattr(self, "_current_source", "api"),
+                "is_test": getattr(self, "_current_is_test", False),
             },
         )
         tool_calls.append(rec)

@@ -186,6 +186,7 @@ class ToolExecutor:
                         BackendCartItemPayload(
                             item_id=i.backend_item_id or 1,
                             quantity=i.quantity,
+                            size_code=i.size_code,
                             modifiers=[{"name": m["name"], "price": str(m["price"])} for m in i.modifiers],
                             notes=i.notes,
                         )
@@ -193,6 +194,8 @@ class ToolExecutor:
                     ],
                     idempotency_key=idem_key,
                     confirmed_by_customer=True,
+                    data_source=args.get("data_source", "api"),
+                    is_test=bool(args.get("is_test", False)),
                 )
                 order_res = await self.backend.confirm_and_lock_order(payload)
                 session.active_order_id = order_res.get("id")

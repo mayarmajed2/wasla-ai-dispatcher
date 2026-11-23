@@ -137,7 +137,7 @@ function renderOrders() {
     <article class="order-card ${order.status === "SUBMITTED" ? "new" : ""}">
       <div class="order-head">
         <div>
-          <span class="order-id">طلب #${order.id}</span>
+          <span class="order-id">طلب #${order.id}${order.is_test ? ' • <strong style="color:#d97706;">🧪 تجريبي (DEMO)</strong>' : ''}</span>
           <h2>${escapeHtml(order.customer_name)}</h2>
         </div>
         <span class="status-badge ${order.status.toLowerCase()}">${statusLabel(order.status)}</span>

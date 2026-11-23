@@ -125,6 +125,7 @@ class BackendCartItemPayload(BaseModel):
 
     item_id: int
     quantity: int = Field(ge=1)
+    size_code: str | None = None
     modifiers: list[dict[str, str]] = Field(default_factory=list)
     notes: str = ""
 
@@ -140,6 +141,8 @@ class BackendConfirmOrderPayload(BaseModel):
     items: list[BackendCartItemPayload] = Field(min_length=1)
     idempotency_key: str = Field(min_length=4)
     confirmed_by_customer: bool
+    data_source: str = "api"
+    is_test: bool = False
 
 
 class AudioInput(BaseModel):

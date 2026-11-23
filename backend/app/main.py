@@ -79,6 +79,14 @@ def _migrate_sqlite_columns() -> None:
             connection.execute(
                 text("ALTER TABLE orders ADD COLUMN confirmed_by_customer BOOLEAN NOT NULL DEFAULT 0")
             )
+        if "data_source" not in columns:
+            connection.execute(
+                text("ALTER TABLE orders ADD COLUMN data_source VARCHAR(32) NOT NULL DEFAULT 'api'")
+            )
+        if "is_test" not in columns:
+            connection.execute(
+                text("ALTER TABLE orders ADD COLUMN is_test BOOLEAN NOT NULL DEFAULT 0")
+            )
 
 
 def seed_moka_menu_if_empty() -> int:
@@ -146,6 +154,7 @@ class _DirectDBOrderBridge(MockBackendAdapter):
                     CartItem(
                         item_id=i.item_id,
                         quantity=i.quantity,
+                        size_code=i.size_code,
                         modifiers=i.modifiers,
                         notes=i.notes,
                     )
@@ -153,6 +162,8 @@ class _DirectDBOrderBridge(MockBackendAdapter):
                 ],
                 idempotency_key=payload.idempotency_key,
                 confirmed_by_customer=payload.confirmed_by_customer,
+                data_source=payload.data_source,
+                is_test=payload.is_test,
             )
             return await _create_order_in_db(order_payload, db)
         finally:
@@ -232,6 +243,7 @@ if (DASHBOARD_DIR / "assets").exists():
 class CartItem(BaseModel):
     item_id: int
     quantity: int = Field(ge=1)
+    size_code: str | None = None
     modifiers: list[dict] = Field(default_factory=list)
     notes: str = ""
 
@@ -245,6 +257,8 @@ class ConfirmOrder(BaseModel):
     items: list[CartItem] = Field(min_length=1)
     idempotency_key: str
     confirmed_by_customer: bool
+    data_source: str = "api"
+    is_test: bool = False
 
 
 class Directive(BaseModel):
@@ -305,11 +319,19 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
         menu_item = db.get(MenuItem, cart_item.item_id)
         if not menu_item or not menu_item.is_available:
             raise HTTPException(status_code=409, detail=f"Item {cart_item.item_id} is unavailable")
+        unit_price = str(menu_item.base_price)
+        item_name = menu_item.name
+        if cart_item.size_code and isinstance(menu_item.modifiers_json, dict):
+            for sz in menu_item.modifiers_json.get("sizes", []):
+                if str(sz.get("code", "")).upper() == cart_item.size_code.upper():
+                    unit_price = str(sz["price"])
+                    item_name = f"{menu_item.name} ({sz['code']})"
+                    break
         resolved_items.append(
             {
                 "item_id": menu_item.id,
-                "name": menu_item.name,
-                "base_price": str(menu_item.base_price),
+                "name": item_name,
+                "base_price": unit_price,
                 "quantity": cart_item.quantity,
                 "modifiers": cart_item.modifiers,
                 "notes": cart_item.notes,
@@ -329,6 +351,8 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
         total_amount=Decimal(cart["total_amount"]),
         status=OrderStatus.SUBMITTED,
         items_snapshot=cart["items"],
+        data_source=payload.data_source,
+        is_test=payload.is_test,
     )
     db.add(order)
     db.flush()
@@ -380,15 +404,18 @@ def health(db: Session = Depends(get_db)):
 
 @app.get("/api/metrics")
 def get_metrics(db: Session = Depends(get_db)):
-    """Real SQL-backed operational metrics for the Wasla Cashier Console (zero fake numbers)."""
-    orders = db.scalars(select(Order)).all()
+    """Real SQL-backed operational metrics — strictly excludes simulator/test orders from production totals."""
+    all_orders = db.scalars(select(Order)).all()
+    real_orders = [o for o in all_orders if not getattr(o, "is_test", False)]
+    test_orders = [o for o in all_orders if getattr(o, "is_test", False)]
+
     menu_items = db.scalars(select(MenuItem)).all()
     sessions = db.scalars(select(ChatSession)).all()
     feedbacks = db.scalars(select(FeedbackRequest).where(FeedbackRequest.rating.is_not(None))).all()
 
     by_status = {s.value: 0 for s in OrderStatus}
     revenue = Decimal("0.00")
-    for o in orders:
+    for o in real_orders:
         st = o.status.value if isinstance(o.status, OrderStatus) else str(o.status)
         by_status[st] = by_status.get(st, 0) + 1
         if st != OrderStatus.CANCELLED.value:
@@ -399,7 +426,8 @@ def get_metrics(db: Session = Depends(get_db)):
     handoff_count = sum(1 for s in sessions if s.needs_human_takeover)
 
     return {
-        "total_orders": len(orders),
+        "total_orders": len(real_orders),
+        "test_or_demo_orders": len(test_orders),
         "by_status": by_status,
         "total_revenue_egp": str(revenue.quantize(Decimal("0.01"))),
         "menu_total": len(menu_items),
@@ -471,8 +499,13 @@ async def toggle_menu_availability(item_id: int, payload: AvailabilityUpdate, db
 
 @app.post("/api/ai/chat")
 async def ai_chat(payload: AIChatRequest, db: Session = Depends(get_db)):
-    """Interactive Wasla AI Dispatcher endpoint wired to live Backend state & ChatSession."""
-    resp = await ai_dispatcher.handle_text(payload.phone_number, payload.message)
+    """Interactive Wasla AI Simulator endpoint — explicitly tags generated orders as simulator/is_test=True."""
+    resp = await ai_dispatcher.handle_text(
+        payload.phone_number,
+        payload.message,
+        data_source="simulator",
+        is_test=True,
+    )
 
     session_row = db.scalar(select(ChatSession).where(ChatSession.phone_number == payload.phone_number))
     if session_row is None:
@@ -520,6 +553,8 @@ def list_orders(db: Session = Depends(get_db)):
                 "total_amount": str(order.total_amount),
                 "status": order.status,
                 "items": order.items_snapshot,
+                "data_source": getattr(order, "data_source", "api"),
+                "is_test": getattr(order, "is_test", False),
                 "created_at": order.created_at.isoformat(),
                 "feedback": None
                 if feedback is None
@@ -757,7 +792,12 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
                 if message.get("type") == "text" and sender:
                     text_body = (message.get("text") or {}).get("body", "").strip()
                     if text_body:
-                        ai_resp = await ai_dispatcher.handle_text(sender, text_body)
+                        ai_resp = await ai_dispatcher.handle_text(
+                            sender,
+                            text_body,
+                            data_source="whatsapp_webhook",
+                            is_test=False,
+                        )
                         replies.append({"to": sender, "reply_ar": ai_resp.reply_ar, "intent": ai_resp.intent.value})
     db.commit()
     return {"accepted": True, "processed": processed, "replies": replies}

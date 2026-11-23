@@ -58,6 +58,8 @@ class Order(Base):
     total_amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     status: Mapped[OrderStatus] = mapped_column(String(32), default=OrderStatus.DRAFTING)
     items_snapshot: Mapped[list] = mapped_column(JSON, default=list)
+    data_source: Mapped[str] = mapped_column(String(32), nullable=False, default="api")
+    is_test: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
