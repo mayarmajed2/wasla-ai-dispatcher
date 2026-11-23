@@ -148,6 +148,27 @@ class TelegramBotClient:
     def is_configured(self) -> bool:
         return bool(self.bot_token and not self.bot_token.startswith("your_"))
 
+    async def _api_call(self, method: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        if not self.is_configured:
+            return {"ok": False, "mode": "unconfigured", "reason": "TELEGRAM_BOT_TOKEN is not configured"}
+        url = f"https://api.telegram.org/bot{self.bot_token}/{method}"
+        if self._external_client is not None:
+            resp = await self._external_client.post(url, json=payload or {})
+        else:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.post(url, json=payload or {})
+        resp.raise_for_status()
+        return resp.json()
+
+    async def get_me(self) -> dict[str, Any]:
+        return await self._api_call("getMe")
+
+    async def get_updates(self, limit: int = 25) -> dict[str, Any]:
+        return await self._api_call("getUpdates", {"limit": limit})
+
+    async def get_chat_member(self, chat_id: str, user_id: int) -> dict[str, Any]:
+        return await self._api_call("getChatMember", {"chat_id": chat_id, "user_id": user_id})
+
     async def send_message(
         self,
         chat_id: str,
@@ -205,19 +226,26 @@ class NotificationService:
         self.policy_guard = MetaPolicyGuard(settings)
 
     def format_cashier_order_message(self, order: Order) -> str:
-        """Format clean cashier group order alert with minimal customer PII + dashboard link."""
+        """Format clean cashier group order alert with sizes, add-ons, notes, minimal PII & dashboard link."""
         lines = ["NEW MOKA ORDER", "", f"Order: #{order.id}", "Items:"]
         for item in order.items_snapshot or []:
             qty = item.get("quantity", 1)
             name = item.get("name", "Item")
-            lines.append(f"- {qty}x {name}")
+            size_code = item.get("size_code")
+            size_suffix = f" [{size_code}]" if size_code and f"({size_code})" not in name else ""
+            mods = item.get("modifiers") or []
+            mod_names = [m.get("name", "") for m in mods if isinstance(m, dict) and m.get("name")]
+            mod_suffix = f" + ({', '.join(mod_names)})" if mod_names else ""
+            notes = (item.get("notes") or "").strip()
+            note_suffix = f" | Note: {notes}" if notes else ""
+            lines.append(f"- {qty}x {name}{size_suffix}{mod_suffix}{note_suffix}")
         lines.extend(
             [
                 "",
                 f"Total: {order.total_amount} EGP",
                 f"Order Type: {getattr(order, 'order_type', 'Delivery')}",
                 f"Status: {order.status.value if hasattr(order.status, 'value') else order.status}",
-                "Delivery info: Open dashboard (authorized staff only).",
+                "Delivery instructions: Authorized staff view in dashboard (PII minimized in group).",
                 f"Dashboard: {self.settings.dashboard_public_url.rstrip('/')}/#order-{order.id}",
                 f"Timestamp: {format_restaurant_time(order.created_at, self.settings.restaurant_timezone)}",
             ]
@@ -310,9 +338,12 @@ class NotificationService:
         delivery_res: dict[str, Any] = {}
         wa_blocked_reason: str | None = None
 
-        # 1. Try Owner WhatsApp ONLY if configured AND zero-cost policy permits
+        # Phase 3 Rule: Customer's active WhatsApp window NEVER authorizes free-form messages to the
+        # owner's separate WhatsApp number. Evaluate owner's WhatsApp window strictly independently,
+        # and default to the private Telegram owner channel (0 EGP) unless owner WhatsApp is explicitly
+        # opted-in (`owner_whatsapp_primary=True`) AND policy-eligible.
         owner_wa = (self.settings.restaurant_owner_whatsapp or "").strip()
-        if owner_wa and self.meta_client.is_configured:
+        if owner_wa and getattr(self.settings, "owner_whatsapp_primary", False) and self.meta_client.is_configured:
             allowed, reason = self.policy_guard.can_send_free_whatsapp_service_message(db, owner_wa)
             if allowed:
                 wa_res = await self.meta_client.send_text_message(owner_wa, msg)
@@ -322,9 +353,11 @@ class NotificationService:
                 else:
                     wa_blocked_reason = wa_res.get("error") or wa_res.get("reason")
             else:
-                wa_blocked_reason = reason
+                wa_blocked_reason = f"owner_wa_independent_check:{reason}"
+        elif owner_wa:
+            wa_blocked_reason = "owner_telegram_default_zero_cost_channel"
 
-        # 2. Immediate zero-cost Telegram fallback whenever WhatsApp unavailable/blocked/failed
+        # Primary zero-cost channel (and immediate fallback): Private Telegram owner chat
         if channel_used != "whatsapp":
             owner_tg = (
                 self.settings.restaurant_owner_telegram_chat_id or self.settings.cashier_telegram_chat_id or ""

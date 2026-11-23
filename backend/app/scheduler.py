@@ -46,19 +46,34 @@ class DurableJobScheduler:
         notification_service: NotificationService,
         review_delay_minutes: int = 60,
         arrival_check_delay_minutes: int = 90,
+        lease_seconds: int = 120,
+        worker_id: str | None = None,
     ):
         self.notification_service = notification_service
         self.review_delay_minutes = review_delay_minutes
         self.arrival_check_delay_minutes = arrival_check_delay_minutes
+        self.lease_seconds = lease_seconds
+        self.worker_id = worker_id or f"worker-{uuid.uuid4().hex[:8]}"
 
-    def recover_stale_jobs_on_startup(self, db: Session) -> int:
-        """Reset any jobs left in RUNNING state after an abrupt crash/restart."""
+    def recover_stale_jobs_on_startup(self, db: Session, now: datetime | None = None) -> int:
+        """Reset any jobs left in RUNNING state after a crash/restart or expired lease."""
+        now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
         stale = db.scalars(select(ScheduledJob).where(ScheduledJob.status == "RUNNING")).all()
+        recovered = 0
         for job in stale:
-            job.status = "PENDING"
-        if stale:
+            lu = job.locked_until
+            if lu is not None and lu.tzinfo is None:
+                lu = lu.replace(tzinfo=timezone.utc)
+            if lu is None or lu <= now:
+                job.status = "PENDING"
+                job.locked_by = None
+                job.locked_until = None
+                recovered += 1
+        if recovered:
             db.commit()
-        return len(stale)
+        return recovered
 
     def schedule_job(
         self,
@@ -170,35 +185,78 @@ class DurableJobScheduler:
             return f"unresolved_complaint_ticket_{unresolved_critical.id}"
         return None
 
-    async def process_due_jobs(self, db: Session, now: datetime | None = None) -> list[dict[str, Any]]:
-        """Execute all due PENDING/RETRYING jobs cleanly and durably."""
-        now = now or datetime.now(timezone.utc)
+    def claim_due_jobs(self, db: Session, now: datetime) -> list[ScheduledJob]:
+        """Atomically claim due PENDING/RETRYING/expired-lease jobs with worker lease protection."""
         if now.tzinfo is None:
             now = now.replace(tzinfo=timezone.utc)
-        jobs = db.scalars(
+        lease_until = now + timedelta(seconds=self.lease_seconds)
+
+        # Reclaim expired leases from crashed/sleeping workers first
+        running_jobs = db.scalars(select(ScheduledJob).where(ScheduledJob.status == "RUNNING")).all()
+        reclaimed_any = False
+        for rj in running_jobs:
+            lu = rj.locked_until
+            if lu is not None and lu.tzinfo is None:
+                lu = lu.replace(tzinfo=timezone.utc)
+            if lu is not None and lu <= now:
+                rj.status = "RETRYING"
+                rj.locked_by = None
+                rj.locked_until = None
+                reclaimed_any = True
+        if reclaimed_any:
+            db.flush()
+
+        stmt = (
             select(ScheduledJob)
             .where(ScheduledJob.status.in_(["PENDING", "RETRYING"]))
             .order_by(ScheduledJob.run_at.asc())
-        ).all()
+        )
+        dialect_name = db.bind.dialect.name if db.bind is not None else ""
+        if dialect_name == "postgresql":
+            stmt = stmt.with_for_update(skip_locked=True)
 
-        results: list[dict[str, Any]] = []
-        for job in jobs:
+        candidates = db.scalars(stmt).all()
+        claimed: list[ScheduledJob] = []
+        for job in candidates:
             run_at = job.run_at
             if run_at.tzinfo is None:
                 run_at = run_at.replace(tzinfo=timezone.utc)
             if run_at > now:
                 continue
-
+            lu = job.locked_until
+            if lu is not None and lu.tzinfo is None:
+                lu = lu.replace(tzinfo=timezone.utc)
+            if job.locked_by and lu is not None and lu > now:
+                continue
             job.status = "RUNNING"
+            job.locked_by = self.worker_id
+            job.locked_until = lease_until
             job.attempts = (job.attempts or 0) + 1
-            db.flush()
+            claimed.append(job)
 
+        if claimed:
+            db.commit()
+        return claimed
+
+    async def process_due_jobs(self, db: Session, now: datetime | None = None) -> list[dict[str, Any]]:
+        """Execute all due/missed jobs cleanly with lease locking and retry/dead-letter handling."""
+        now = now or datetime.now(timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+
+        claimed_jobs = self.claim_due_jobs(db, now)
+        results: list[dict[str, Any]] = []
+        for job in claimed_jobs:
             try:
                 outcome = await self._execute_single_job(db, job, now)
-                results.append({"job_id": job.id, "job_type": job.job_type, "outcome": outcome})
+                job.locked_by = None
+                job.locked_until = None
+                results.append({"job_id": job.id, "job_type": job.job_type, "worker_id": self.worker_id, "outcome": outcome})
             except Exception as exc:
                 logger.exception("Scheduled job %s (%s) failed: %s", job.id, job.job_type, exc)
                 job.last_error = str(exc)
+                job.locked_by = None
+                job.locked_until = None
                 if job.attempts >= job.max_attempts:
                     job.status = "DEAD_LETTER"
                     db.add(

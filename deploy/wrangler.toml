@@ -1,0 +1,7 @@
+name = "wasla-scheduler-cron"
+main = "cloudflare_cron_worker.js"
+compatibility_date = "2026-01-01"
+
+[triggers]
+# Runs every 10 minutes (zero credit card, 144 invocations/day out of 100,000 free/day)
+crons = ["*/10 * * * *"]

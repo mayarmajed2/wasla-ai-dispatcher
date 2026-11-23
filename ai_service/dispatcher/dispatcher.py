@@ -226,15 +226,17 @@ class WaslaAIDispatcher:
             if not isinstance(item_dict, dict):
                 continue
             sanitized = dict(item_dict)
-            if sanitized.get("notes") is None:
+            if not isinstance(sanitized.get("notes"), str):
                 sanitized["notes"] = ""
-            if sanitized.get("modifier_ids") is None:
+            if not isinstance(sanitized.get("modifier_ids"), list):
                 sanitized["modifier_ids"] = []
-            if sanitized.get("selected_options") is None:
+            else:
+                sanitized["modifier_ids"] = [str(m) for m in sanitized["modifier_ids"] if m is not None]
+            if not isinstance(sanitized.get("selected_options"), dict):
                 sanitized["selected_options"] = {}
-            if sanitized.get("quantity") is None:
+            if not isinstance(sanitized.get("quantity"), int) or sanitized["quantity"] < 1:
                 sanitized["quantity"] = 1
-            if sanitized.get("raw_mention") is None:
+            if not isinstance(sanitized.get("raw_mention"), str):
                 sanitized["raw_mention"] = clean_text
             raw_items.append(ExtractedOrderItem(**sanitized))
         match_meta = parsed.get("match_meta", [])

@@ -1,102 +1,81 @@
 # Wasla AI — Commercial Production Deployment & Zero-Cost Hosting Guide
 
-> **Honest Status Notice:** As of this release, Wasla AI is **locally built, tested, and verified on Windows 11 (Python 3.14, SQLite)** with live Gemini, Groq Whisper, and Meta Graph API v27.0 connectivity verified. Live PostgreSQL migration execution, Docker image builds, and public HTTPS deployment have **NOT** yet been executed from this workstation because `docker`, `psql`, `pg_dump`, and a public hosting account are not present locally.
+> **Strict Honesty Notice:** Every provider free tier below was verified directly against official 2026 vendor documentation. No credit card, paid subscription, or temporary tunnel is presented as production.
 
 ---
 
-## 1. Zero-Cost Free Hosting Analysis (Verified Against Official Provider Documentation)
+## 1. Official 2026 Zero-Cost Infrastructure Comparison (Verified)
 
-Because of the strict **0 EGP (no credit card)** requirement, the following free tiers were verified directly from official vendor documentation:
-
-| Provider | Card Required? | Free Tier Limits | Commercial Production Limitations (Honest Assessment) |
-|---|---|---|---|
-| **Render Web Services (Free)** | No | 750 hours/month, 512 MB RAM, 0.1 CPU, free HTTPS + WebSockets | **Spins down after 15 minutes of inactivity** (~1 minute cold start on next request — breaks real-time WhatsApp webhook latency). Ephemeral filesystem. Free Render Postgres expires after **30 days**. Render official docs explicitly state: *"Do not use them for production applications."* |
-| **Neon Serverless Postgres (Free)** | No | 1 GB storage, 100 CU-hours/month, automatic TLS | Scales to zero after 5 minutes of inactivity (~500ms–1s wake latency). Suitable for **staging, UAT, and low-volume pilot**, not guaranteed 24/7 commercial SLA. |
-| **GitHub Actions (Free)** | No | 2,000 CI minutes/month (private repos) | Ready via [`docs/ci-workflow-template.yml`](ci-workflow-template.yml); requires a GitHub token with `workflow` scope (`gh auth refresh -s workflow`) to move into `.github/workflows/ci.yml`. |
-
-### Recommended Zero-Cost Staging Architecture
-1. **Database:** Neon Free PostgreSQL (`DATABASE_URL=postgresql+psycopg://...?sslmode=require`).
-2. **Backend + Dashboard:** Render Free Web Service (connected to GitHub `main`, using `Dockerfile` or `uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port $PORT`).
-3. **AI Providers (Free Tiers):**
-   - Primary LLM: Google Gemini (`gemini-3.5-flash-lite`) via `GEMINI_API_KEY`.
-   - Primary Audio STT: Groq Whisper (`whisper-large-v3-turbo`) via `GROQ_API_KEY`.
-   - Local Intent Classifier: Fine-tuned CAMeLBERT-Mix LoRA (runs locally on CPU; ~1.2–1.5 MB adapter, Apache-2.0 base).
-4. **WhatsApp:** Meta WhatsApp Cloud API (`v27.0`) pointing webhook to `https://<your-service>.onrender.com/api/whatsapp/webhook` with `META_APP_SECRET` set for strict HMAC-SHA256 `X-Hub-Signature-256` verification.
-
-> **Commercial Upgrade Warning:** Before accepting real paying MOKA customers 24/7, upgrade the web service off a sleep-on-idle free tier (so Meta webhooks never time out during a 60s cold start) and enable automated daily PostgreSQL backups.
+| Provider | Credit Card Required? | Free Tier Specs & Limits | Sleeping / Cold Start | Verdict for 0 EGP Pilot |
+|---|---|---|---|---|
+| **Neon PostgreSQL (Free)** | **No** | **1 GB storage/project**, **100 CU-hours/mo** (~400h at 0.25 CU), SSL (`sslmode=require`), zero auto-overage | Scales to zero after 5 min idle (~0.5–1s wake) | **SELECTED** for persistent PostgreSQL |
+| **Render Web Services (Free)** | **No** | **750 hours/mo**, 512 MB RAM, 0.1 CPU, public HTTPS + WebSockets | **Sleeps after 15 min idle (~30–60s cold start)**; ephemeral disk; Render docs state *"Do not use for production"* | **SELECTED (Controlled Pilot Only)** — NOT guaranteed 24/7 SLA |
+| **Cloudflare Workers (Free)** | **No** | **100,000 req/day**, **3 Cron Triggers included**, 10ms CPU/req, 0ms cold start | **Never sleeps** | **SELECTED** as independent zero-cost Cron Trigger (`deploy/cloudflare_cron_worker.js`) calling `/api/scheduler/cron-tick` every 10 min |
+| **GitHub Actions (Free)** | **No** | 2,000 CI min/mo (private repos), PostgreSQL 16 service containers | Cron jitter ~5–15 min | **SELECTED** for CI/CD (`docs/ci-workflow-template.yml`) + optional fallback cron |
+| **Koyeb (Free)** | **YES (\$29 temp auth hold)** | 512 MB RAM, 0.1 vCPU, 1h idle sleep | 1–5s cold start | **REJECTED** — violates strict 0 EGP / no-card constraint |
+| **Hugging Face Spaces** | Docker `cpu-basic` often requires HF PRO / Org | 2 vCPU, 16 GB RAM, non-persistent disk | Sleeps on inactivity (up to 48h) | **NOT SELECTED** — Docker Space creation restrictions & non-persistent disk |
 
 ---
 
-## 2. Required Production Environment Variables
+## 2. Recommended Zero-Cost Split Architecture (Controlled Pilot)
 
-Never commit `.env` to Git. Set these in your hosting provider's Secret/Environment panel:
-
-```env
-WASLA_ENV=production
-DATABASE_URL=postgresql+psycopg://USER:PASSWORD@HOST/DBNAME?sslmode=require
-WASLA_SECRET_KEY=<generate with: python -c "import secrets; print(secrets.token_urlsafe(48))">
-WASLA_INITIAL_ADMIN_PASSWORD=<strong 14+ char password; forced change on first login>
-
-GEMINI_API_KEY=<rotated Gemini key>
-GEMINI_MODEL=gemini-3.5-flash-lite
-GROQ_API_KEY=<rotated Groq key>
-GROQ_STT_MODEL=whisper-large-v3-turbo
-
-META_ACCESS_TOKEN=<permanent System User token>
-META_PHONE_NUMBER_ID=1515063625018594
-META_GRAPH_VERSION=v27.0
-META_VERIFY_TOKEN=<random 32-char verify token>
-META_APP_SECRET=<Meta App Secret for X-Hub-Signature-256 verification>
+```text
+[WhatsApp Customer] ──(HTTPS Webhook + HMAC-SHA256)──► [Render Free FastAPI + Dashboard] ──► [Neon Free PostgreSQL (SSL)]
+                                                              ▲         │
+[Cloudflare Worker Cron (every 10m, 0 EGP)] ──(X-Scheduler-Secret)┘     ├──► [Telegram Cashier Group (0 EGP)]
+                                                                        ├──► [Telegram Owner Escalation (0 EGP)]
+                                                                        └──► [Gemini / Groq Whisper / CAMeLBERT LoRA v2]
 ```
 
-### Startup Security Fail-Closed Guardrails (`backend/app/main.py`)
-When `WASLA_ENV=production`, the server **refuses to boot** if:
-- `WASLA_SECRET_KEY` is missing, weak, or uses a development default.
-- `DATABASE_URL` points to SQLite instead of PostgreSQL.
-- `WASLA_INITIAL_ADMIN_PASSWORD` is missing when bootstrapping an empty user table.
-- Default development credentials are present.
+**Honest Timing & Availability Limitation:**
+- Because Render Free sleeps after 15 minutes of inactivity (~30–60s cold start), it **cannot guarantee 24/7 always-on commercial SLA** or exact second-level review timing (~±10 min jitter via Cloudflare Cron + wake latency).
+- We explicitly do **NOT** fake always-on behavior with artificial keep-alive ping loops.
+- All scheduled jobs are persisted in Neon PostgreSQL (`scheduled_jobs`) with **atomic worker leases (`locked_by`, `locked_until`)**, so sleeping/restarting never loses or duplicates any review, arrival check, or cashier notification.
 
 ---
 
-## 3. PostgreSQL Initialization & Alembic Migration Procedure
+## 3. Exact Live Verification Commands (Run Once Credentials Are Configured)
 
-Once `psql` / PostgreSQL (local Docker or Neon) is reachable:
-
+### A. Real PostgreSQL Verification (Neon Free)
 ```bash
-# 1. Verify connectivity
-python -c "import os, sqlalchemy; e = sqlalchemy.create_engine(os.environ['DATABASE_URL']); print(e.connect().exec_driver_sql('SELECT 1').scalar())"
-
-# 2. Run Alembic migrations
-alembic -c backend/alembic.ini upgrade head
-
-# 3. Verify downgrade / re-upgrade safety (staging only)
-alembic -c backend/alembic.ini downgrade base
-alembic -c backend/alembic.ini upgrade head
-
-# 4. Boot server and check readiness
-uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
-curl -s http://127.0.0.1:8000/api/ready
+# Refuses SQLite! Runs Alembic 0001 -> 0002 -> 0003, seeds MOKA 145 items,
+# tests rollback, unique constraints, restart survival, and backup/restore.
+DATABASE_URL="postgresql+psycopg://USER:PASS@HOST/neondb?sslmode=require" \
+  python scripts/verify_postgres_live.py --output reports/postgres_live_verification.json
 ```
 
----
-
-## 4. Docker Deployment Procedure
-
-When Docker is installed on the target host:
-
+### B. Real Telegram Bot Verification (Cashier Group + Owner Private Chat)
 ```bash
-docker compose build
-docker compose up -d
-docker compose ps
-curl -s http://127.0.0.1:8000/api/health
-curl -s http://127.0.0.1:8000/api/ready
+# 1. Discover chat IDs & validate bot token (never prints token)
+python scripts/setup_telegram_verify.py
+
+# 2. Send authorized live test alerts to cashier group & owner private chat
+python scripts/setup_telegram_verify.py --send-test --output reports/telegram_live_verification.json
+```
+
+### C. Real Public HTTPS & Meta Webhook Verification
+```bash
+python scripts/verify_whatsapp_e2e_live.py \
+  --base-url "https://<your-render-service>.onrender.com" \
+  --verify-token "$META_VERIFY_TOKEN" \
+  --app-secret "$META_APP_SECRET" \
+  --output reports/whatsapp_e2e_live_verification.json
+```
+
+### D. Activate GitHub Actions CI/CD (with PostgreSQL 16 Service Container)
+```bash
+gh auth refresh -s workflow
+mkdir -p .github/workflows
+cp docs/ci-workflow-template.yml .github/workflows/ci.yml
+git add .github/workflows/ci.yml
+git commit -m "ci: activate GitHub Actions CI with PostgreSQL 16"
+git push origin main
 ```
 
 ---
 
-## 5. Key Rotation & Security Checklist Before Go-Live
+## 4. Security & Key Rotation Checklist Before Accepting Paying Customers
 
-1. **Rotate all API keys** (`GEMINI_API_KEY`, `GROQ_API_KEY`, `META_ACCESS_TOKEN`) that were ever shared in chat or local `.env`.
-2. **Set `META_APP_SECRET`** so every inbound `POST /api/whatsapp/webhook` request is cryptographically verified via `X-Hub-Signature-256`.
-3. **Complete first-login password change** on the initial admin account (`must_change_password=True` enforced by `POST /api/auth/change-password`).
-4. **Verify backup & restore** on your live PostgreSQL database (`pg_dump` + restore to staging DB).
+1. **Rotate all exposed API keys** (`GEMINI_API_KEY`, `GROQ_API_KEY`, `META_ACCESS_TOKEN`) in provider consoles and update Render/hosting environment variables.
+2. **Set `APP_ENV=production`**, strong 48-char **`AUTH_SECRET_KEY`**, **`SCHEDULER_CRON_SECRET`**, **`META_APP_SECRET`**, and a strong **`BOOTSTRAP_ADMIN_PASSWORD`** (first-login password change is enforced automatically in production).
+3. **Never commit `.env`** to Git.

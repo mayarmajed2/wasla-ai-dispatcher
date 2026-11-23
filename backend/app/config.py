@@ -28,11 +28,14 @@ class Settings(BaseSettings):
     restaurant_owner_whatsapp: str = ""
     restaurant_owner_telegram_chat_id: str = ""
     complaint_escalation_enabled: bool = True
+    owner_whatsapp_primary: bool = False  # Default: private Telegram zero-cost channel first
 
     # Sales Assistant & Review Scheduling
     upsell_enabled: bool = True
     review_delay_minutes: int = 60
     arrival_check_delay_minutes: int = 90
+    scheduler_cron_secret: str = ""
+    scheduler_lease_seconds: int = 120
 
     # Authentication & RBAC
     auth_secret_key: str = "change-me-in-production-min-32-chars-secret"

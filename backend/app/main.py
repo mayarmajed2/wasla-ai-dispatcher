@@ -138,6 +138,17 @@ def _migrate_sqlite_columns() -> None:
             if fb_cols and col_name not in fb_cols:
                 connection.execute(text(f"ALTER TABLE feedback_requests ADD COLUMN {col_name} {col_def}"))
 
+        job_cols = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info(scheduled_jobs)")).fetchall()
+        }
+        for col_name, col_def in [
+            ("locked_by", "VARCHAR(64)"),
+            ("locked_until", "DATETIME"),
+        ]:
+            if job_cols and col_name not in job_cols:
+                connection.execute(text(f"ALTER TABLE scheduled_jobs ADD COLUMN {col_name} {col_def}"))
+
         user_cols = {
             row[1]
             for row in connection.execute(text("PRAGMA table_info(users)")).fetchall()
@@ -1631,6 +1642,27 @@ async def run_due_scheduler_jobs(
     log_audit(db, admin.username, "scheduler_run_due", target="scheduled_jobs", details={"processed": len(results)})
     db.commit()
     return {"processed": len(results), "results": results}
+
+
+@app.post("/api/scheduler/cron-tick")
+async def scheduler_cron_tick(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    """External zero-cost cron endpoint (Cloudflare Workers Cron / GitHub Actions Cron).
+
+    Requires a configured `SCHEDULER_CRON_SECRET` passed in `X-Scheduler-Secret` header.
+    Executes due and missed jobs with atomic worker lease locking.
+    """
+    expected = (settings.scheduler_cron_secret or "").strip()
+    provided = request.headers.get("X-Scheduler-Secret", "").strip()
+    if not expected:
+        raise HTTPException(status_code=503, detail="SCHEDULER_CRON_SECRET is not configured")
+    if not provided or not hmac.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="Invalid scheduler secret")
+    recovered = job_scheduler.recover_stale_jobs_on_startup(db)
+    results = await job_scheduler.process_due_jobs(db)
+    return {"ok": True, "recovered_stale": recovered, "processed": len(results), "results": results}
 
 
 @app.get("/api/settings/notifications")
