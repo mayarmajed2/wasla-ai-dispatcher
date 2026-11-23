@@ -427,7 +427,7 @@ class NotificationService:
         if not self.settings.complaint_escalation_enabled:
             return {"escalated": False, "reason": "complaint_escalation_disabled"}
 
-        # Deduplicate repeated notifications for the same unresolved incident unless critical new info arrives
+        # Deduplicate repeated notifications once actually delivered unless critical new info arrives
         if ticket.owner_notified and not critical_update:
             return {
                 "escalated": False,
@@ -436,8 +436,9 @@ class NotificationService:
                 "channel": ticket.escalation_channel,
             }
 
-        seq = ticket.escalation_count + 1
+        seq = (ticket.escalation_count + 1) if (critical_update or ticket.escalation_count == 0) else ticket.escalation_count
         idem_key = f"owner_complaint:{ticket.id}:v{seq}"
+        existing_attempt = db.scalar(select(NotificationAttempt).where(NotificationAttempt.idempotency_key == idem_key))
         msg = self.format_owner_complaint_message(ticket)
 
         channel_used = "dashboard_only"
@@ -463,11 +464,9 @@ class NotificationService:
         elif owner_wa:
             wa_blocked_reason = "owner_telegram_default_zero_cost_channel"
 
-        # Primary zero-cost channel (and immediate fallback): Private Telegram owner chat
+        # Primary zero-cost channel (and immediate fallback): Strictly private Telegram owner chat (never cashier group)
         if channel_used != "whatsapp":
-            owner_tg = (
-                self.settings.restaurant_owner_telegram_chat_id or self.settings.cashier_telegram_chat_id or ""
-            ).strip()
+            owner_tg = (self.settings.restaurant_owner_telegram_chat_id or "").strip()
             tg_res = await self.telegram_client.send_message(owner_tg, msg)
             delivery_res = {"whatsapp_skipped_reason": wa_blocked_reason, "telegram": tg_res}
             if tg_res.get("sent"):
@@ -479,21 +478,33 @@ class NotificationService:
         if channel_used == "dashboard_only" and delivery_res.get("telegram", {}).get("mode") == "unconfigured":
             status = "DRY_RUN"
 
-        db.add(
-            NotificationAttempt(
-                idempotency_key=idem_key,
-                notification_type="owner_complaint",
-                channel=channel_used,
-                recipient_ref="restaurant_owner",
-                order_id=ticket.order_id,
-                complaint_id=ticket.id,
-                status=status,
-                attempts=1,
-                provider_response=delivery_res,
-                last_error=None if status == "SENT" else (wa_blocked_reason or delivery_res.get("telegram", {}).get("reason")),
-            )
+        last_err = (
+            None
+            if status == "SENT"
+            else (delivery_res.get("telegram", {}).get("error") or delivery_res.get("telegram", {}).get("reason") or wa_blocked_reason)
         )
-        ticket.owner_notified = True
+        if existing_attempt is not None:
+            existing_attempt.channel = channel_used
+            existing_attempt.status = status
+            existing_attempt.attempts = (existing_attempt.attempts or 0) + 1
+            existing_attempt.provider_response = delivery_res
+            existing_attempt.last_error = last_err
+        else:
+            db.add(
+                NotificationAttempt(
+                    idempotency_key=idem_key,
+                    notification_type="owner_complaint",
+                    channel=channel_used,
+                    recipient_ref="restaurant_owner",
+                    order_id=ticket.order_id,
+                    complaint_id=ticket.id,
+                    status=status,
+                    attempts=1,
+                    provider_response=delivery_res,
+                    last_error=last_err,
+                )
+            )
+        ticket.owner_notified = (status == "SENT")
         ticket.status = "ESCALATED" if ticket.status == "OPEN" else ticket.status
         ticket.escalation_channel = channel_used
         ticket.escalation_count = seq
@@ -501,10 +512,11 @@ class NotificationService:
         db.flush()
 
         return {
-            "escalated": True,
+            "escalated": status == "SENT",
             "ticket_id": ticket.id,
             "channel": channel_used,
             "status": status,
+            "error": last_err,
             "whatsapp_skipped_reason": wa_blocked_reason,
         }
 

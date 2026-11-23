@@ -356,3 +356,219 @@ def test_telegram_get_updates_offset_and_wasla_ai_group_discovery(tmp_path):
 
     asyncio.run(_run())
 
+
+def test_database_url_normalization_for_psycopg_and_pg8000(monkeypatch):
+    """Verify standard Neon postgres:// and postgresql:// URLs normalize properly on Windows & Linux Docker."""
+    import app.database as db_mod
+
+    # 1. Simulate missing psycopg (Windows): must normalize to postgresql+pg8000:// with SSL & strip unsupported params
+    monkeypatch.setitem(sys.modules, "psycopg", None)
+    pg_url = "postgres://user:pass@ep-demo-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+    eng_pg8000 = db_mod.build_sqlalchemy_engine(pg_url)
+    assert eng_pg8000.dialect.name == "postgresql"
+    assert eng_pg8000.url.drivername == "postgresql+pg8000"
+    assert "sslmode" not in eng_pg8000.url.query
+    eng_pg8000.dispose()
+
+    # 2. Verify psycopg rewrite rule exists and SQLite URL remains untouched
+    sqlite_eng = db_mod.build_sqlalchemy_engine("sqlite:///./unit_check.db")
+    assert sqlite_eng.dialect.name == "sqlite"
+    sqlite_eng.dispose()
+
+
+def test_owner_complaint_telegram_failure_persists_retry_job_and_recovers(tmp_path):
+    """Failed owner Telegram alert preserves complaint ticket + takeover, queues retry in DB, and recovers once without duplicating into cashier group."""
+    isolated_db = tmp_path / "owner_retry.db"
+    os.environ["DATABASE_URL"] = f"sqlite:///{isolated_db.as_posix()}"
+
+    for mod in ["app.config", "app.database", "app.models", "app.auth", "app.notifications", "app.scheduler", "app.main"]:
+        if mod in sys.modules:
+            del sys.modules[mod]
+
+    import app.config as cfg_mod  # noqa: E402
+    import app.database as db_mod  # noqa: E402
+    import app.main as main_mod  # noqa: E402
+    from app.models import ComplaintTicket, NotificationAttempt, ScheduledJob  # noqa: E402
+
+    main_mod._migrate_sqlite_columns()
+    main_mod.seed_moka_menu_if_empty()
+
+    tg_fail = {"fail": True}
+    sent_targets: list[str] = []
+
+    def tg_handler(req: httpx.Request) -> httpx.Response:
+        if tg_fail["fail"]:
+            return httpx.Response(429, json={"ok": False, "error_code": 429, "description": "Too Many Requests: retry after 32"})
+        import json
+        body = json.loads(req.read().decode("utf-8"))
+        sent_targets.append(str(body.get("chat_id")))
+        return httpx.Response(200, json={"ok": True, "result": {"message_id": len(sent_targets) + 500}})
+
+    mock_tg = httpx.AsyncClient(transport=httpx.MockTransport(tg_handler))
+    cfg_mod.settings.telegram_bot_token = "MOCK_TG_TOKEN"
+    cfg_mod.settings.cashier_telegram_chat_id = "-100111"
+    cfg_mod.settings.restaurant_owner_telegram_chat_id = "999000111"
+    main_mod.telegram_client.bot_token = "MOCK_TG_TOKEN"
+    main_mod.telegram_client._external_client = mock_tg
+
+    async def _run():
+        transport = httpx.ASGITransport(app=main_mod.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            r = await client.post(
+                "/api/ai/chat",
+                json={"phone_number": "01066667777", "message": "في حشرة في الأكل وبطني وجعتني"},
+            )
+            assert r.status_code == 200
+            data = r.json()
+            assert data["complaint_escalation"]["status"] == "FAILED"
+            assert data["needs_human_takeover"] is True
+
+        db = db_mod.SessionLocal()
+        ticket = db.scalar(select(ComplaintTicket))
+        assert ticket is not None
+        assert ticket.owner_notified is False
+        assert ticket.status == "ESCALATED"
+        retry_job = db.scalar(
+            select(ScheduledJob).where(ScheduledJob.idempotency_key == f"owner_complaint_retry:{ticket.id}")
+        )
+        assert retry_job is not None and retry_job.status == "PENDING"
+
+        # Telegram recovers -> scheduler executes retry once strictly to owner private chat
+        tg_fail["fail"] = False
+        now = datetime.now(timezone.utc) + timedelta(minutes=2)
+        res = await main_mod.job_scheduler.process_due_jobs(db, now=now)
+        assert len(res) == 1
+        assert res[0]["job_type"] == "owner_complaint_notification"
+        db.refresh(ticket)
+        db.refresh(retry_job)
+        assert ticket.owner_notified is True
+        assert retry_job.status == "COMPLETED"
+        assert sent_targets == ["999000111"]  # Never sent to cashier group -100111!
+
+        # Replay tick sends 0 duplicates
+        res2 = await main_mod.job_scheduler.process_due_jobs(db, now=now + timedelta(minutes=1))
+        assert len(res2) == 0
+        assert len(sent_targets) == 1
+        attempt = db.scalar(select(NotificationAttempt))
+        assert attempt is not None and attempt.status == "SENT" and attempt.attempts == 2
+        db.close()
+        await mock_tg.aclose()
+
+    asyncio.run(_run())
+
+
+def test_meta_webhook_statuses_hmac_and_full_order_acceptance_flow(tmp_path):
+    """Tests Meta GET handshake, invalid HMAC 401, signed POST statuses + deduplication, and full order/review resilience."""
+    import hashlib
+    import hmac
+    import json
+
+    isolated_db = tmp_path / "meta_e2e.db"
+    os.environ["DATABASE_URL"] = f"sqlite:///{isolated_db.as_posix()}"
+
+    for mod in ["app.config", "app.database", "app.models", "app.auth", "app.notifications", "app.scheduler", "app.main"]:
+        if mod in sys.modules:
+            del sys.modules[mod]
+
+    import app.config as cfg_mod  # noqa: E402
+    import app.database as db_mod  # noqa: E402
+    import app.main as main_mod  # noqa: E402
+    from app.models import FeedbackRequest, Outbox, ScheduledJob  # noqa: E402
+
+    main_mod._migrate_sqlite_columns()
+    main_mod.seed_moka_menu_if_empty()
+    main_mod.seed_initial_admin_if_empty()
+
+    cfg_mod.settings.meta_verify_token = "verify-token-e2e"
+    cfg_mod.settings.meta_app_secret = "app-secret-e2e-123"
+    cfg_mod.settings.telegram_bot_token = "MOCK_TG_TOKEN"
+    cfg_mod.settings.cashier_telegram_chat_id = "-100111"
+
+    tg_fail = {"fail": True}
+    tg_deliveries: list[str] = []
+
+    def tg_handler(req: httpx.Request) -> httpx.Response:
+        if tg_fail["fail"]:
+            return httpx.Response(503, json={"ok": False, "description": "Temporary TG outage"})
+        tg_deliveries.append(req.read().decode("utf-8"))
+        return httpx.Response(200, json={"ok": True, "result": {"message_id": 777}})
+
+    mock_tg = httpx.AsyncClient(transport=httpx.MockTransport(tg_handler))
+    main_mod.telegram_client.bot_token = "MOCK_TG_TOKEN"
+    main_mod.telegram_client._external_client = mock_tg
+
+    async def _run():
+        transport = httpx.ASGITransport(app=main_mod.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            # 1. Meta GET verification
+            bad_get = await client.get("/api/webhook", params={"hub.mode": "subscribe", "hub.verify_token": "wrong", "hub.challenge": "abc"})
+            assert bad_get.status_code == 403
+            ok_get = await client.get("/api/webhook", params={"hub.mode": "subscribe", "hub.verify_token": "verify-token-e2e", "hub.challenge": "chal99"})
+            assert ok_get.status_code == 200 and ok_get.text == "chal99"
+
+            # 2. Signed POST statuses + invalid HMAC 401 + replay dedup
+            payload = {
+                "object": "whatsapp_business_account",
+                "entry": [{
+                    "changes": [{
+                        "value": {
+                            "statuses": [
+                                {"id": "wamid.out.1", "status": "sent", "timestamp": "1763900001"},
+                                {"id": "wamid.out.1", "status": "delivered", "timestamp": "1763900005"},
+                            ]
+                        }
+                    }]
+                }],
+            }
+            raw = json.dumps(payload).encode("utf-8")
+            bad_post = await client.post("/api/webhook", content=raw, headers={"X-Hub-Signature-256": "sha256=deadbeef"})
+            assert bad_post.status_code == 401
+
+            sig = "sha256=" + hmac.new(b"app-secret-e2e-123", raw, hashlib.sha256).hexdigest()
+            ok_post = await client.post("/api/webhook", content=raw, headers={"X-Hub-Signature-256": sig, "Content-Type": "application/json"})
+            assert ok_post.status_code == 200 and ok_post.json()["status_updates"] == 2
+            dup_post = await client.post("/api/webhook", content=raw, headers={"X-Hub-Signature-256": sig, "Content-Type": "application/json"})
+            assert dup_post.status_code == 200 and dup_post.json()["status_updates"] == 0
+
+            # 3. Order saved even during Telegram outage -> recovery -> DELIVERED -> 1h review scheduled
+            o = await client.post(
+                "/api/orders",
+                json={
+                    "customer_name": "نور محمد",
+                    "customer_phone": "01088889999",
+                    "backup_phone": "01188889999",
+                    "delivery_address": "مدينة نصر شارع عباس العقاد",
+                    "zone_name": "default",
+                    "items": [{"item_id": 1, "quantity": 1}],
+                    "idempotency_key": "e2e-meta-order-1",
+                    "confirmed_by_customer": True,
+                },
+            )
+            assert o.status_code == 201
+            oid = o.json()["id"]
+            assert o.json()["cashier_notification"]["status"] == "FAILED"
+
+            login = await client.post(
+                "/api/auth/login",
+                json={"username": cfg_mod.settings.bootstrap_admin_username, "password": cfg_mod.settings.bootstrap_admin_password},
+            )
+            headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+            arr = await client.post(f"/api/orders/{oid}/confirm-arrival", headers=headers)
+            assert arr.status_code == 200 and arr.json()["status"] == "DELIVERED"
+
+            db = db_mod.SessionLocal()
+            st_events = [e for e in db.scalars(select(Outbox)).all() if e.event_type == "whatsapp_delivery_status"]
+            assert len(st_events) == 2
+            assert db.scalar(select(FeedbackRequest).where(FeedbackRequest.order_id == oid)) is not None
+            tg_fail["fail"] = False
+            await main_mod.job_scheduler.process_due_jobs(db, now=datetime.now(timezone.utc) + timedelta(minutes=2))
+            assert len(tg_deliveries) == 1
+            retry_j = db.scalar(select(ScheduledJob).where(ScheduledJob.idempotency_key == f"cashier_notify_retry:{oid}"))
+            assert retry_j is not None and retry_j.status == "COMPLETED"
+            db.close()
+
+        await mock_tg.aclose()
+
+    asyncio.run(_run())
+
+

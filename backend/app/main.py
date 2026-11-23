@@ -321,10 +321,21 @@ async def lifespan(_app: FastAPI):
         worker_task.cancel()
 
 
+_cors_origins = list(
+    dict.fromkeys(
+        o
+        for o in [
+            "http://localhost:8000",
+            "http://127.0.0.1:8000",
+            settings.dashboard_public_url.rstrip("/"),
+        ]
+        if o
+    )
+)
 app = FastAPI(title="Wasla — Restaurant AI Dispatcher", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -630,6 +641,8 @@ def readiness(db: Session = Depends(get_db)):
             "groq_whisper_configured": bool(wasla_config.groq_api_key and not wasla_config.groq_api_key.startswith("your_")),
             "meta_whatsapp_configured": meta_client.is_configured,
             "meta_webhook_hmac_enabled": bool(settings.meta_app_secret),
+            "telegram_configured": telegram_client.is_configured,
+            "scheduler_cron_configured": bool(settings.scheduler_cron_secret.strip()),
             "finetuned_lora_checkpoint_exists": ai_dispatcher.finetuned_intent.checkpoint_exists,
             "finetuned_lora_loaded": ai_dispatcher.finetuned_intent.is_loaded,
         },
@@ -968,6 +981,9 @@ async def _persist_ai_interaction(
             db.flush()
             escalation_result = await notification_service.escalate_complaint_to_owner(db, ticket)
 
+        if escalation_result and escalation_result.get("status") == "FAILED":
+            job_scheduler.schedule_owner_complaint_retry(db, ticket, delay_seconds=30)
+
         session_row.needs_human_takeover = True
         session_row.human_takeover_at = session_row.human_takeover_at or now
         ai_dispatcher.set_human_takeover(phone_number, True, actor="complaint_auto_escalation")
@@ -1259,7 +1275,9 @@ async def submit_feedback(token: str, payload: FeedbackInput, db: Session = Depe
             )
             db.add(ticket)
             db.flush()
-            await notification_service.escalate_complaint_to_owner(db, ticket)
+            fb_esc = await notification_service.escalate_complaint_to_owner(db, ticket)
+            if fb_esc.get("status") == "FAILED":
+                job_scheduler.schedule_owner_complaint_retry(db, ticket, delay_seconds=30)
     db.commit()
     return {"status": "submitted", "rating": payload.rating, "issue_reported": feedback.issue_reported}
 
@@ -1291,10 +1309,35 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
 
     body = json.loads(raw_body.decode("utf-8"))
     processed = 0
+    status_updates = 0
     replies = []
     for entry in body.get("entry", []):
         for change in entry.get("changes", []):
-            for message in change.get("value", {}).get("messages", []):
+            value = change.get("value", {})
+            for st in value.get("statuses", []):
+                st_id = st.get("id")
+                st_val = st.get("status", "")
+                if not st_id or not st_val:
+                    continue
+                dedup_key = f"status:{st_id}:{st_val}"
+                if db.scalar(select(ProcessedMessage).where(ProcessedMessage.meta_message_id == dedup_key)) is not None:
+                    continue
+                db.add(ProcessedMessage(meta_message_id=dedup_key))
+                db.add(
+                    Outbox(
+                        event_id=str(uuid.uuid4()),
+                        event_type="whatsapp_delivery_status",
+                        payload={
+                            "wamid": st_id,
+                            "status": st_val,
+                            "timestamp": st.get("timestamp"),
+                            "errors": st.get("errors"),
+                        },
+                    )
+                )
+                status_updates += 1
+
+            for message in value.get("messages", []):
                 meta_id = message.get("id")
                 if not meta_id:
                     continue
@@ -1366,7 +1409,7 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
                         except Exception as exc:
                             replies.append({"to": sender, "audio_error": str(exc)})
     db.commit()
-    return {"accepted": True, "processed": processed, "replies": replies}
+    return {"accepted": True, "processed": processed, "status_updates": status_updates, "replies": replies}
 
 
 # ==============================================================================
@@ -1613,7 +1656,7 @@ def customer_experience_overview(
         "notifications": {
             "telegram_configured": telegram_client.is_configured and bool(settings.cashier_telegram_chat_id),
             "owner_telegram_configured": telegram_client.is_configured
-            and bool(settings.restaurant_owner_telegram_chat_id or settings.cashier_telegram_chat_id),
+            and bool(settings.restaurant_owner_telegram_chat_id),
             "groups_api_eligibility": notification_service.policy_guard.groups_api_eligibility(),
             "recent_attempts": [
                 {

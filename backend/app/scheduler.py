@@ -160,6 +160,18 @@ class DurableJobScheduler:
             max_attempts=5,
         )
 
+    def schedule_owner_complaint_retry(self, db: Session, ticket: ComplaintTicket, delay_seconds: int = 30) -> ScheduledJob:
+        return self.schedule_job(
+            db,
+            idempotency_key=f"owner_complaint_retry:{ticket.id}",
+            job_type="owner_complaint_notification",
+            run_at=datetime.now(timezone.utc) + timedelta(seconds=delay_seconds),
+            order_id=ticket.order_id,
+            customer_phone=ticket.customer_phone,
+            payload={"ticket_id": ticket.id},
+            max_attempts=5,
+        )
+
     def check_review_suppression(self, db: Session, order: Order, feedback: FeedbackRequest | None) -> str | None:
         """Return suppression reason if review MUST NOT be sent, else None."""
         status_str = order.status.value if hasattr(order.status, "value") else str(order.status)
@@ -275,6 +287,21 @@ class DurableJobScheduler:
         return results
 
     async def _execute_single_job(self, db: Session, job: ScheduledJob, now: datetime) -> dict[str, Any]:
+        if job.job_type == "owner_complaint_notification":
+            ticket_id = (job.payload or {}).get("ticket_id")
+            ticket = db.get(ComplaintTicket, ticket_id) if ticket_id else None
+            if ticket is None or ticket.status == "RESOLVED" or ticket.owner_notified:
+                job.status = "SUPPRESSED"
+                job.last_error = "ticket_missing_resolved_or_already_notified"
+                job.completed_at = now
+                return {"status": "SUPPRESSED", "reason": job.last_error}
+            res = await self.notification_service.escalate_complaint_to_owner(db, ticket)
+            if res.get("status") == "FAILED":
+                raise RuntimeError(res.get("error") or "Owner Telegram escalation failed")
+            job.status = "COMPLETED"
+            job.completed_at = now
+            return {"status": "COMPLETED", "delivery": res}
+
         order = db.get(Order, job.order_id) if job.order_id else None
         if order is None:
             job.status = "SUPPRESSED"

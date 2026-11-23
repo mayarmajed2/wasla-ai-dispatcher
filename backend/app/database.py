@@ -35,7 +35,12 @@ def build_sqlalchemy_engine(database_url: str, pool_size: int = 10, max_overflow
     except Exception:
         has_psycopg = False
 
-    if not has_psycopg and "+pg8000" not in url:
+    if has_psycopg:
+        if url.startswith("postgresql+psycopg2://"):
+            url = "postgresql+psycopg://" + url[len("postgresql+psycopg2://") :]
+        elif url.startswith("postgresql://"):
+            url = "postgresql+psycopg://" + url[len("postgresql://") :]
+    elif "+pg8000" not in url:
         # Pure-Python PostgreSQL driver fallback with strict TLS SSL
         if url.startswith("postgresql+psycopg://"):
             url = "postgresql+pg8000://" + url[len("postgresql+psycopg://") :]

@@ -1,0 +1,46 @@
+name: Telegram Cloud Network Probe (Authorized Single-Shot)
+
+on:
+  workflow_dispatch:
+    inputs:
+      send_test:
+        description: "Send live test messages ONLY after group & owner IDs are discovered and saved in GitHub Secrets"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  telegram-probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install minimal client dependencies
+        run: python -m pip install --quiet httpx pydantic-settings python-dotenv sqlalchemy
+
+      - name: Run single-shot controlled Telegram check from Azure Cloud IP (zero token printing)
+        env:
+          PYTHONPATH: ".:backend"
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CASHIER_TELEGRAM_CHAT_ID: ${{ secrets.CASHIER_TELEGRAM_CHAT_ID }}
+          RESTAURANT_OWNER_TELEGRAM_CHAT_ID: ${{ secrets.RESTAURANT_OWNER_TELEGRAM_CHAT_ID }}
+        run: |
+          if [ "${{ inputs.send_test }}" = "true" ]; then
+            python scripts/setup_telegram_verify.py --send-test --output reports/telegram_cloud_probe.json || true
+          else
+            python scripts/setup_telegram_verify.py --output reports/telegram_cloud_probe.json || true
+          fi
+
+      - name: Upload sanitized probe artifact (never prints tokens)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-cloud-probe-report
+          path: reports/telegram_cloud_probe.json
+          if-no-files-found: warn

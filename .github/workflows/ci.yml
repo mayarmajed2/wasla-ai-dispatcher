@@ -59,7 +59,7 @@ jobs:
           node --check dashboard/assets/app.js
           ! grep -q "محاكي الوكيل الذكي" dashboard/index.html
 
-      - name: Run full 37-test regression & AI evaluation suite
+      - name: Run full regression & AI evaluation suite
         env:
           PYTHONPATH: ".:backend"
           APP_ENV: development
@@ -77,3 +77,88 @@ jobs:
           python scripts/verify_postgres_live.py --output reports/ci_postgres_verification.json
           alembic -c backend/alembic.ini downgrade base
           alembic -c backend/alembic.ini upgrade head
+
+  docker-production-verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: wasla
+          POSTGRES_PASSWORD: wasla_ci_password
+          POSTGRES_DB: wasla_prod_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U wasla -d wasla_prod_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install verifier dependency (httpx)
+        run: python -m pip install --quiet httpx
+
+      - name: Build production Docker image
+        run: docker build -t wasla-prod:ci .
+
+      - name: Boot production Docker container against PostgreSQL 16 & verify restart survival
+        run: |
+          docker run -d --name wasla-prod --network host \
+            -e APP_ENV=production \
+            -e DATABASE_URL=postgresql://wasla:wasla_ci_password@127.0.0.1:5432/wasla_prod_test \
+            -e AUTH_SECRET_KEY=ci_prod_verification_auth_secret_key_min_32_chars_long \
+            -e BOOTSTRAP_ADMIN_USERNAME=ciadmin \
+            -e BOOTSTRAP_ADMIN_PASSWORD=CiProdPassword2026! \
+            -e SCHEDULER_CRON_SECRET=ci_scheduler_secret_token \
+            -e META_VERIFY_TOKEN=ci_meta_verify_token \
+            -e META_APP_SECRET=ci_meta_app_secret_key \
+            -e DASHBOARD_PUBLIC_URL=https://wasla-moka-ai.onrender.com \
+            wasla-prod:ci
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/api/ready | grep -q '"database_connected":true'; then
+              echo "Container ready on attempt $i"
+              break
+            fi
+            sleep 1
+          done
+          docker logs wasla-prod
+
+          python scripts/verify_whatsapp_e2e_live.py \
+            --base-url http://127.0.0.1:8000 \
+            --verify-token ci_meta_verify_token \
+            --app-secret ci_meta_app_secret_key \
+            --admin-user ciadmin \
+            --admin-pass CiProdPassword2026! \
+            --cron-secret ci_scheduler_secret_token \
+            --output reports/ci_docker_prod_verification.json
+
+          echo "Restarting container to verify PostgreSQL persistence & zero data loss..."
+          docker restart wasla-prod
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/api/ready | grep -q '"database_connected":true'; then
+              echo "Container recovered after restart on attempt $i"
+              break
+            fi
+            sleep 1
+          done
+
+          python scripts/verify_whatsapp_e2e_live.py \
+            --base-url http://127.0.0.1:8000 \
+            --verify-token ci_meta_verify_token \
+            --app-secret ci_meta_app_secret_key \
+            --admin-user ciadmin \
+            --admin-pass CiProdPassword2026! \
+            --cron-secret ci_scheduler_secret_token
+
+          docker rm -f wasla-prod || true

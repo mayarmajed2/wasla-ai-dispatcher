@@ -4,12 +4,14 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
     envVars:
       - key: APP_ENV
         value: production
       - key: RESTAURANT_TIMEZONE
         value: Africa/Cairo
+      - key: DASHBOARD_PUBLIC_URL
+        sync: false
       - key: DATABASE_URL
         sync: false
       - key: AUTH_SECRET_KEY
@@ -28,8 +30,16 @@ services:
         sync: false
       - key: META_APP_SECRET
         sync: false
+      - key: META_GRAPH_VERSION
+        value: v27.0
       - key: META_VERIFY_TOKEN
         generateValue: true
+      - key: UPSELL_ENABLED
+        value: "true"
+      - key: COMPLAINT_ESCALATION_ENABLED
+        value: "true"
+      - key: META_BILLABLE_MESSAGES_AUTHORIZED
+        value: "false"
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: CASHIER_TELEGRAM_CHAT_ID
