@@ -1,0 +1,30 @@
+{
+  "label2id": {
+    "add_to_cart": 0,
+    "cancel_order": 1,
+    "complaint": 2,
+    "confirm_order": 3,
+    "delivery_inquiry": 4,
+    "greeting": 5,
+    "menu_inquiry": 6,
+    "modify_order": 7,
+    "price_inquiry": 8,
+    "remove_item": 9,
+    "request_human": 10,
+    "unclear_request": 11
+  },
+  "id2label": {
+    "0": "add_to_cart",
+    "1": "cancel_order",
+    "2": "complaint",
+    "3": "confirm_order",
+    "4": "delivery_inquiry",
+    "5": "greeting",
+    "6": "menu_inquiry",
+    "7": "modify_order",
+    "8": "price_inquiry",
+    "9": "remove_item",
+    "10": "request_human",
+    "11": "unclear_request"
+  }
+}

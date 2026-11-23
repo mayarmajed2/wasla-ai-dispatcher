@@ -87,8 +87,20 @@ async def run_evaluation(dataset: str, split: str, limit: int, audio_mode: str) 
 
             audio_resp = await client.get(audio_src)
             audio_resp.raise_for_status()
-            mime = audio_resp.headers.get("content-type", "audio/wav").split(";")[0]
-            out = await pipeline.process(AudioInput(audio_bytes=audio_resp.content, mime_type=mime, filename="hf_clip.wav"))
+            mime = audio_resp.headers.get("content-type", "audio/wav").split(";")[0].strip().lower()
+            if not mime.startswith("audio/"):
+                mime = "audio/wav"
+            out = None
+            last_err = None
+            for attempt in range(3):
+                try:
+                    out = await pipeline.process(AudioInput(audio_bytes=audio_resp.content, mime_type=mime, filename="hf_clip.wav"))
+                    break
+                except Exception as exc:
+                    last_err = exc
+                    await asyncio.sleep(1.5 * (attempt + 1))
+            if out is None:
+                raise last_err
             results.append(
                 {
                     "reference": ref,
@@ -119,6 +131,11 @@ if __name__ == "__main__":
     parser.add_argument("--split", default="test")
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--mode", default="hybrid", choices=["direct", "stt", "hybrid"])
+    parser.add_argument("--output", default="", help="Optional path to save JSON report.")
     args = parser.parse_args()
     summary = asyncio.run(run_evaluation(args.dataset, args.split, args.limit, args.mode))
+    if args.output:
+        out_path = Path(args.output)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=2))

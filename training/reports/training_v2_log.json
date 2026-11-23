@@ -1,0 +1,69 @@
+{
+  "experiment_name": "wasla-camelbert-mix-lora-v2",
+  "base_model": "CAMeL-Lab/bert-base-arabic-camelbert-mix",
+  "verified_license": "Apache-2.0",
+  "device": "cpu",
+  "lora": {
+    "r": 16,
+    "lora_alpha": 32,
+    "target_modules": [
+      "query",
+      "key",
+      "value"
+    ]
+  },
+  "class_weighted_loss": true,
+  "hard_negatives_added": 33,
+  "trainable_params": 893964,
+  "total_params": 109984536,
+  "train_examples": 553,
+  "val_examples": 106,
+  "best_epoch": 3,
+  "best_val_macro_f1": 0.8858,
+  "duration_seconds": 1143.57,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 2.4261,
+      "val_loss": 2.158,
+      "val_acc": 0.2453,
+      "val_macro_f1": 0.152
+    },
+    {
+      "epoch": 2,
+      "train_loss": 1.8874,
+      "val_loss": 1.3026,
+      "val_acc": 0.7642,
+      "val_macro_f1": 0.5872
+    },
+    {
+      "epoch": 3,
+      "train_loss": 1.1579,
+      "val_loss": 0.7036,
+      "val_acc": 0.9434,
+      "val_macro_f1": 0.8858
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.7506,
+      "val_loss": 0.4985,
+      "val_acc": 0.9434,
+      "val_macro_f1": 0.8858
+    },
+    {
+      "epoch": 5,
+      "train_loss": 0.464,
+      "val_loss": 0.3767,
+      "val_acc": 0.934,
+      "val_macro_f1": 0.8679
+    },
+    {
+      "epoch": 6,
+      "train_loss": 0.3689,
+      "val_loss": 0.3629,
+      "val_acc": 0.9434,
+      "val_macro_f1": 0.8771
+    }
+  ],
+  "checkpoint_dir": "training\\checkpoints\\camelbert-wasla-lora-v2"
+}

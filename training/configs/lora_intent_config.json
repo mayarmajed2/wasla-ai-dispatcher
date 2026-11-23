@@ -1,7 +1,7 @@
 {
   "experiment_name": "wasla-camelbert-mix-lora-v1",
   "base_model": "CAMeL-Lab/bert-base-arabic-camelbert-mix",
-  "base_model_license": "MIT",
+  "base_model_license": "Apache-2.0",
   "task": "egyptian_arabic_restaurant_intent_classification",
   "dataset_provenance": "synthetic_moka_grounded (derived strictly from verified 145-item MOKA menu; zero real customer PII; zero overlap with moka_typo_eval_150.json)",
   "seed": 42,

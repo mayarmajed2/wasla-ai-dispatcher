@@ -126,7 +126,22 @@ class WaslaAIDispatcher:
         except ValueError:
             intent = CustomerIntent.ADD_TO_CART if parsed.get("items") else CustomerIntent.UNCLEAR_REQUEST
         confidence = float(parsed.get("confidence", 0.7))
-        raw_items = [ExtractedOrderItem(**i) for i in parsed.get("items", [])]
+        raw_items = []
+        for item_dict in parsed.get("items") or []:
+            if not isinstance(item_dict, dict):
+                continue
+            sanitized = dict(item_dict)
+            if sanitized.get("notes") is None:
+                sanitized["notes"] = ""
+            if sanitized.get("modifier_ids") is None:
+                sanitized["modifier_ids"] = []
+            if sanitized.get("selected_options") is None:
+                sanitized["selected_options"] = {}
+            if sanitized.get("quantity") is None:
+                sanitized["quantity"] = 1
+            if sanitized.get("raw_mention") is None:
+                sanitized["raw_mention"] = clean_text
+            raw_items.append(ExtractedOrderItem(**sanitized))
         match_meta = parsed.get("match_meta", [])
 
         # If customer is correcting a previously added item (e.g., "لأ خليها بيبروني"), replace last cart item

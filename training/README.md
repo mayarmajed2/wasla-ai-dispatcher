@@ -4,7 +4,7 @@
 
 | Candidate | Params | License | Arabic Dialect Strength | Hardware Needed | Decision |
 |---|---|---|---|---|---|
-| **`CAMeL-Lab/bert-base-arabic-camelbert-mix`** | 109M | **MIT** (Commercial OK) | Pretrained specifically on **Egyptian/Dialectal + MSA + Classical Arabic** | **CPU trainable & deployable (~15–25ms/query)** | **SELECTED** for real local PEFT LoRA intent fine-tuning |
+| **`CAMeL-Lab/bert-base-arabic-camelbert-mix`** | 109M | **Apache-2.0** (Verified on HF, Commercial OK with attribution) | Pretrained specifically on **Egyptian/Dialectal + MSA + Classical Arabic** | **CPU trainable & deployable (~60ms/query)** | **SELECTED** for real local PEFT LoRA intent fine-tuning |
 | **`Qwen/Qwen2.5-3B-Instruct`** | 3B | **Apache-2.0** (Commercial OK) | Strong multilingual + generative JSON tool-calling | Requires 12–16 GB CUDA GPU (T4/L4) | Documented as Cloud GPU QLoRA alternative |
 
 ## Reproducible Pipeline Commands

@@ -1,6 +1,7 @@
 """Fine-Tuned CAMeLBERT-Mix PEFT LoRA Intent Classifier Adapter for Wasla AI.
 
-Loads the actual saved PEFT LoRA checkpoint from disk (`training/checkpoints/camelbert-wasla-lora`).
+Loads the actual saved PEFT LoRA v2 checkpoint from disk (`training/checkpoints/camelbert-wasla-lora-v2`).
+v1 (`training/checkpoints/camelbert-wasla-lora`) is preserved for rollback and comparison.
 Never claims to be active unless the real checkpoint loads cleanly.
 """
 
@@ -14,7 +15,7 @@ from pathlib import Path
 logger = logging.getLogger("wasla.finetuned_intent")
 
 DEFAULT_CHECKPOINT_DIR = (
-    Path(__file__).resolve().parent.parent.parent / "training" / "checkpoints" / "camelbert-wasla-lora"
+    Path(__file__).resolve().parent.parent.parent / "training" / "checkpoints" / "camelbert-wasla-lora-v2"
 )
 
 
