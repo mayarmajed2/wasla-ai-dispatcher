@@ -1,0 +1,80 @@
+{
+  "base_url": "https://mayarmajed-wasla-moka-ai.hf.space",
+  "checks": {
+    "dashboard_html": {
+      "status_code": 200,
+      "is_html": true
+    },
+    "health": {
+      "status_code": 200,
+      "body": {
+        "status": "ok",
+        "service": "wasla-ai-dispatcher",
+        "menu_items_loaded": 145,
+        "ai_model": "gemini-3.5-flash-lite",
+        "audio_mode": "hybrid"
+      }
+    },
+    "ready": {
+      "status_code": 200,
+      "body": {
+        "ready": true,
+        "database_dialect": "postgresql",
+        "database_connected": true,
+        "providers": {
+          "gemini_llm_configured": true,
+          "groq_whisper_configured": true,
+          "meta_whatsapp_configured": true,
+          "meta_webhook_hmac_enabled": false,
+          "telegram_configured": true,
+          "scheduler_cron_configured": true,
+          "finetuned_lora_checkpoint_exists": false,
+          "finetuned_lora_loaded": false
+        }
+      }
+    },
+    "menu": {
+      "status_code": 200,
+      "items_count": 145
+    },
+    "unauth_orders_blocked": {
+      "status_code": 401,
+      "blocked_401": true
+    },
+    "auth_rbac": {
+      "login_status": 200,
+      "me_status": 200,
+      "staff_admin_status": 200,
+      "passed": true
+    },
+    "websocket_cashier": {
+      "upgraded_101": true,
+      "status_line": "HTTP/1.1 101 Switching Protocols"
+    },
+    "scheduler_cron_tick": {
+      "bad_secret_401": true,
+      "valid_secret_200": true,
+      "body": {
+        "ok": true,
+        "recovered_stale": 0,
+        "processed": 0,
+        "results": []
+      }
+    },
+    "webhook_get_challenge": {
+      "status_code": 200,
+      "challenge_matched": true
+    },
+    "webhook_post_signed": {
+      "status_code": 200,
+      "processed": 1,
+      "status_updates": 1
+    },
+    "webhook_duplicate_prevented": {
+      "status_code": 200,
+      "processed": 0,
+      "deduplicated": true
+    }
+  },
+  "status": "VERIFIED"
+}

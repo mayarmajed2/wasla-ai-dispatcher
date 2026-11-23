@@ -1780,6 +1780,28 @@ def update_notification_settings(
     }
 
 
+@app.post("/api/settings/telegram/verify")
+async def verify_telegram_from_server(
+    send_test: bool = Query(default=False),
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Single-shot controlled Telegram check & chat discovery from the deployed server (admin-only, zero token leak)."""
+    import tempfile
+    from scripts.setup_telegram_verify import run_verification
+
+    offset_path = Path(tempfile.gettempdir()) / "wasla_telegram_offset.json"
+    result = await run_verification(
+        send_test=send_test,
+        settings=settings,
+        client=telegram_client,
+        offset_file=offset_path,
+    )
+    log_audit(db, admin.username, "telegram_server_verify", target="telegram_bot", details={"status": result.get("status")})
+    db.commit()
+    return result
+
+
 @app.websocket("/ws/cashier")
 async def cashier_socket(websocket: WebSocket):
     await ws_manager.connect(websocket)
