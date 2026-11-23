@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     meta_verify_token: str = "restaurant-ai-dev"
     meta_access_token: str = ""
     meta_phone_number_id: str = ""
-    meta_graph_version: str = "v21.0"
+    meta_graph_version: str = "v27.0"
     gemini_api_key: str = ""
     groq_api_key: str = ""
     rate_limit_per_minute: int = 120

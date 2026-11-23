@@ -26,7 +26,7 @@ class MetaWhatsAppClient:
         self,
         access_token: str,
         phone_number_id: str,
-        graph_version: str = "v21.0",
+        graph_version: str = "v27.0",
         timeout: float = 15.0,
         client: httpx.AsyncClient | None = None,
     ):
