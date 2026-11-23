@@ -61,8 +61,9 @@ async def run_verification(send_test: bool, output_path: Path | None) -> dict:
     # 1. Validate Bot Token via getMe
     me = await client.get_me()
     if not me.get("ok"):
-        report["status"] = "INVALID_BOT_TOKEN"
-        report["http_status"] = me.get("status_code")
+        sc = me.get("status_code")
+        report["status"] = "INVALID_BOT_TOKEN" if sc in (401, 404) else ("RATE_LIMITED" if sc == 429 else "TELEGRAM_API_ERROR")
+        report["http_status"] = sc
         report["error"] = me.get("description", "getMe failed")
         return _write_report(output_path, report)
 

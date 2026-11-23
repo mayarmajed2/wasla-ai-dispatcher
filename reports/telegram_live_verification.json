@@ -1,5 +1,5 @@
 {
-  "timestamp_utc": "2026-11-23T21:38:49.831206+00:00",
+  "timestamp_utc": "2026-11-23T21:54:02.482443+00:00",
   "token_configured": true,
   "cashier_chat_configured": false,
   "owner_chat_configured": false,
@@ -8,7 +8,7 @@
   "cashier_permission_check": null,
   "owner_permission_check": null,
   "live_test_results": {},
-  "status": "INVALID_BOT_TOKEN",
-  "http_status": 401,
-  "error": "Unauthorized"
+  "status": "RATE_LIMITED",
+  "http_status": 429,
+  "error": "Too Many Requests: retry after 32"
 }
