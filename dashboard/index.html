@@ -47,6 +47,10 @@
         <button class="nav-item" data-view="conversationsView" type="button">
           <span>💬</span><span data-i18n="nav_convs">محادثات العملاء</span>
         </button>
+        <button class="nav-item" data-view="cxView" type="button">
+          <span>⭐</span><span data-i18n="nav_cx">تجربة العملاء والشكاوى</span>
+          <span class="nav-badge" id="navComplaintsBadge">0</span>
+        </button>
         <button class="nav-item" data-view="menuView" type="button">
           <span>🍽️</span><span data-i18n="nav_menu">المنيو والتوافر</span>
           <span class="nav-badge muted" id="navOutBadge">0</span>
@@ -146,6 +150,45 @@
       <!-- 4. SALES ANALYTICS -->
       <section id="analyticsView" class="view">
         <div class="kpi-grid" id="analyticsGrid"></div>
+      </section>
+
+      <!-- 4B. CUSTOMER EXPERIENCE, REVIEWS & COMPLAINTS -->
+      <section id="cxView" class="view">
+        <div class="kpi-grid" id="cxKpiGrid"></div>
+
+        <h3 style="margin:18px 0 10px;">تذاكر الشكاوى وتصعيد المالك</h3>
+        <div class="table-card" style="margin-bottom:20px;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th><th>الطلب</th><th>التصنيف</th><th>الخطورة</th><th>الملخص</th>
+                <th>الحالة</th><th>قناة التصعيد</th><th>تدخل بشري</th><th>إجراءات</th>
+              </tr>
+            </thead>
+            <tbody id="complaintsTableBody"></tbody>
+          </table>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+          <div>
+            <h3 style="margin:0 0 10px;">التقييمات الحقيقية للعملاء</h3>
+            <div class="table-card">
+              <table class="data-table">
+                <thead><tr><th>الطلب</th><th>التقييم</th><th>التعليق / المشكلة</th><th>التاريخ</th></tr></thead>
+                <tbody id="reviewsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <h3 style="margin:0 0 10px;">سجل الإشعارات والجدولة</h3>
+            <div class="table-card">
+              <table class="data-table">
+                <thead><tr><th>النوع</th><th>القناة</th><th>الحالة</th><th>الطلب</th><th>ملاحظة</th></tr></thead>
+                <tbody id="notifAttemptsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- 5. AI & INTEGRATION HEALTH -->

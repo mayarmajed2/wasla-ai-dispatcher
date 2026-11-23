@@ -50,15 +50,23 @@ from app.meta_service import MetaWhatsAppClient
 from app.models import (
     AuditLog,
     ChatSession,
+    ComplaintTicket,
     FeedbackRequest,
     MenuItem,
+    NotificationAttempt,
     Order,
     OrderEvent,
     OrderStatus,
+    OrderStatusHistory,
     Outbox,
     ProcessedMessage,
+    RecommendationEvent,
+    RestaurantSettings,
+    ScheduledJob,
     User,
 )
+from app.notifications import NotificationService, TelegramBotClient
+from app.scheduler import DELIVERED_STATUSES, DurableJobScheduler
 from app.ws_manager import ws_manager
 
 from ai_service.adapters.mock_backend import MockBackendAdapter
@@ -82,22 +90,54 @@ def _migrate_sqlite_columns() -> None:
             row[1]
             for row in connection.execute(text("PRAGMA table_info(orders)")).fetchall()
         }
-        if "backup_phone" not in columns:
-            connection.execute(
-                text("ALTER TABLE orders ADD COLUMN backup_phone VARCHAR(32) NOT NULL DEFAULT ''")
-            )
-        if "confirmed_by_customer" not in columns:
-            connection.execute(
-                text("ALTER TABLE orders ADD COLUMN confirmed_by_customer BOOLEAN NOT NULL DEFAULT 0")
-            )
-        if "data_source" not in columns:
-            connection.execute(
-                text("ALTER TABLE orders ADD COLUMN data_source VARCHAR(32) NOT NULL DEFAULT 'api'")
-            )
-        if "is_test" not in columns:
-            connection.execute(
-                text("ALTER TABLE orders ADD COLUMN is_test BOOLEAN NOT NULL DEFAULT 0")
-            )
+        order_additions = [
+            ("backup_phone", "VARCHAR(32) NOT NULL DEFAULT ''"),
+            ("confirmed_by_customer", "BOOLEAN NOT NULL DEFAULT 0"),
+            ("data_source", "VARCHAR(32) NOT NULL DEFAULT 'api'"),
+            ("is_test", "BOOLEAN NOT NULL DEFAULT 0"),
+            ("order_type", "VARCHAR(32) NOT NULL DEFAULT 'Delivery'"),
+            ("refunded", "BOOLEAN NOT NULL DEFAULT 0"),
+            ("confirmed_at", "DATETIME"),
+            ("accepted_at", "DATETIME"),
+            ("preparing_at", "DATETIME"),
+            ("ready_at", "DATETIME"),
+            ("out_for_delivery_at", "DATETIME"),
+            ("delivered_at", "DATETIME"),
+            ("cancelled_at", "DATETIME"),
+            ("failed_at", "DATETIME"),
+            ("delivery_confirmed_by", "VARCHAR(64)"),
+        ]
+        for col_name, col_def in order_additions:
+            if col_name not in columns:
+                connection.execute(text(f"ALTER TABLE orders ADD COLUMN {col_name} {col_def}"))
+
+        session_cols = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info(chat_sessions)")).fetchall()
+        }
+        for col_name, col_def in [
+            ("human_takeover_by", "VARCHAR(64)"),
+            ("human_takeover_at", "DATETIME"),
+            ("last_customer_message_at", "DATETIME"),
+            ("opted_out_reviews", "BOOLEAN NOT NULL DEFAULT 0"),
+        ]:
+            if session_cols and col_name not in session_cols:
+                connection.execute(text(f"ALTER TABLE chat_sessions ADD COLUMN {col_name} {col_def}"))
+
+        fb_cols = {
+            row[1]
+            for row in connection.execute(text("PRAGMA table_info(feedback_requests)")).fetchall()
+        }
+        for col_name, col_def in [
+            ("customer_phone", "VARCHAR(32) NOT NULL DEFAULT ''"),
+            ("issue_reported", "TEXT"),
+            ("channel", "VARCHAR(32) NOT NULL DEFAULT 'whatsapp'"),
+            ("suppressed_reason", "VARCHAR(120)"),
+            ("policy_blocked_reason", "VARCHAR(160)"),
+        ]:
+            if fb_cols and col_name not in fb_cols:
+                connection.execute(text(f"ALTER TABLE feedback_requests ADD COLUMN {col_name} {col_def}"))
+
         user_cols = {
             row[1]
             for row in connection.execute(text("PRAGMA table_info(users)")).fetchall()
@@ -198,44 +238,27 @@ meta_client = MetaWhatsAppClient(
     phone_number_id=settings.meta_phone_number_id,
     graph_version=settings.meta_graph_version,
 )
+telegram_client = TelegramBotClient(bot_token=settings.telegram_bot_token)
+notification_service = NotificationService(settings, meta_client, telegram_client)
+job_scheduler = DurableJobScheduler(
+    notification_service=notification_service,
+    review_delay_minutes=settings.review_delay_minutes,
+    arrival_check_delay_minutes=settings.arrival_check_delay_minutes,
+)
 
 
 async def feedback_worker() -> None:
+    """Durable restart-safe scheduler loop backed by `scheduled_jobs` table."""
+    boot_db = SessionLocal()
+    try:
+        job_scheduler.recover_stale_jobs_on_startup(boot_db)
+    finally:
+        boot_db.close()
+
     while True:
         db = SessionLocal()
         try:
-            now = datetime.now(timezone.utc)
-            requests = db.scalars(
-                select(FeedbackRequest).where(FeedbackRequest.sent_at.is_(None))
-            ).all()
-            for feedback in requests:
-                due_at = feedback.due_at
-                if due_at.tzinfo is None:
-                    due_at = due_at.replace(tzinfo=timezone.utc)
-                if due_at <= now:
-                    order = db.get(Order, feedback.order_id)
-                    if not order:
-                        continue
-                    feedback.sent_at = now
-                    db.add(
-                        Outbox(
-                            event_id=str(uuid.uuid4()),
-                            event_type="feedback_request_due",
-                            payload={
-                                "order_id": order.id,
-                                "customer_phone": order.customer_phone,
-                                "feedback_token": feedback.token,
-                            },
-                        )
-                    )
-                    db.add(
-                        OrderEvent(
-                            order_id=order.id,
-                            event_type="feedback_request_sent",
-                            payload={"feedback_token": feedback.token},
-                        )
-                    )
-            db.commit()
+            await job_scheduler.process_due_jobs(db)
         finally:
             db.close()
         await asyncio.sleep(30)
@@ -360,6 +383,24 @@ class OrderModification(BaseModel):
 class FeedbackInput(BaseModel):
     rating: int = Field(ge=1, le=5)
     comment: str = ""
+    issue_reported: str = ""
+
+
+class ComplaintResolveInput(BaseModel):
+    resolution_note: str = ""
+    release_human_takeover: bool = True
+
+
+class TakeoverToggleInput(BaseModel):
+    active: bool
+
+
+class NotificationSettingsUpdate(BaseModel):
+    upsell_enabled: bool | None = None
+    complaint_escalation_enabled: bool | None = None
+    timezone_name: str | None = None
+    review_delay_minutes: int | None = Field(default=None, ge=5, le=1440)
+    arrival_check_delay_minutes: int | None = Field(default=None, ge=15, le=1440)
 
 
 class AvailabilityUpdate(BaseModel):
@@ -388,14 +429,43 @@ class AIChatRequest(BaseModel):
 
 
 ALLOWED_TRANSITIONS = {
-    OrderStatus.DRAFTING: {OrderStatus.SUBMITTED, OrderStatus.CANCELLED},
-    OrderStatus.SUBMITTED: {OrderStatus.IN_KITCHEN, OrderStatus.CANCELLED},
-    OrderStatus.IN_KITCHEN: {OrderStatus.DISPATCHED, OrderStatus.CANCELLED},
-    OrderStatus.DISPATCHED: {OrderStatus.UNREACHABLE_ALERT, OrderStatus.FULFILLED, OrderStatus.CANCELLED},
-    OrderStatus.UNREACHABLE_ALERT: {OrderStatus.DISPATCHED, OrderStatus.FULFILLED, OrderStatus.CANCELLED},
+    # Legacy / backward-compatible 7-state transitions + commercial lifecycle aliases
+    OrderStatus.DRAFTING: {OrderStatus.PENDING_CONFIRMATION, OrderStatus.SUBMITTED, OrderStatus.CONFIRMED, OrderStatus.CANCELLED},
+    OrderStatus.PENDING_CONFIRMATION: {OrderStatus.CONFIRMED, OrderStatus.SUBMITTED, OrderStatus.CANCELLED, OrderStatus.FAILED},
+    OrderStatus.SUBMITTED: {OrderStatus.ACCEPTED, OrderStatus.IN_KITCHEN, OrderStatus.PREPARING, OrderStatus.CANCELLED, OrderStatus.FAILED},
+    OrderStatus.CONFIRMED: {OrderStatus.ACCEPTED, OrderStatus.IN_KITCHEN, OrderStatus.PREPARING, OrderStatus.CANCELLED, OrderStatus.FAILED},
+    OrderStatus.ACCEPTED: {OrderStatus.PREPARING, OrderStatus.IN_KITCHEN, OrderStatus.READY, OrderStatus.CANCELLED, OrderStatus.FAILED},
+    OrderStatus.IN_KITCHEN: {OrderStatus.READY, OrderStatus.DISPATCHED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED, OrderStatus.FAILED},
+    OrderStatus.PREPARING: {OrderStatus.READY, OrderStatus.DISPATCHED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.CANCELLED, OrderStatus.FAILED},
+    OrderStatus.READY: {OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DISPATCHED, OrderStatus.DELIVERED, OrderStatus.FULFILLED, OrderStatus.CANCELLED, OrderStatus.FAILED},
+    OrderStatus.DISPATCHED: {OrderStatus.UNREACHABLE_ALERT, OrderStatus.FULFILLED, OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.FAILED},
+    OrderStatus.OUT_FOR_DELIVERY: {OrderStatus.UNREACHABLE_ALERT, OrderStatus.DELIVERED, OrderStatus.FULFILLED, OrderStatus.CANCELLED, OrderStatus.FAILED},
+    OrderStatus.UNREACHABLE_ALERT: {OrderStatus.DISPATCHED, OrderStatus.OUT_FOR_DELIVERY, OrderStatus.FULFILLED, OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.FAILED},
     OrderStatus.FULFILLED: set(),
+    OrderStatus.DELIVERED: set(),
     OrderStatus.CANCELLED: set(),
+    OrderStatus.FAILED: set(),
 }
+
+
+def _stamp_order_lifecycle(order: Order, new_status: OrderStatus, actor: str, now: datetime) -> None:
+    if new_status in (OrderStatus.CONFIRMED, OrderStatus.SUBMITTED):
+        order.confirmed_at = order.confirmed_at or now
+    elif new_status == OrderStatus.ACCEPTED:
+        order.accepted_at = now
+    elif new_status in (OrderStatus.PREPARING, OrderStatus.IN_KITCHEN):
+        order.preparing_at = now
+    elif new_status == OrderStatus.READY:
+        order.ready_at = now
+    elif new_status in (OrderStatus.OUT_FOR_DELIVERY, OrderStatus.DISPATCHED):
+        order.out_for_delivery_at = now
+    elif new_status in (OrderStatus.DELIVERED, OrderStatus.FULFILLED):
+        order.delivered_at = now
+        order.delivery_confirmed_by = actor
+    elif new_status == OrderStatus.CANCELLED:
+        order.cancelled_at = now
+    elif new_status == OrderStatus.FAILED:
+        order.failed_at = now
 
 
 async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
@@ -438,6 +508,7 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
 
     delivery_fee = "0.00" if payload.zone_name == "free_zone" else "20.00"
     cart = calculate_cart(resolved_items, Decimal(delivery_fee))
+    now = datetime.now(timezone.utc)
     order = Order(
         customer_name=payload.customer_name,
         customer_phone=payload.customer_phone,
@@ -451,11 +522,20 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
         items_snapshot=cart["items"],
         data_source=payload.data_source,
         is_test=payload.is_test,
+        confirmed_at=now,
     )
     db.add(order)
     db.flush()
     db.add_all(
         [
+            OrderStatusHistory(
+                order_id=order.id,
+                from_status=OrderStatus.PENDING_CONFIRMATION.value,
+                to_status=OrderStatus.SUBMITTED.value,
+                actor="customer_confirmed",
+                note="Confirmed by customer",
+                changed_at=now,
+            ),
             OrderEvent(order_id=order.id, event_type="created", payload={"status": "SUBMITTED"}),
             OrderEvent(order_id=order.id, event_type="idempotency_key", payload={"key": payload.idempotency_key}),
             Outbox(
@@ -465,22 +545,42 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
             ),
         ]
     )
+    # Schedule 90-minute fallback arrival check durably in DB
+    job_scheduler.schedule_post_confirmation_arrival_check(db, order, confirmed_at=now)
+
+    # Immediately notify Cashier Group (Telegram zero-cost); never lose order if notification fails
+    cashier_notify = await notification_service.notify_cashier_new_order(db, order)
+    if cashier_notify.get("status") == "FAILED":
+        job_scheduler.schedule_cashier_retry(db, order, delay_seconds=30)
+
     db.commit()
     await ws_manager.broadcast(
         {
             "event_id": str(uuid.uuid4()),
             "event_type": "order_created",
             "order_id": order.id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": now.isoformat(),
             "schema_version": 1,
             "payload": {
                 "customer_name": order.customer_name,
                 "total_amount": str(order.total_amount),
                 "status": order.status,
+                "cashier_notification": cashier_notify,
             },
         }
     )
-    return {"id": order.id, "status": order.status, "cart": cart}
+    if cashier_notify.get("status") == "FAILED":
+        await ws_manager.broadcast(
+            {
+                "event_id": str(uuid.uuid4()),
+                "event_type": "cashier_notification_failed",
+                "order_id": order.id,
+                "timestamp": now.isoformat(),
+                "schema_version": 1,
+                "payload": {"error": cashier_notify.get("error"), "retry_scheduled": True},
+            }
+        )
+    return {"id": order.id, "status": order.status, "cart": cart, "cashier_notification": cashier_notify}
 
 
 @app.get("/", include_in_schema=False)
@@ -770,32 +870,138 @@ def update_menu_price(
     return {"id": item.id, "name": item.name, "base_price": str(item.base_price)}
 
 
+async def _persist_ai_interaction(
+    db: Session,
+    phone_number: str,
+    customer_text: str,
+    resp: Any,
+) -> dict[str, Any]:
+    """Persist chat session, upsell analytics, and immediate complaint tickets + owner escalation."""
+    now = datetime.now(timezone.utc)
+    session_row = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_number))
+    if session_row is None:
+        session_row = ChatSession(phone_number=phone_number)
+        db.add(session_row)
+    session_row.last_customer_message_at = now
+    session_row.pending_cart = resp.cart.model_dump(mode="json")
+    if resp.order_id:
+        session_row.active_order_id = resp.order_id
+    if resp.needs_human_takeover:
+        session_row.needs_human_takeover = True
+        session_row.human_takeover_at = session_row.human_takeover_at or now
+    session_row.conversation_state = {
+        "last_intent": resp.intent.value,
+        "requires_clarification": resp.requires_clarification,
+        "model_used": resp.model_used,
+        "suppress_ai_reply": resp.suppress_ai_reply,
+    }
+
+    # Record genuine recommendation/upsell analytics
+    if resp.upsell_event:
+        ev = resp.upsell_event
+        pids = ev.get("accepted_product_ids") or ev.get("offered_product_ids") or []
+        db.add(
+            RecommendationEvent(
+                customer_phone=phone_number,
+                order_id=resp.order_id or session_row.active_order_id,
+                offer_type=ev.get("offer_type") or "separate_items",
+                action=ev.get("action") or "offered",
+                product_ids=pids,
+                added_revenue=Decimal(str(ev.get("added_revenue", "0.00"))),
+            )
+        )
+
+    escalation_result: dict[str, Any] | None = None
+    if resp.complaint_assessment:
+        ca = resp.complaint_assessment
+        # Check for existing open complaint ticket for this customer to avoid duplicate notifications
+        existing_ticket = db.scalar(
+            select(ComplaintTicket)
+            .where(
+                ComplaintTicket.customer_phone == phone_number,
+                ComplaintTicket.status != "RESOLVED",
+            )
+            .order_by(ComplaintTicket.created_at.desc())
+        )
+        excerpt = ca.get("excerpt") or customer_text[:300]
+        if existing_ticket is not None:
+            excerpts = list(existing_ticket.sanitized_excerpts or [])
+            excerpts.append(excerpt)
+            existing_ticket.sanitized_excerpts = excerpts[-10:]
+            is_critical_update = bool(ca.get("critical_update") or ca.get("severity") == "CRITICAL")
+            if is_critical_update and existing_ticket.severity != "CRITICAL":
+                existing_ticket.severity = "CRITICAL"
+            existing_ticket.human_takeover_active = True
+            ticket = existing_ticket
+            escalation_result = await notification_service.escalate_complaint_to_owner(
+                db, ticket, critical_update=is_critical_update
+            )
+        else:
+            latest_order = db.scalar(
+                select(Order)
+                .where(Order.customer_phone == phone_number)
+                .order_by(Order.created_at.desc())
+            )
+            ticket = ComplaintTicket(
+                order_id=resp.order_id or session_row.active_order_id or (latest_order.id if latest_order else None),
+                customer_phone=phone_number,
+                customer_name=latest_order.customer_name if latest_order else "",
+                category=ca.get("category", "service_issue"),
+                severity=ca.get("severity", "HIGH"),
+                summary=ca.get("summary_en", "Customer complaint escalated."),
+                sanitized_excerpts=[excerpt],
+                status="OPEN",
+                human_takeover_active=True,
+            )
+            db.add(ticket)
+            db.flush()
+            escalation_result = await notification_service.escalate_complaint_to_owner(db, ticket)
+
+        session_row.needs_human_takeover = True
+        session_row.human_takeover_at = session_row.human_takeover_at or now
+        ai_dispatcher.set_human_takeover(phone_number, True, actor="complaint_auto_escalation")
+        db.flush()
+        await ws_manager.broadcast(
+            {
+                "event_id": str(uuid.uuid4()),
+                "event_type": "complaint_escalated",
+                "order_id": ticket.order_id,
+                "timestamp": now.isoformat(),
+                "schema_version": 1,
+                "payload": {
+                    "ticket_id": ticket.id,
+                    "category": ticket.category,
+                    "severity": ticket.severity,
+                    "escalation": escalation_result,
+                },
+            }
+        )
+
+    db.commit()
+    return {"escalation": escalation_result}
+
+
 @app.post("/api/ai/chat")
 async def ai_chat(payload: AIChatRequest, db: Session = Depends(get_db)):
     """Disabled in production (no simulator in production)."""
     if settings.app_env.lower() == "production":
         raise HTTPException(status_code=404, detail="Not found")
+    existing_session = db.scalar(select(ChatSession).where(ChatSession.phone_number == payload.phone_number))
+    if existing_session is not None:
+        ai_dispatcher.set_human_takeover(
+            payload.phone_number, bool(existing_session.needs_human_takeover), actor=existing_session.human_takeover_by
+        )
     resp = await ai_dispatcher.handle_text(
         payload.phone_number,
         payload.message,
         data_source="simulator",
         is_test=True,
     )
-
-    session_row = db.scalar(select(ChatSession).where(ChatSession.phone_number == payload.phone_number))
-    if session_row is None:
-        session_row = ChatSession(phone_number=payload.phone_number)
-        db.add(session_row)
-    session_row.pending_cart = resp.cart.model_dump(mode="json")
-    session_row.active_order_id = resp.order_id
-    session_row.needs_human_takeover = resp.needs_human_takeover
-    session_row.conversation_state = {
-        "last_intent": resp.intent.value,
-        "requires_clarification": resp.requires_clarification,
-        "model_used": resp.model_used,
-    }
-    db.commit()
-    return resp.model_dump(mode="json")
+    side = await _persist_ai_interaction(db, payload.phone_number, payload.message, resp)
+    out = resp.model_dump(mode="json")
+    if side.get("escalation"):
+        out["complaint_escalation"] = side["escalation"]
+    return out
 
 
 @app.post("/api/orders", status_code=201)
@@ -865,8 +1071,19 @@ async def update_status(
     current = OrderStatus(order.status)
     if payload.status not in ALLOWED_TRANSITIONS[current]:
         raise HTTPException(status_code=409, detail=f"Cannot change {current.value} to {payload.status.value}")
+    now = datetime.now(timezone.utc)
     order.status = payload.status
+    _stamp_order_lifecycle(order, payload.status, actor=user.username, now=now)
     log_audit(db, user.username, "update_order_status", target=str(order.id), details={"status": payload.status.value})
+    db.add(
+        OrderStatusHistory(
+            order_id=order.id,
+            from_status=current.value,
+            to_status=payload.status.value,
+            actor=user.username,
+            changed_at=now,
+        )
+    )
     db.add(OrderEvent(order_id=order.id, event_type="status_changed", payload={"status": payload.status.value}))
     db.add(
         Outbox(
@@ -875,17 +1092,8 @@ async def update_status(
             payload={"order_id": order.id, "status": payload.status.value},
         )
     )
-    if payload.status == OrderStatus.FULFILLED:
-        existing_feedback = db.scalar(select(FeedbackRequest).where(FeedbackRequest.order_id == order.id))
-        if existing_feedback is None:
-            db.add(
-                FeedbackRequest(
-                    order_id=order.id,
-                    token=str(uuid.uuid4()),
-                    due_at=datetime.now(timezone.utc) + timedelta(minutes=30),
-                )
-            )
-            db.add(OrderEvent(order_id=order.id, event_type="feedback_scheduled", payload={"delay_minutes": 30}))
+    if payload.status.value in DELIVERED_STATUSES:
+        job_scheduler.schedule_post_delivery_review(db, order, delivered_at=now)
     db.commit()
     await ws_manager.broadcast(
         {
@@ -1000,7 +1208,7 @@ async def notify_customer_modification(order_id: int, payload: OrderModification
 
 
 @app.post("/api/feedback/{token}")
-def submit_feedback(token: str, payload: FeedbackInput, db: Session = Depends(get_db)):
+async def submit_feedback(token: str, payload: FeedbackInput, db: Session = Depends(get_db)):
     feedback = db.scalar(select(FeedbackRequest).where(FeedbackRequest.token == token))
     if feedback is None:
         raise HTTPException(status_code=404, detail="Feedback link not found")
@@ -1010,16 +1218,39 @@ def submit_feedback(token: str, payload: FeedbackInput, db: Session = Depends(ge
         raise HTTPException(status_code=409, detail="Feedback period has not started")
     feedback.rating = payload.rating
     feedback.comment = payload.comment.strip()
+    feedback.issue_reported = payload.issue_reported.strip() or None
     feedback.submitted_at = datetime.now(timezone.utc)
     db.add(
         OrderEvent(
             order_id=feedback.order_id,
             event_type="feedback_submitted",
-            payload={"rating": payload.rating, "comment": feedback.comment},
+            payload={
+                "rating": payload.rating,
+                "comment": feedback.comment,
+                "issue_reported": feedback.issue_reported,
+            },
         )
     )
+    # If customer reported an issue with a low rating, open a complaint ticket and escalate to owner
+    if feedback.issue_reported or payload.rating <= 2:
+        order = db.get(Order, feedback.order_id)
+        if order:
+            ticket = ComplaintTicket(
+                order_id=order.id,
+                customer_phone=order.customer_phone,
+                customer_name=order.customer_name,
+                category="post_order_review_issue",
+                severity="HIGH" if payload.rating == 1 else "MEDIUM",
+                summary=f"Low rating ({payload.rating}/5) review with issue reported.",
+                sanitized_excerpts=[feedback.issue_reported or feedback.comment or f"Rating {payload.rating}/5"],
+                status="OPEN",
+                human_takeover_active=False,
+            )
+            db.add(ticket)
+            db.flush()
+            await notification_service.escalate_complaint_to_owner(db, ticket)
     db.commit()
-    return {"status": "submitted", "rating": payload.rating}
+    return {"status": "submitted", "rating": payload.rating, "issue_reported": feedback.issue_reported}
 
 
 @app.get("/api/webhook")
@@ -1066,6 +1297,12 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
 
                 sender = message.get("from", "")
                 msg_type = message.get("type", "")
+                if sender:
+                    existing_sess = db.scalar(select(ChatSession).where(ChatSession.phone_number == sender))
+                    if existing_sess is not None:
+                        ai_dispatcher.set_human_takeover(
+                            sender, bool(existing_sess.needs_human_takeover), actor=existing_sess.human_takeover_by
+                        )
                 if msg_type == "text" and sender:
                     text_body = (message.get("text") or {}).get("body", "").strip()
                     if text_body:
@@ -1075,13 +1312,19 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
                             data_source="whatsapp_webhook",
                             is_test=False,
                         )
-                        delivery = await meta_client.send_text_message(sender, ai_resp.reply_ar)
+                        side = await _persist_ai_interaction(db, sender, text_body, ai_resp)
+                        if ai_resp.suppress_ai_reply:
+                            delivery = {"sent": False, "mode": "suppressed_human_takeover"}
+                        else:
+                            delivery = await meta_client.send_text_message(sender, ai_resp.reply_ar)
                         replies.append(
                             {
                                 "to": sender,
                                 "reply_ar": ai_resp.reply_ar,
                                 "intent": ai_resp.intent.value,
+                                "suppress_ai_reply": ai_resp.suppress_ai_reply,
                                 "whatsapp_delivery": delivery,
+                                "complaint_escalation": side.get("escalation"),
                             }
                         )
                 elif msg_type == "audio" and sender:
@@ -1093,20 +1336,364 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
                                 sender,
                                 AudioInput(audio_bytes=audio_bytes, mime_type=mime_type, filename=f"{media_id}.ogg"),
                             )
-                            delivery = await meta_client.send_text_message(sender, ai_resp.reply_ar)
+                            side = await _persist_ai_interaction(db, sender, ai_resp.transcript or "", ai_resp)
+                            if ai_resp.suppress_ai_reply:
+                                delivery = {"sent": False, "mode": "suppressed_human_takeover"}
+                            else:
+                                delivery = await meta_client.send_text_message(sender, ai_resp.reply_ar)
                             replies.append(
                                 {
                                     "to": sender,
                                     "transcript": ai_resp.transcript,
                                     "reply_ar": ai_resp.reply_ar,
                                     "intent": ai_resp.intent.value,
+                                    "suppress_ai_reply": ai_resp.suppress_ai_reply,
                                     "whatsapp_delivery": delivery,
+                                    "complaint_escalation": side.get("escalation"),
                                 }
                             )
                         except Exception as exc:
                             replies.append({"to": sender, "audio_error": str(exc)})
     db.commit()
     return {"accepted": True, "processed": processed, "replies": replies}
+
+
+# ==============================================================================
+# PHASE 3, 5, 6, 7 — CUSTOMER EXPERIENCE, COMPLAINTS, TAKEOVER & SCHEDULER API
+# ==============================================================================
+
+
+@app.post("/api/orders/{order_id}/confirm-arrival")
+async def confirm_order_arrival(
+    order_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mark order DELIVERED after verified arrival confirmation & schedule 1-hour review."""
+    order = db.get(Order, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    current = OrderStatus(order.status)
+    if current in (OrderStatus.CANCELLED, OrderStatus.FAILED):
+        raise HTTPException(status_code=409, detail=f"Cannot confirm arrival for {current.value} order")
+    now = datetime.now(timezone.utc)
+    order.status = OrderStatus.DELIVERED
+    _stamp_order_lifecycle(order, OrderStatus.DELIVERED, actor=user.username, now=now)
+    db.add(
+        OrderStatusHistory(
+            order_id=order.id,
+            from_status=current.value,
+            to_status=OrderStatus.DELIVERED.value,
+            actor=user.username,
+            note="Arrival confirmed",
+            changed_at=now,
+        )
+    )
+    feedback, job = job_scheduler.schedule_post_delivery_review(db, order, delivered_at=now)
+    log_audit(db, user.username, "confirm_order_arrival", target=str(order.id))
+    db.commit()
+    return {
+        "order_id": order.id,
+        "status": order.status,
+        "delivered_at": order.delivered_at.isoformat(),
+        "review_scheduled_at": feedback.due_at.isoformat(),
+        "scheduler_job_id": job.id,
+    }
+
+
+@app.post("/api/conversations/{phone_number}/takeover")
+def toggle_human_takeover(
+    phone_number: str,
+    payload: TakeoverToggleInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Activate or release Human Takeover — when active, AI immediately stops automated replies."""
+    session = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_number))
+    if session is None:
+        session = ChatSession(phone_number=phone_number)
+        db.add(session)
+    now = datetime.now(timezone.utc)
+    session.needs_human_takeover = payload.active
+    session.human_takeover_by = user.username if payload.active else None
+    session.human_takeover_at = now if payload.active else None
+    ai_dispatcher.set_human_takeover(phone_number, payload.active, actor=user.username)
+    log_audit(
+        db,
+        user.username,
+        "activate_human_takeover" if payload.active else "release_human_takeover",
+        target=phone_number,
+    )
+    db.commit()
+    return {
+        "phone_number": phone_number,
+        "needs_human_takeover": session.needs_human_takeover,
+        "human_takeover_by": session.human_takeover_by,
+    }
+
+
+@app.get("/api/complaints")
+def list_complaints(
+    status: str | None = Query(default=None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    stmt = select(ComplaintTicket).order_by(ComplaintTicket.created_at.desc())
+    if status and status != "ALL":
+        stmt = stmt.where(ComplaintTicket.status == status)
+    tickets = db.scalars(stmt).all()
+    return [
+        {
+            "id": t.id,
+            "order_id": t.order_id,
+            "customer_phone": t.customer_phone,
+            "customer_name": t.customer_name,
+            "category": t.category,
+            "severity": t.severity,
+            "summary": t.summary,
+            "sanitized_excerpts": t.sanitized_excerpts,
+            "status": t.status,
+            "owner_notified": t.owner_notified,
+            "escalation_channel": t.escalation_channel,
+            "escalation_count": t.escalation_count,
+            "owner_acknowledged_at": t.owner_acknowledged_at.isoformat() if t.owner_acknowledged_at else None,
+            "owner_acknowledged_by": t.owner_acknowledged_by,
+            "resolved_at": t.resolved_at.isoformat() if t.resolved_at else None,
+            "resolved_by": t.resolved_by,
+            "resolution_note": t.resolution_note,
+            "human_takeover_active": t.human_takeover_active,
+            "created_at": t.created_at.isoformat(),
+        }
+        for t in tickets
+    ]
+
+
+@app.post("/api/complaints/{ticket_id}/acknowledge")
+def acknowledge_complaint(
+    ticket_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ticket = db.get(ComplaintTicket, ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Complaint ticket not found")
+    now = datetime.now(timezone.utc)
+    ticket.owner_acknowledged_at = ticket.owner_acknowledged_at or now
+    ticket.owner_acknowledged_by = user.username
+    if ticket.status in ("OPEN", "ESCALATED"):
+        ticket.status = "ACKNOWLEDGED"
+    log_audit(db, user.username, "acknowledge_complaint", target=str(ticket.id))
+    db.commit()
+    return {"id": ticket.id, "status": ticket.status, "owner_acknowledged_by": ticket.owner_acknowledged_by}
+
+
+@app.post("/api/complaints/{ticket_id}/resolve")
+def resolve_complaint(
+    ticket_id: int,
+    payload: ComplaintResolveInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ticket = db.get(ComplaintTicket, ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Complaint ticket not found")
+    now = datetime.now(timezone.utc)
+    ticket.status = "RESOLVED"
+    ticket.resolved_at = now
+    ticket.resolved_by = user.username
+    ticket.resolution_note = payload.resolution_note.strip()
+    if payload.release_human_takeover:
+        ticket.human_takeover_active = False
+        sess = db.scalar(select(ChatSession).where(ChatSession.phone_number == ticket.customer_phone))
+        if sess:
+            sess.needs_human_takeover = False
+            sess.human_takeover_by = None
+        ai_dispatcher.set_human_takeover(ticket.customer_phone, False)
+    log_audit(db, user.username, "resolve_complaint", target=str(ticket.id))
+    db.commit()
+    return {"id": ticket.id, "status": ticket.status, "resolved_by": ticket.resolved_by}
+
+
+@app.get("/api/customer-experience/overview")
+def customer_experience_overview(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Genuine SQL-backed Customer Experience, Reviews, Complaints, Upsell & Scheduler KPIs."""
+    feedbacks = db.scalars(select(FeedbackRequest).order_by(FeedbackRequest.id.desc())).all()
+    submitted = [f for f in feedbacks if f.rating is not None]
+    distribution = {str(star): sum(1 for f in submitted if f.rating == star) for star in range(1, 6)}
+    avg_rating = round(sum(f.rating for f in submitted) / len(submitted), 2) if submitted else None
+    satisfied_pct = (
+        round((sum(1 for f in submitted if f.rating >= 4) / len(submitted)) * 100.0, 1) if submitted else None
+    )
+
+    tickets = db.scalars(select(ComplaintTicket).order_by(ComplaintTicket.created_at.desc())).all()
+    open_c = sum(1 for t in tickets if t.status == "OPEN")
+    escalated_c = sum(1 for t in tickets if t.status == "ESCALATED")
+    ack_c = sum(1 for t in tickets if t.status in ("ACKNOWLEDGED", "IN_PROGRESS"))
+    resolved_c = sum(1 for t in tickets if t.status == "RESOLVED")
+    takeover_c = sum(1 for t in tickets if t.human_takeover_active)
+
+    resp_mins = []
+    res_mins = []
+    for t in tickets:
+        c_at = t.created_at.replace(tzinfo=timezone.utc) if t.created_at.tzinfo is None else t.created_at
+        if t.owner_acknowledged_at:
+            a_at = t.owner_acknowledged_at.replace(tzinfo=timezone.utc) if t.owner_acknowledged_at.tzinfo is None else t.owner_acknowledged_at
+            resp_mins.append(max(0.0, (a_at - c_at).total_seconds() / 60.0))
+        if t.resolved_at:
+            r_at = t.resolved_at.replace(tzinfo=timezone.utc) if t.resolved_at.tzinfo is None else t.resolved_at
+            res_mins.append(max(0.0, (r_at - c_at).total_seconds() / 60.0))
+
+    rec_events = db.scalars(select(RecommendationEvent)).all()
+    offered_n = sum(1 for e in rec_events if e.action == "offered")
+    accepted_n = sum(1 for e in rec_events if e.action == "accepted")
+    rejected_n = sum(1 for e in rec_events if e.action == "rejected")
+    upsell_rev = sum((Decimal(str(e.added_revenue)) for e in rec_events if e.action == "accepted"), Decimal("0.00"))
+
+    jobs = db.scalars(select(ScheduledJob)).all()
+    job_counts: dict[str, int] = {}
+    for j in jobs:
+        job_counts[j.status] = job_counts.get(j.status, 0) + 1
+
+    notifs = db.scalars(select(NotificationAttempt).order_by(NotificationAttempt.created_at.desc()).limit(30)).all()
+
+    return {
+        "reviews": {
+            "total_submitted": len(submitted),
+            "average_rating": avg_rating,
+            "satisfaction_rate_pct": satisfied_pct,
+            "distribution": distribution,
+            "recent": [
+                {
+                    "order_id": f.order_id,
+                    "rating": f.rating,
+                    "comment": f.comment,
+                    "issue_reported": f.issue_reported,
+                    "submitted_at": f.submitted_at.isoformat() if f.submitted_at else None,
+                }
+                for f in submitted[:20]
+            ],
+        },
+        "complaints": {
+            "total": len(tickets),
+            "open": open_c,
+            "escalated": escalated_c,
+            "acknowledged": ack_c,
+            "resolved": resolved_c,
+            "human_takeover_active": takeover_c,
+            "avg_response_minutes": round(sum(resp_mins) / len(resp_mins), 1) if resp_mins else None,
+            "avg_resolution_minutes": round(sum(res_mins) / len(res_mins), 1) if res_mins else None,
+        },
+        "recommendations": {
+            "upsell_enabled": ai_dispatcher.recommendation_engine.enabled,
+            "offered": offered_n,
+            "accepted": accepted_n,
+            "rejected": rejected_n,
+            "acceptance_rate_pct": round((accepted_n / offered_n) * 100.0, 1) if offered_n else None,
+            "added_revenue_egp": str(upsell_rev.quantize(Decimal("0.01"))),
+        },
+        "scheduler": {
+            "counts_by_status": job_counts,
+            "review_delay_minutes": job_scheduler.review_delay_minutes,
+            "arrival_check_delay_minutes": job_scheduler.arrival_check_delay_minutes,
+        },
+        "notifications": {
+            "telegram_configured": telegram_client.is_configured and bool(settings.cashier_telegram_chat_id),
+            "owner_telegram_configured": telegram_client.is_configured
+            and bool(settings.restaurant_owner_telegram_chat_id or settings.cashier_telegram_chat_id),
+            "groups_api_eligibility": notification_service.policy_guard.groups_api_eligibility(),
+            "recent_attempts": [
+                {
+                    "id": n.id,
+                    "type": n.notification_type,
+                    "channel": n.channel,
+                    "status": n.status,
+                    "order_id": n.order_id,
+                    "complaint_id": n.complaint_id,
+                    "attempts": n.attempts,
+                    "last_error": n.last_error,
+                    "created_at": n.created_at.isoformat(),
+                }
+                for n in notifs
+            ],
+        },
+    }
+
+
+@app.post("/api/scheduler/run-due")
+async def run_due_scheduler_jobs(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    results = await job_scheduler.process_due_jobs(db)
+    log_audit(db, admin.username, "scheduler_run_due", target="scheduled_jobs", details={"processed": len(results)})
+    db.commit()
+    return {"processed": len(results), "results": results}
+
+
+@app.get("/api/settings/notifications")
+def get_notification_settings(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    row = db.scalar(select(RestaurantSettings).limit(1))
+    return {
+        "timezone_name": row.timezone_name if row else settings.restaurant_timezone,
+        "upsell_enabled": row.upsell_enabled if row else ai_dispatcher.recommendation_engine.enabled,
+        "complaint_escalation_enabled": row.complaint_escalation_enabled
+        if row
+        else settings.complaint_escalation_enabled,
+        "review_delay_minutes": row.review_delay_minutes if row else job_scheduler.review_delay_minutes,
+        "arrival_check_delay_minutes": row.arrival_check_delay_minutes
+        if row
+        else job_scheduler.arrival_check_delay_minutes,
+        "meta_billable_authorized": settings.meta_billable_messages_authorized,
+        "groups_api_eligibility": notification_service.policy_guard.groups_api_eligibility(),
+    }
+
+
+@app.patch("/api/settings/notifications")
+def update_notification_settings(
+    payload: NotificationSettingsUpdate,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    row = db.scalar(select(RestaurantSettings).limit(1))
+    if row is None:
+        row = RestaurantSettings(
+            timezone_name=settings.restaurant_timezone,
+            upsell_enabled=ai_dispatcher.recommendation_engine.enabled,
+            complaint_escalation_enabled=settings.complaint_escalation_enabled,
+            review_delay_minutes=job_scheduler.review_delay_minutes,
+            arrival_check_delay_minutes=job_scheduler.arrival_check_delay_minutes,
+        )
+        db.add(row)
+    if payload.upsell_enabled is not None:
+        row.upsell_enabled = payload.upsell_enabled
+        ai_dispatcher.recommendation_engine.set_enabled(payload.upsell_enabled)
+    if payload.complaint_escalation_enabled is not None:
+        row.complaint_escalation_enabled = payload.complaint_escalation_enabled
+        settings.complaint_escalation_enabled = payload.complaint_escalation_enabled
+    if payload.timezone_name is not None:
+        row.timezone_name = payload.timezone_name
+        settings.restaurant_timezone = payload.timezone_name
+    if payload.review_delay_minutes is not None:
+        row.review_delay_minutes = payload.review_delay_minutes
+        job_scheduler.review_delay_minutes = payload.review_delay_minutes
+    if payload.arrival_check_delay_minutes is not None:
+        row.arrival_check_delay_minutes = payload.arrival_check_delay_minutes
+        job_scheduler.arrival_check_delay_minutes = payload.arrival_check_delay_minutes
+    log_audit(db, admin.username, "update_notification_settings", target="restaurant_settings")
+    db.commit()
+    return {
+        "timezone_name": row.timezone_name,
+        "upsell_enabled": row.upsell_enabled,
+        "complaint_escalation_enabled": row.complaint_escalation_enabled,
+        "review_delay_minutes": row.review_delay_minutes,
+        "arrival_check_delay_minutes": row.arrival_check_delay_minutes,
+    }
 
 
 @app.websocket("/ws/cashier")

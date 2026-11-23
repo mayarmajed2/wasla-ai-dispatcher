@@ -140,6 +140,7 @@ document.getElementById("enableSound").addEventListener("click", async () => {
 const viewTitles = {
   ordersView: "الطلبات الحية",
   conversationsView: "محادثات العملاء",
+  cxView: "تجربة العملاء والتقييمات والشكاوى",
   menuView: "إدارة المنيو والتوافر (MOKA)",
   analyticsView: "تحليلات المبيعات الفعلية",
   healthView: "حالة الذكاء الاصطناعي والتكاملات",
@@ -157,6 +158,7 @@ document.querySelectorAll(".nav-item").forEach((btn) => {
     document.getElementById("viewTitle").textContent = viewTitles[target] || "";
     if (target === "menuView") loadMenu();
     if (target === "conversationsView") loadConversations();
+    if (target === "cxView") loadCustomerExperience();
     if (target === "analyticsView") loadMetrics();
     if (target === "healthView") loadHealth();
     if (target === "staffView") loadStaffAndLogs();
@@ -442,6 +444,101 @@ document.getElementById("directiveForm").addEventListener("submit", async (e) =>
   directivePreview.innerHTML = `<strong>الرسالة للعميل:</strong><br>${escapeHtml(data.customer_message_ar)}`;
 });
 
+// Customer Experience, Reviews, Complaints & Notification Health (Genuine DB Data Only)
+async function loadCustomerExperience() {
+  const [ovRes, cRes] = await Promise.all([
+    apiFetch("/api/customer-experience/overview"),
+    apiFetch("/api/complaints"),
+  ]);
+  if (!ovRes.ok || !cRes.ok) return;
+  const ov = await ovRes.json();
+  const tickets = await cRes.json();
+
+  const activeComplaints = (ov.complaints.open || 0) + (ov.complaints.escalated || 0) + (ov.complaints.acknowledged || 0);
+  const badge = document.getElementById("navComplaintsBadge");
+  if (badge) badge.textContent = activeComplaints;
+
+  document.getElementById("cxKpiGrid").innerHTML = `
+    <article class="kpi-card accent-green"><span class="kpi-label">متوسط التقييم الحقيقي</span><strong class="kpi-value">${ov.reviews.average_rating ?? "—"} ⭐ (${ov.reviews.total_submitted})</strong></article>
+    <article class="kpi-card accent-blue"><span class="kpi-label">نسبة رضا العملاء (4-5⭐)</span><strong class="kpi-value">${ov.reviews.satisfaction_rate_pct !== null ? ov.reviews.satisfaction_rate_pct + "%" : "—"}</strong></article>
+    <article class="kpi-card accent-orange"><span class="kpi-label">شكاوى مفتوحة / مصعّدة</span><strong class="kpi-value">${ov.complaints.open + ov.complaints.escalated}</strong></article>
+    <article class="kpi-card"><span class="kpi-label">شكاوى محلولة</span><strong class="kpi-value">${ov.complaints.resolved}</strong></article>
+    <article class="kpi-card"><span class="kpi-label">متوسط الاستجابة / الحل</span><strong class="kpi-value">${ov.complaints.avg_response_minutes ?? "—"}د / ${ov.complaints.avg_resolution_minutes ?? "—"}د</strong></article>
+    <article class="kpi-card accent-indigo"><span class="kpi-label">نجاح التوصيات (Upsell)</span><strong class="kpi-value">${ov.recommendations.acceptance_rate_pct !== null ? ov.recommendations.acceptance_rate_pct + "%" : "—"} (${ov.recommendations.added_revenue_egp} ج.م)</strong></article>
+  `;
+
+  const cBody = document.getElementById("complaintsTableBody");
+  if (!tickets.length) {
+    cBody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#64748b;padding:22px;">لا توجد شكاوى مسجلة حتى الآن</td></tr>`;
+  } else {
+    cBody.innerHTML = tickets.map((t) => `
+      <tr>
+        <td>#${t.id}</td>
+        <td>${t.order_id ? `#${t.order_id}` : "—"}</td>
+        <td>${escapeHtml(t.category)}</td>
+        <td><span class="status-badge ${t.severity === "CRITICAL" || t.severity === "HIGH" ? "unreachable_alert" : "submitted"}">${escapeHtml(t.severity)}</span></td>
+        <td>${escapeHtml(t.summary)}</td>
+        <td>${escapeHtml(t.status)}</td>
+        <td>${escapeHtml(t.escalation_channel || "—")}</td>
+        <td>${t.human_takeover_active ? "نشط (AI متوقف)" : "آلي"}</td>
+        <td style="display:flex;gap:4px;flex-wrap:wrap;">
+          ${!t.owner_acknowledged_at ? `<button class="btn btn-sm btn-blue" data-ack-complaint="${t.id}">تأكيد الاستلام</button>` : ""}
+          ${t.status !== "RESOLVED" ? `<button class="btn btn-sm btn-primary" data-resolve-complaint="${t.id}">تم الحل</button>` : "✅ محلولة"}
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  const rBody = document.getElementById("reviewsTableBody");
+  if (!ov.reviews.recent.length) {
+    rBody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#64748b;padding:20px;">لا توجد تقييمات حقيقية بعد</td></tr>`;
+  } else {
+    rBody.innerHTML = ov.reviews.recent.map((r) => `
+      <tr>
+        <td>#${r.order_id}</td>
+        <td><strong>${r.rating} / 5 ⭐</strong></td>
+        <td>${escapeHtml(r.comment || r.issue_reported || "—")}</td>
+        <td>${escapeHtml(r.submitted_at || "")}</td>
+      </tr>
+    `).join("");
+  }
+
+  const nBody = document.getElementById("notifAttemptsBody");
+  if (!ov.notifications.recent_attempts.length) {
+    nBody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#64748b;padding:20px;">لا توجد محاولات إشعار بعد</td></tr>`;
+  } else {
+    nBody.innerHTML = ov.notifications.recent_attempts.map((n) => `
+      <tr>
+        <td>${escapeHtml(n.type)}</td>
+        <td>${escapeHtml(n.channel)}</td>
+        <td><span class="status-badge ${n.status === "SENT" ? "fulfilled" : "unreachable_alert"}">${escapeHtml(n.status)}</span></td>
+        <td>${n.order_id ? `#${n.order_id}` : "—"}</td>
+        <td>${escapeHtml(n.last_error || "OK")}</td>
+      </tr>
+    `).join("");
+  }
+}
+
+document.getElementById("complaintsTableBody").addEventListener("click", async (e) => {
+  const ackBtn = e.target.closest("[data-ack-complaint]");
+  if (ackBtn) {
+    await apiFetch(`/api/complaints/${ackBtn.dataset.ackComplaint}/acknowledge`, { method: "POST" });
+    showToast("تم تأكيد استلام الشكوى");
+    loadCustomerExperience();
+    return;
+  }
+  const resBtn = e.target.closest("[data-resolve-complaint]");
+  if (resBtn) {
+    await apiFetch(`/api/complaints/${resBtn.dataset.resolveComplaint}/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resolution_note: "Resolved via dashboard", release_human_takeover: true }),
+    });
+    showToast("تم إغلاق الشكوى وإعادة تفعيل الرد الآلي");
+    loadCustomerExperience();
+  }
+});
+
 // WebSocket
 function connectWS() {
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
@@ -452,7 +549,15 @@ function connectWS() {
   ws.onclose = () => { dot.className = "dot offline"; conn.textContent = "إعادة الاتصال..."; setTimeout(connectWS, 2500); };
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    if (["order_created", "order_modified", "customer_alert"].includes(data.event_type)) playChime();
+    if (["order_created", "order_modified", "customer_alert", "complaint_escalated", "cashier_notification_failed"].includes(data.event_type)) {
+      playChime();
+    }
+    if (data.event_type === "complaint_escalated") {
+      showToast(`🚨 شكوى عاجلة جديدة (تذكرة #${data.payload?.ticket_id || ""})`);
+    }
+    if (data.event_type === "cashier_notification_failed") {
+      showToast(`⚠️ تعذر إرسال إشعار التليجرام للطلب #${data.order_id} — تمت جدولة إعادة المحاولة`);
+    }
     loadOrders();
     loadMetrics();
   };

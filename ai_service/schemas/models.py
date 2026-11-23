@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class OrderStatus(str, Enum):
+    # Legacy / Backward-compatible 7-state values (preserved for existing clients/tests)
     DRAFTING = "DRAFTING"
     SUBMITTED = "SUBMITTED"
     IN_KITCHEN = "IN_KITCHEN"
@@ -24,6 +25,15 @@ class OrderStatus(str, Enum):
     UNREACHABLE_ALERT = "UNREACHABLE_ALERT"
     FULFILLED = "FULFILLED"
     CANCELLED = "CANCELLED"
+    # Explicit commercial lifecycle states (Phase 3)
+    PENDING_CONFIRMATION = "PENDING_CONFIRMATION"
+    CONFIRMED = "CONFIRMED"
+    ACCEPTED = "ACCEPTED"
+    PREPARING = "PREPARING"
+    READY = "READY"
+    OUT_FOR_DELIVERY = "OUT_FOR_DELIVERY"
+    DELIVERED = "DELIVERED"
+    FAILED = "FAILED"
 
 
 class CustomerIntent(str, Enum):
@@ -176,7 +186,12 @@ class SessionState(BaseModel):
     cart: CartSnapshot = Field(default_factory=CartSnapshot)
     active_order_id: int | None = None
     needs_human_takeover: bool = False
+    human_takeover_by: str | None = None
     pending_clarification: dict[str, Any] | None = None
+    pending_upsell: dict[str, Any] | None = None
+    upsell_declined: bool = False
+    rejected_upsell_ids: list[str] = Field(default_factory=list)
+    budget_limit: Decimal | None = None
     awaiting_final_confirmation: bool = False
     latest_directive: str | None = None
     history: list[ConversationMessage] = Field(default_factory=list)
@@ -202,12 +217,18 @@ class DispatcherResponse(BaseModel):
     cart: CartSnapshot
     order_id: int | None = None
     needs_human_takeover: bool = False
+    suppress_ai_reply: bool = False
+    upsell_offer: dict[str, Any] | None = None
+    upsell_event: dict[str, Any] | None = None
+    complaint_assessment: dict[str, Any] | None = None
     reply_ar: str
     model_used: str = "unknown"
 
     @field_validator("reply_ar")
     @classmethod
-    def reply_not_empty(cls, v: str) -> str:
+    def reply_not_empty(cls, v: str, info) -> str:
+        if info.data.get("suppress_ai_reply"):
+            return (v or "").strip()
         if not v or not v.strip():
             raise ValueError("reply_ar must not be empty")
         return v.strip()

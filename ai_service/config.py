@@ -48,10 +48,14 @@ class WaslaConfig:
     backend_base_url: str = field(default_factory=lambda: os.getenv("BACKEND_BASE_URL", "http://localhost:8000"))
     backend_timeout_seconds: float = field(default_factory=lambda: float(os.getenv("BACKEND_TIMEOUT_SECONDS", "10.0")))
 
-    # Conversation & Safety
+    # Conversation, Upsell & Safety
     message_debounce_seconds: float = field(default_factory=lambda: float(os.getenv("MESSAGE_DEBOUNCE_SECONDS", "3.0")))
     session_ttl_seconds: int = field(default_factory=lambda: int(os.getenv("SESSION_TTL_SECONDS", "3600")))
     redact_pii_in_logs: bool = field(default_factory=lambda: os.getenv("REDACT_PII_IN_LOGS", "true").lower() == "true")
+    upsell_enabled: bool = field(default_factory=lambda: os.getenv("UPSELL_ENABLED", "true").lower() == "true")
+    complaint_escalation_enabled: bool = field(
+        default_factory=lambda: os.getenv("COMPLAINT_ESCALATION_ENABLED", "true").lower() == "true"
+    )
     max_audio_file_mb: float = field(default_factory=lambda: float(os.getenv("MAX_AUDIO_FILE_MB", "10.0")))
     menu_json_path: Path = field(
         default_factory=lambda: Path(
