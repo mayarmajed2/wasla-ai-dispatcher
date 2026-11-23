@@ -38,6 +38,7 @@ if str(ROOT_DIR) not in sys.path:
 from app.cart_calculator import calculate_cart
 from app.config import settings
 from app.database import Base, SessionLocal, engine, get_db
+from app.meta_service import MetaWhatsAppClient
 from app.models import (
     ChatSession,
     FeedbackRequest,
@@ -53,7 +54,7 @@ from app.ws_manager import ws_manager
 from ai_service.adapters.mock_backend import MockBackendAdapter
 from ai_service.config import WaslaConfig
 from ai_service.dispatcher.dispatcher import WaslaAIDispatcher
-from ai_service.schemas.models import BackendConfirmOrderPayload, CashierDirectiveRequest
+from ai_service.schemas.models import AudioInput, BackendConfirmOrderPayload, CashierDirectiveRequest
 from ai_service.understanding.menu_index import MenuIndex
 
 
@@ -174,6 +175,11 @@ wasla_config = WaslaConfig(menu_json_path=MENU_JSON_PATH)
 menu_index = MenuIndex(MENU_JSON_PATH)
 db_bridge = _DirectDBOrderBridge(menu_index)
 ai_dispatcher = WaslaAIDispatcher(wasla_config, menu_index, db_bridge)
+meta_client = MetaWhatsAppClient(
+    access_token=settings.meta_access_token,
+    phone_number_id=settings.meta_phone_number_id,
+    graph_version=settings.meta_graph_version,
+)
 
 
 async def feedback_worker() -> None:
@@ -235,6 +241,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Sliding-window rate limiter + security headers middleware
+_RATE_BUCKETS: dict[str, list[float]] = {}
+
+
+@app.middleware("http")
+async def security_and_rate_limit_middleware(request: Request, call_next):
+    import time
+
+    if request.url.path in ("/api/ai/chat", "/api/orders"):
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.monotonic()
+        bucket = [t for t in _RATE_BUCKETS.get(client_ip, []) if now - t < 60.0]
+        if len(bucket) >= settings.rate_limit_per_minute:
+            return PlainTextResponse("Rate limit exceeded", status_code=429)
+        bucket.append(now)
+        _RATE_BUCKETS[client_ip] = bucket
+
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 if (DASHBOARD_DIR / "assets").exists():
     app.mount("/assets", StaticFiles(directory=DASHBOARD_DIR / "assets"), name="assets")
@@ -399,6 +428,29 @@ def health(db: Session = Depends(get_db)):
         "menu_items_loaded": menu_count,
         "ai_model": wasla_config.ai_primary_model,
         "audio_mode": wasla_config.ai_audio_mode,
+    }
+
+
+@app.get("/api/ready")
+def readiness(db: Session = Depends(get_db)):
+    """Production readiness probe reporting live DB health & honest external provider status."""
+    db_ok = False
+    try:
+        db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    return {
+        "ready": db_ok,
+        "database_dialect": engine.dialect.name,
+        "database_connected": db_ok,
+        "providers": {
+            "gemini_llm_configured": ai_dispatcher.llm_client.is_configured,
+            "groq_whisper_configured": bool(wasla_config.groq_api_key and not wasla_config.groq_api_key.startswith("your_")),
+            "meta_whatsapp_configured": meta_client.is_configured,
+            "meta_webhook_hmac_enabled": bool(settings.meta_app_secret),
+        },
     }
 
 
@@ -690,6 +742,10 @@ async def instruct_customer(order_id: int, payload: Directive, db: Session = Dep
             },
         }
     )
+    delivery_result = await meta_client.send_text_message(
+        order.customer_phone,
+        interpreted.customer_message_ar,
+    )
     return {
         "order_id": order.id,
         "status": "directed",
@@ -697,6 +753,7 @@ async def instruct_customer(order_id: int, payload: Directive, db: Session = Dep
         "customer_message_ar": interpreted.customer_message_ar,
         "warnings": interpreted.warnings,
         "requires_cashier_approval": interpreted.requires_cashier_approval,
+        "whatsapp_delivery": delivery_result,
     }
 
 
@@ -789,7 +846,8 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
                 processed += 1
 
                 sender = message.get("from", "")
-                if message.get("type") == "text" and sender:
+                msg_type = message.get("type", "")
+                if msg_type == "text" and sender:
                     text_body = (message.get("text") or {}).get("body", "").strip()
                     if text_body:
                         ai_resp = await ai_dispatcher.handle_text(
@@ -798,7 +856,36 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
                             data_source="whatsapp_webhook",
                             is_test=False,
                         )
-                        replies.append({"to": sender, "reply_ar": ai_resp.reply_ar, "intent": ai_resp.intent.value})
+                        delivery = await meta_client.send_text_message(sender, ai_resp.reply_ar)
+                        replies.append(
+                            {
+                                "to": sender,
+                                "reply_ar": ai_resp.reply_ar,
+                                "intent": ai_resp.intent.value,
+                                "whatsapp_delivery": delivery,
+                            }
+                        )
+                elif msg_type == "audio" and sender:
+                    media_id = (message.get("audio") or {}).get("id", "")
+                    if media_id:
+                        try:
+                            audio_bytes, mime_type = await meta_client.download_media(media_id)
+                            ai_resp = await ai_dispatcher.handle_audio(
+                                sender,
+                                AudioInput(audio_bytes=audio_bytes, mime_type=mime_type, filename=f"{media_id}.ogg"),
+                            )
+                            delivery = await meta_client.send_text_message(sender, ai_resp.reply_ar)
+                            replies.append(
+                                {
+                                    "to": sender,
+                                    "transcript": ai_resp.transcript,
+                                    "reply_ar": ai_resp.reply_ar,
+                                    "intent": ai_resp.intent.value,
+                                    "whatsapp_delivery": delivery,
+                                }
+                            )
+                        except Exception as exc:
+                            replies.append({"to": sender, "audio_error": str(exc)})
     db.commit()
     return {"accepted": True, "processed": processed, "replies": replies}
 
