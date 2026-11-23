@@ -19,6 +19,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 import logging
+import re
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -148,17 +149,33 @@ class TelegramBotClient:
     def is_configured(self) -> bool:
         return bool(self.bot_token and not self.bot_token.startswith("your_"))
 
+    @staticmethod
+    def _sanitize_error(text: str) -> str:
+        return re.sub(r"bot[^/\s]+", "bot<REDACTED>", str(text))
+
     async def _api_call(self, method: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
         if not self.is_configured:
             return {"ok": False, "mode": "unconfigured", "reason": "TELEGRAM_BOT_TOKEN is not configured"}
         url = f"https://api.telegram.org/bot{self.bot_token}/{method}"
-        if self._external_client is not None:
-            resp = await self._external_client.post(url, json=payload or {})
-        else:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(url, json=payload or {})
-        resp.raise_for_status()
-        return resp.json()
+        try:
+            if self._external_client is not None:
+                resp = await self._external_client.post(url, json=payload or {})
+            else:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    resp = await client.post(url, json=payload or {})
+            try:
+                data = resp.json()
+            except Exception:
+                data = {}
+            if not resp.is_success:
+                return {
+                    "ok": False,
+                    "status_code": resp.status_code,
+                    "description": data.get("description") or f"Telegram API HTTP {resp.status_code}",
+                }
+            return data
+        except Exception as exc:
+            return {"ok": False, "description": self._sanitize_error(str(exc))}
 
     async def get_me(self) -> dict[str, Any]:
         return await self._api_call("getMe")
@@ -189,7 +206,7 @@ class TelegramBotClient:
             "text": text,
             "disable_web_page_preview": True,
         }
-        last_err: Exception | None = None
+        last_err: str | None = None
         for attempt in range(max_retries + 1):
             try:
                 if self._external_client is not None:
@@ -197,18 +214,20 @@ class TelegramBotClient:
                 else:
                     async with httpx.AsyncClient(timeout=self.timeout) as client:
                         resp = await client.post(url, json=payload)
-                resp.raise_for_status()
-                data = resp.json()
-                if not data.get("ok", True):
-                    raise RuntimeError(data.get("description", "Telegram API returned ok=false"))
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = {}
+                if not resp.is_success or not data.get("ok", True):
+                    raise RuntimeError(data.get("description") or f"Telegram API HTTP {resp.status_code}")
                 return {"sent": True, "mode": "live", "telegram_response": data}
             except Exception as exc:
-                last_err = exc
+                last_err = self._sanitize_error(str(exc))
                 if attempt < max_retries:
                     await asyncio.sleep(0.4 * (attempt + 1))
 
         logger.error("Telegram sendMessage failed after retries: %s", last_err)
-        return {"sent": False, "mode": "error", "error": str(last_err)}
+        return {"sent": False, "mode": "error", "error": last_err or "Telegram send failed"}
 
 
 class NotificationService:

@@ -1,0 +1,30 @@
+# Wasla AI — Zero-Cost External Cron Trigger for Durable Review & Arrival Scheduler
+# Requires GitHub Repository Secrets: WASLA_PUBLIC_URL and SCHEDULER_CRON_SECRET
+#
+# Note on free-tier timing honesty: GitHub Actions cron has ~5-15 minute scheduling jitter
+# and waking a sleeping Render free container adds ~30-60s cold-start latency.
+
+name: Wasla Durable Scheduler Cron Tick
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  cron-tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger POST /api/scheduler/cron-tick
+        env:
+          WASLA_PUBLIC_URL: ${{ secrets.WASLA_PUBLIC_URL }}
+          SCHEDULER_CRON_SECRET: ${{ secrets.SCHEDULER_CRON_SECRET }}
+        run: |
+          if [ -z "$WASLA_PUBLIC_URL" ] || [ -z "$SCHEDULER_CRON_SECRET" ]; then
+            echo "Skipping cron tick: WASLA_PUBLIC_URL or SCHEDULER_CRON_SECRET not set."
+            exit 0
+          fi
+          curl --fail --silent --show-error --max-time 90 \
+            -X POST "${WASLA_PUBLIC_URL%/}/api/scheduler/cron-tick" \
+            -H "X-Scheduler-Secret: ${SCHEDULER_CRON_SECRET}" \
+            -H "Content-Type: application/json"

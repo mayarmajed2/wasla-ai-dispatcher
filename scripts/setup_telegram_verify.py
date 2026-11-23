@@ -28,6 +28,13 @@ from app.config import Settings  # noqa: E402
 from app.notifications import TelegramBotClient  # noqa: E402
 
 
+def _write_report(output_path: Path | None, report: dict) -> dict:
+    if output_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    return report
+
+
 async def run_verification(send_test: bool, output_path: Path | None) -> dict:
     settings = Settings()
     client = TelegramBotClient(bot_token=settings.telegram_bot_token)
@@ -49,14 +56,15 @@ async def run_verification(send_test: bool, output_path: Path | None) -> dict:
             "Set TELEGRAM_BOT_TOKEN, CASHIER_TELEGRAM_CHAT_ID, and RESTAURANT_OWNER_TELEGRAM_CHAT_ID in local .env "
             "(never paste tokens in chat or commit .env)."
         )
-        return report
+        return _write_report(output_path, report)
 
     # 1. Validate Bot Token via getMe
     me = await client.get_me()
     if not me.get("ok"):
         report["status"] = "INVALID_BOT_TOKEN"
+        report["http_status"] = me.get("status_code")
         report["error"] = me.get("description", "getMe failed")
-        return report
+        return _write_report(output_path, report)
 
     bot_user = me.get("result", {})
     bot_id = bot_user.get("id")

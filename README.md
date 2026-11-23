@@ -68,11 +68,13 @@ cp .env.example .env
 ### 3. Run the Integrated Server & Cashier Dashboard
 
 ```bash
-cd backend
-uvicorn app.main:app --reload --port 8000
+alembic -c backend/alembic.ini upgrade head
+uvicorn app.main:app --app-dir backend --reload --port 8000
 ```
 
-Open **http://localhost:8000** in your browser to access the **Wasla Cashier Operations Console** (Live Orders, 145-Item MOKA Inventory Toggle, and Live Wasla AI Simulator).
+Open **http://localhost:8000** in your browser to access the **Wasla Commercial Operations Console** (Live Orders, Customer Experience & Complaints, 145-Item MOKA Inventory Toggle, RBAC Staff Management, and Live AI/PostgreSQL Readiness Health).
+
+> Production deployment uses root [`render.yaml`](render.yaml) (`plan: free`) + [`Dockerfile`](Dockerfile) with `APP_ENV=production` (no simulator).
 
 ### 4. Run Automated Tests
 

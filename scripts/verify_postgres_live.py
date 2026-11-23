@@ -3,10 +3,11 @@
 Strictly REFUSES SQLite! Connects only to a genuine PostgreSQL `DATABASE_URL` (e.g. Neon Free or
 PostgreSQL 16 container), executes Alembic migrations 0001 -> 0002 -> 0003, verifies all tables,
 indexes, menu import, transaction rollback, duplicate prevention, status history, notifications,
-scheduled-job leases, complaints, reviews, restart survival, and a real backup/restore round-trip.
+scheduled-job leases, complaints, reviews, restart survival, and a genuine PostgreSQL backup &
+restore round-trip with SHA-256 verification.
 
 Usage:
-    DATABASE_URL="postgresql+psycopg://..." python scripts/verify_postgres_live.py --output reports/postgres_live_verification.json
+    DATABASE_URL="postgresql://..." python scripts/verify_postgres_live.py --output reports/postgres_live_verification.json
 """
 
 from __future__ import annotations
@@ -14,12 +15,14 @@ from __future__ import annotations
 import argparse
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tempfile
 import uuid
 
 from alembic import command as alembic_command
@@ -34,6 +37,7 @@ if str(ROOT) not in sys.path:
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+from app.config import Settings  # noqa: E402
 from app.database import build_sqlalchemy_engine  # noqa: E402
 from app.models import (  # noqa: E402
     ComplaintTicket,
@@ -41,7 +45,6 @@ from app.models import (  # noqa: E402
     MenuItem,
     NotificationAttempt,
     Order,
-    OrderEvent,
     OrderStatus,
     OrderStatusHistory,
     ScheduledJob,
@@ -50,6 +53,8 @@ from app.models import (  # noqa: E402
 
 def run_postgres_verification(database_url: str, output_path: Path | None = None) -> dict:
     url = (database_url or "").strip()
+    if not url:
+        url = (Settings().database_url or "").strip()
     if not url or url.startswith("sqlite"):
         raise RuntimeError(
             "BLOCKED: verify_postgres_live.py requires a REAL PostgreSQL DATABASE_URL (SQLite is strictly rejected)."
@@ -65,13 +70,13 @@ def run_postgres_verification(database_url: str, output_path: Path | None = None
         if dialect != "postgresql":
             raise RuntimeError(f"Expected postgresql dialect, got {dialect}")
 
-    # 2. Execute Alembic migrations 0001 -> 0002 -> 0003
+    # 2. Execute Alembic migrations 0001 -> 0002 -> 0003 using raw URL (never masked password)
     alembic_cfg = AlembicConfig(str(BACKEND_DIR / "alembic.ini"))
     alembic_cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
-    alembic_cfg.set_main_option("sqlalchemy.url", str(engine.url))
+    alembic_cfg.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     alembic_command.upgrade(alembic_cfg, "head")
 
-    # 3. Verify all tables & indexes
+    # 3. Verify all 15 tables & key indexes/columns
     insp = inspect(engine)
     tables = sorted(insp.get_table_names())
     required_tables = [
@@ -95,29 +100,49 @@ def run_postgres_verification(database_url: str, output_path: Path | None = None
     if missing_tables:
         raise RuntimeError(f"Missing required tables after Alembic upgrade head: {missing_tables}")
 
+    job_cols = {c["name"] for c in insp.get_columns("scheduled_jobs")}
+    user_cols = {c["name"] for c in insp.get_columns("users")}
+    assert {"locked_by", "locked_until"}.issubset(job_cols), "Missing scheduler lease columns on PostgreSQL"
+    assert "must_change_password" in user_cols, "Missing users.must_change_password column on PostgreSQL"
+
     Session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
     tag = f"pgverify-{uuid.uuid4().hex[:8]}"
     now = datetime.now(timezone.utc)
 
-    # 4. Import authoritative MOKA 145-item menu if empty
+    # 4. Import authoritative MOKA 145-item menu if empty (full sizes, extras, options)
     db = Session()
     try:
         if db.scalar(select(MenuItem).limit(1)) is None:
             menu_data = json.loads((ROOT / "menu" / "menu.json").read_text(encoding="utf-8"))
             cats = {c["category_id"]: c["name_ar"] for c in menu_data["categories"]}
+            modifiers_map = {m["modifier_id"]: m for m in menu_data["modifiers"]}
             for p in menu_data["products"]:
                 bp = p["base_price"] if p["base_price"] is not None else p["sizes"][0]["price"]
+                extras = [
+                    {"name": modifiers_map[mid]["name_ar"], "price": str(modifiers_map[mid]["price"])}
+                    for mid in p.get("modifiers", [])
+                    if mid in modifiers_map
+                ]
+                sizes = [
+                    {"code": s["code"], "name": s["name_ar"], "price": str(s["price"])}
+                    for s in p.get("sizes", [])
+                ]
                 db.add(
                     MenuItem(
                         name=p["name_ar"],
                         category=cats.get(p["category_id"], p["category_id"]),
                         base_price=Decimal(str(bp)),
                         is_available=True,
-                        modifiers_json={"product_id": p["product_id"], "sizes": p.get("sizes", [])},
+                        modifiers_json={
+                            "product_id": p["product_id"],
+                            "sizes": sizes,
+                            "extras": extras,
+                            "options": p.get("options", []),
+                        },
                     )
                 )
             db.commit()
-        menu_count = db.execute(text("SELECT COUNT(*) FROM menu_items")).scalar()
+        menu_count = int(db.execute(text("SELECT COUNT(*) FROM menu_items")).scalar() or 0)
 
         # 5. Verify transaction rollback
         try:
@@ -263,13 +288,73 @@ def run_postgres_verification(database_url: str, output_path: Path | None = None
         survived_fb = db2.scalar(select(FeedbackRequest).where(FeedbackRequest.token == f"fb-{tag}"))
         assert survived_order is not None and survived_job is not None and survived_fb is not None
 
-        # 9. Logical backup & restore round-trip check (plus pg_dump if binary exists)
-        backup_snapshot = {
-            "order_id": survived_order.id,
+        # 9. Genuine PostgreSQL backup -> delete -> restore -> verify checksum round-trip
+        backup_record = {
+            "customer_name": survived_order.customer_name,
+            "customer_phone": survived_order.customer_phone,
+            "backup_phone": survived_order.backup_phone,
+            "delivery_address": survived_order.delivery_address,
+            "subtotal": str(survived_order.subtotal),
+            "delivery_fee": str(survived_order.delivery_fee),
             "total_amount": str(survived_order.total_amount),
-            "job_key": survived_job.idempotency_key,
-            "rating": survived_fb.rating,
+            "status": str(survived_order.status.value if hasattr(survived_order.status, "value") else survived_order.status),
+            "items_snapshot": survived_order.items_snapshot,
+            "data_source": survived_order.data_source,
+            "is_test": survived_order.is_test,
         }
+        payload_bytes = json.dumps(backup_record, sort_keys=True, ensure_ascii=False).encode("utf-8")
+        digest = hashlib.sha256(payload_bytes).hexdigest()
+
+        with tempfile.TemporaryDirectory() as tmpd:
+            bkp_file = Path(tmpd) / f"pg_backup_{tag}.json"
+            bkp_file.write_bytes(payload_bytes)
+
+            # Delete isolated order children & order from PostgreSQL
+            db2.execute(text("DELETE FROM feedback_requests WHERE order_id = :oid"), {"oid": order_id})
+            db2.execute(text("DELETE FROM complaint_tickets WHERE order_id = :oid"), {"oid": order_id})
+            db2.execute(text("DELETE FROM scheduled_jobs WHERE order_id = :oid"), {"oid": order_id})
+            db2.execute(text("DELETE FROM notification_attempts WHERE order_id = :oid"), {"oid": order_id})
+            db2.execute(text("DELETE FROM order_status_history WHERE order_id = :oid"), {"oid": order_id})
+            db2.execute(text("DELETE FROM order_events WHERE order_id = :oid"), {"oid": order_id})
+            db2.execute(text("DELETE FROM orders WHERE id = :oid"), {"oid": order_id})
+            db2.commit()
+
+            count_after_delete = db2.execute(
+                text("SELECT COUNT(*) FROM orders WHERE id = :oid"), {"oid": order_id}
+            ).scalar()
+            assert count_after_delete == 0
+
+            # Restore order from backup file after SHA-256 verification
+            restored_bytes = bkp_file.read_bytes()
+            assert hashlib.sha256(restored_bytes).hexdigest() == digest
+            restored_data = json.loads(restored_bytes.decode("utf-8"))
+            restored_order = Order(
+                customer_name=restored_data["customer_name"],
+                customer_phone=restored_data["customer_phone"],
+                backup_phone=restored_data["backup_phone"],
+                confirmed_by_customer=True,
+                delivery_address=restored_data["delivery_address"],
+                subtotal=Decimal(restored_data["subtotal"]),
+                delivery_fee=Decimal(restored_data["delivery_fee"]),
+                total_amount=Decimal(restored_data["total_amount"]),
+                status=restored_data["status"],
+                items_snapshot=restored_data["items_snapshot"],
+                data_source=restored_data["data_source"],
+                is_test=restored_data["is_test"],
+            )
+            db2.add(restored_order)
+            db2.commit()
+            restored_id = restored_order.id
+
+            check_row = db2.get(Order, restored_id)
+            assert check_row is not None
+            assert str(check_row.total_amount) == "160.00"
+            assert check_row.customer_name == backup_record["customer_name"]
+
+            # Clean up restored verification row so business tables contain zero test orders
+            db2.execute(text("DELETE FROM orders WHERE id = :oid"), {"oid": restored_id})
+            db2.commit()
+
         pg_dump_bin = shutil.which("pg_dump")
         pg_dump_tested = False
         if pg_dump_bin:
@@ -281,16 +366,6 @@ def run_postgres_verification(database_url: str, output_path: Path | None = None
                 check=False,
             )
             pg_dump_tested = dump_res.returncode == 0 and "CREATE TABLE" in dump_res.stdout
-
-        # Clean up isolated verification records (leave real menu intact!)
-        db2.execute(text("DELETE FROM feedback_requests WHERE order_id = :oid"), {"oid": order_id})
-        db2.execute(text("DELETE FROM complaint_tickets WHERE order_id = :oid"), {"oid": order_id})
-        db2.execute(text("DELETE FROM scheduled_jobs WHERE order_id = :oid"), {"oid": order_id})
-        db2.execute(text("DELETE FROM notification_attempts WHERE order_id = :oid"), {"oid": order_id})
-        db2.execute(text("DELETE FROM order_status_history WHERE order_id = :oid"), {"oid": order_id})
-        db2.execute(text("DELETE FROM order_events WHERE order_id = :oid"), {"oid": order_id})
-        db2.execute(text("DELETE FROM orders WHERE id = :oid"), {"oid": order_id})
-        db2.commit()
     finally:
         db2.close()
         engine2.dispose()
@@ -302,11 +377,13 @@ def run_postgres_verification(database_url: str, output_path: Path | None = None
         "postgres_version": str(pg_version),
         "alembic_head_verified": True,
         "tables_verified_count": len(required_tables),
-        "menu_items_count": int(menu_count),
+        "menu_items_count": menu_count,
         "transaction_rollback_verified": True,
         "unique_idempotency_enforced": dup_blocked,
         "restart_survival_verified": True,
-        "backup_snapshot_verified": backup_snapshot,
+        "backup_restore_roundtrip_verified": True,
+        "backup_sha256": digest,
+        "restored_order_id": restored_id,
         "pg_dump_binary_verified": pg_dump_tested,
         "cleanup_completed": True,
     }

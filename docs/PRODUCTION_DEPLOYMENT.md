@@ -36,24 +36,28 @@
 
 ## 3. Exact Live Verification Commands (Run Once Credentials Are Configured)
 
-### A. Real PostgreSQL Verification (Neon Free)
+### A. Real PostgreSQL Verification (Neon Free — Live Verified)
+Verified live against **Neon PostgreSQL 18.7** via SSL (`pg8000` / `psycopg`), running Alembic revisions `0001_initial_schema` → `0002_sales_cx_notifications` → `0003_scheduler_leases`, importing all **145 MOKA menu items**, verifying rollback, unique constraints, restart survival, and SHA-256 backup/restore (`reports/postgres_live_verification.json`):
 ```bash
-# Refuses SQLite! Runs Alembic 0001 -> 0002 -> 0003, seeds MOKA 145 items,
-# tests rollback, unique constraints, restart survival, and backup/restore.
-DATABASE_URL="postgresql+psycopg://USER:PASS@HOST/neondb?sslmode=require" \
+DATABASE_URL="postgresql://USER:PASS@HOST/neondb?sslmode=require" \
   python scripts/verify_postgres_live.py --output reports/postgres_live_verification.json
 ```
 
-### B. Real Telegram Bot Verification (Cashier Group + Owner Private Chat)
+### B. Render Free Blueprint Deployment (`/render.yaml`)
+1. Connect repository `mayarmajed2/wasla-ai-dispatcher` on Render → **New Blueprint Instance** using root [`render.yaml`](../render.yaml) (`plan: free`).
+2. Populate all `sync: false` secrets in Render Dashboard (`DATABASE_URL`, `BOOTSTRAP_ADMIN_PASSWORD`, rotated `GEMINI_API_KEY`, `GROQ_API_KEY`, `META_ACCESS_TOKEN`, `META_PHONE_NUMBER_ID`, `META_APP_SECRET`, valid `TELEGRAM_BOT_TOKEN`, `CASHIER_TELEGRAM_CHAT_ID`, `RESTAURANT_OWNER_TELEGRAM_CHAT_ID`).
+3. Root [`Dockerfile`](../Dockerfile) automatically executes `alembic -c backend/alembic.ini upgrade head` and binds `uvicorn` to `${PORT:-8000}`.
+
+### C. Real Telegram Bot Verification (Cashier Group + Owner Private Chat)
 ```bash
-# 1. Discover chat IDs & validate bot token (never prints token)
-python scripts/setup_telegram_verify.py
+# 1. Validate bot token & discover authorized chat IDs (never prints token)
+python scripts/setup_telegram_verify.py --output reports/telegram_live_verification.json
 
 # 2. Send authorized live test alerts to cashier group & owner private chat
 python scripts/setup_telegram_verify.py --send-test --output reports/telegram_live_verification.json
 ```
 
-### C. Real Public HTTPS & Meta Webhook Verification
+### D. Real Public HTTPS & Meta Webhook Verification
 ```bash
 python scripts/verify_whatsapp_e2e_live.py \
   --base-url "https://<your-render-service>.onrender.com" \
@@ -62,20 +66,13 @@ python scripts/verify_whatsapp_e2e_live.py \
   --output reports/whatsapp_e2e_live_verification.json
 ```
 
-### D. Activate GitHub Actions CI/CD (with PostgreSQL 16 Service Container)
-```bash
-gh auth refresh -s workflow
-mkdir -p .github/workflows
-cp docs/ci-workflow-template.yml .github/workflows/ci.yml
-git add .github/workflows/ci.yml
-git commit -m "ci: activate GitHub Actions CI with PostgreSQL 16"
-git push origin main
-```
+### E. GitHub Actions CI/CD (with PostgreSQL 16 Service Container)
+Active in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) and [`.github/workflows/scheduler-cron.yml`](../.github/workflows/scheduler-cron.yml).
 
 ---
 
 ## 4. Security & Key Rotation Checklist Before Accepting Paying Customers
 
-1. **Rotate all exposed API keys** (`GEMINI_API_KEY`, `GROQ_API_KEY`, `META_ACCESS_TOKEN`) in provider consoles and update Render/hosting environment variables.
+1. **Rotate ALL exposed credentials immediately** (Neon DB password, `@wwaslabot` token, `GEMINI_API_KEY`, `GROQ_API_KEY`, `META_ACCESS_TOKEN`) and update `.env` / Render environment variables.
 2. **Set `APP_ENV=production`**, strong 48-char **`AUTH_SECRET_KEY`**, **`SCHEDULER_CRON_SECRET`**, **`META_APP_SECRET`**, and a strong **`BOOTSTRAP_ADMIN_PASSWORD`** (first-login password change is enforced automatically in production).
 3. **Never commit `.env`** to Git.

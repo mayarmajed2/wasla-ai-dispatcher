@@ -1,0 +1,17 @@
+{
+  "timestamp_utc": "2026-11-23T21:39:20.123928+00:00",
+  "status": "LIVE_POSTGRESQL_VERIFIED",
+  "dialect": "postgresql",
+  "postgres_version": "PostgreSQL 18.7 (84da7d8) on aarch64-unknown-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit",
+  "alembic_head_verified": true,
+  "tables_verified_count": 15,
+  "menu_items_count": 145,
+  "transaction_rollback_verified": true,
+  "unique_idempotency_enforced": true,
+  "restart_survival_verified": true,
+  "backup_restore_roundtrip_verified": true,
+  "backup_sha256": "5fa32fd350ce9230d4a17a3731d2352e1c14bf8000383724d74b0b62fddb2d4d",
+  "restored_order_id": 3,
+  "pg_dump_binary_verified": false,
+  "cleanup_completed": true
+}
