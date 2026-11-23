@@ -3,8 +3,9 @@ title: Wasla AI — MOKA Dispatcher
 emoji: 🍕
 colorFrom: red
 colorTo: yellow
-sdk: docker
-app_port: 7860
+sdk: gradio
+sdk_version: 5.12.0
+app_file: app.py
 pinned: false
 ---
 

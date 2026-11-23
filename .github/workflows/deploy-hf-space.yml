@@ -1,4 +1,4 @@
-name: Deploy to Hugging Face Spaces (Zero-Cost Docker)
+name: Deploy to Hugging Face Spaces (Zero-Cost Gradio SDK)
 
 on:
   push:
@@ -28,7 +28,9 @@ jobs:
           fi
           python -m pip install --quiet huggingface_hub
           mkdir -p /tmp/hf_stage
-          cp Dockerfile requirements.txt /tmp/hf_stage/
+          cp deploy/hf_app.py /tmp/hf_stage/app.py
+          cp deploy/hf_requirements.txt /tmp/hf_stage/requirements.txt
+          cp deploy/hf_packages.txt /tmp/hf_stage/packages.txt
           cp deploy/hf_space_README.md /tmp/hf_stage/README.md
           cp -r ai_service backend dashboard menu scripts /tmp/hf_stage/
           find /tmp/hf_stage -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
@@ -41,8 +43,8 @@ jobs:
               folder_path="/tmp/hf_stage",
               repo_id=space_id,
               repo_type="space",
-              commit_message="Deploy Wasla AI production bundle from GitHub Actions",
-              delete_patterns=["ai_service/**", "backend/**", "dashboard/**", "menu/**", "scripts/**", "Dockerfile", "requirements.txt"],
+              commit_message="Deploy Wasla AI production bundle (free Gradio SDK + FastAPI)",
+              delete_patterns=["*.py", "*.txt", "*.md", "ai_service/**", "backend/**", "dashboard/**", "menu/**", "scripts/**", "Dockerfile"],
           )
           print(f"Uploaded cleanly to Hugging Face Space: https://huggingface.co/spaces/{space_id}")
           EOF
