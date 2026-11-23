@@ -104,11 +104,19 @@ class WaslaAIDispatcher:
             if resolved is not None:
                 return resolved
 
-        # 4. Run NLU (Gemini 3.5 Flash-Lite / 3.8 Flash if configured, else deterministic OfflineEgyptianNLU)
-        parsed, model_used = await self._run_nlu(clean_text)
+        # 4. Run NLU (Gemini 3.5 Flash-Lite / 3.8 Flash if configured, else deterministic typo-tolerant OfflineEgyptianNLU)
+        category_hint = (session.pending_clarification or {}).get("category_hint")
+        parsed, model_used = await self._run_nlu(clean_text, category_hint=category_hint)
         intent = CustomerIntent(parsed.get("intent", CustomerIntent.UNCLEAR_REQUEST.value))
         confidence = float(parsed.get("confidence", 0.7))
         raw_items = [ExtractedOrderItem(**i) for i in parsed.get("items", [])]
+        match_meta = parsed.get("match_meta", [])
+
+        # If customer is correcting a previously added item (e.g., "لأ خليها بيبروني"), replace last cart item
+        if parsed.get("is_correction") and raw_items and raw_items[0].product_id and session.cart.items:
+            last_id = session.cart.items[-1].cart_item_id
+            rem_rec, _ = await self.tools.execute(session, "remove_cart_item", {"cart_item_id": last_id})
+            tool_calls.append(rem_rec)
 
         # 5. Dispatch by intent with strict deterministic business safety
         if intent == CustomerIntent.GREETING:
@@ -159,16 +167,16 @@ class WaslaAIDispatcher:
             return await self._handle_confirm_order(session, tool_calls, model_used)
 
         if intent in (CustomerIntent.ADD_TO_CART, CustomerIntent.MODIFY_ORDER) and raw_items:
-            return await self._handle_add_items(session, intent, confidence, raw_items, tool_calls, model_used)
+            return await self._handle_add_items(session, intent, confidence, raw_items, tool_calls, model_used, match_meta=match_meta)
 
         # Fallback: if customer just provided details while awaiting confirmation
         if session.cart.items and (session.customer_name or session.delivery_address or session.backup_phone):
             return await self._handle_confirm_order(session, tool_calls, model_used, explicit_confirm=False)
 
-        reply = "ممكن توضحلي طلبك أكتر يا فندم؟ قولّي اسم الصنف والكمية اللي تحبها من منيو MOKA."
+        reply = "ممكن توضحيلي اسم الصنف اللي تحبيه أكتر؟ عندنا في MOKA كريب، بيتزا، برجر، باستا، وجبات، ومشروبات وحلويات."
         return self._finish(session, CustomerIntent.UNCLEAR_REQUEST, confidence, [], True, "unclear_item", tool_calls, reply, model_used)
 
-    async def _run_nlu(self, text: str) -> tuple[dict[str, Any], str]:
+    async def _run_nlu(self, text: str, category_hint: str | None = None) -> tuple[dict[str, Any], str]:
         if self.llm_client.is_configured:
             system_prompt = (
                 "You are Wasla AI NLU for MOKA Egyptian restaurant. Return ONLY valid JSON with keys: "
@@ -183,7 +191,7 @@ class WaslaAIDispatcher:
                 return data, model
             except Exception as exc:
                 logger.warning("Live Gemini call failed (%s); falling back to OfflineEgyptianNLU.", exc)
-        return self.offline_nlu.parse(text), "offline_egyptian_nlu"
+        return self.offline_nlu.parse(text, category_hint=category_hint), "offline_egyptian_nlu"
 
     async def _handle_price_inquiry(
         self,
@@ -218,17 +226,30 @@ class WaslaAIDispatcher:
         items: list[ExtractedOrderItem],
         tool_calls: list[ToolCallRecord],
         model_used: str,
+        match_meta: list[dict[str, Any]] | None = None,
     ) -> DispatcherResponse:
         added_names: list[str] = []
-        for item in items:
+        meta_list = match_meta or []
+        for idx, item in enumerate(items):
+            item_meta = meta_list[idx] if idx < len(meta_list) else {}
             if not item.product_id:
-                _, candidates = self.menu_index.resolve_mention(item.raw_mention)
+                res = self.menu_index.resolve_mention_with_confidence(item.raw_mention)
+                candidates = res.candidates
                 if candidates:
                     opts = " / ".join(c.name_ar for c in candidates[:5])
-                    session.pending_clarification = {"type": "ambiguous_product", "item": item.model_dump(), "candidates": [c.product_id for c in candidates[:5]]}
-                    reply = f"عندنا أكتر من صنف باسم '{item.raw_mention}': {opts}. تحب أنهي واحد فيهم؟"
+                    cat_hint = item_meta.get("category_hint") or res.category_hint
+                    session.pending_clarification = {
+                        "type": "ambiguous_product",
+                        "item": item.model_dump(),
+                        "candidates": [c.product_id for c in candidates[:5]],
+                        "category_hint": cat_hint,
+                    }
+                    if res.tier == "medium":
+                        reply = f"تقصد أي واحد من دول في منيو MOKA: {opts}؟"
+                    else:
+                        reply = f"عندنا أكتر من اختيار لـ '{item.raw_mention}': {opts}. تحب أنهي واحد فيهم؟"
                     return self._finish(session, intent, confidence, items, True, "ambiguous_product", tool_calls, reply, model_used)
-                reply = f"مش لاقي '{item.raw_mention}' في منيو MOKA. ممكن تكتبلي اسم الصنف من المنيو؟"
+                reply = f"للأسف '{item.raw_mention}' مش موجود في منيو MOKA حالياً. تحب تطلب حاجة تانية من البيتزا أو الكريب أو البرجر أو الحلويات؟"
                 return self._finish(session, intent, confidence, items, True, "unknown_product", tool_calls, reply, model_used)
 
             rec, res = await self.tools.execute(
@@ -364,6 +385,22 @@ class WaslaAIDispatcher:
                 return await self._handle_add_items(session, CustomerIntent.ADD_TO_CART, 0.95, [item], tool_calls, "clarification_resolver")
 
         if ptype == "ambiguous_product":
+            cat_hint = pending.get("category_hint")
+            res = self.menu_index.resolve_mention_with_confidence(text, category_hint=cat_hint)
+            if res.tier == "high" and res.product is not None:
+                item.product_id = res.product.product_id
+                size_in_reply = self.offline_nlu._extract_size(norm)
+                if size_in_reply and not item.size_code:
+                    item.size_code = size_in_reply
+                opts_in_reply = self.offline_nlu._extract_options(res.product.product_id, norm)
+                if opts_in_reply:
+                    item.selected_options.update(opts_in_reply)
+                notes_in_reply = self.offline_nlu._extract_notes(text)
+                if notes_in_reply:
+                    item.notes = notes_in_reply
+                session.pending_clarification = None
+                return await self._handle_add_items(session, CustomerIntent.ADD_TO_CART, res.confidence, [item], tool_calls, "clarification_resolver")
+
             for cid in pending.get("candidates", []):
                 prod = self.menu_index.get_product(cid)
                 if prod and (normalize_ar(prod.name_ar) in norm or normalize_ar(prod.category_ar) in norm):

@@ -1,5 +1,5 @@
 """Provider-agnostic LLM Client (Gemini 3.5 Flash-Lite primary + Gemini 3.8 Flash fallback)
-plus a deterministic OfflineEgyptianNLU engine for zero-cost automated CI/unit testing.
+plus a typo-tolerant OfflineEgyptianNLU engine grounded strictly in MOKA's 145-item MenuIndex.
 """
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ import httpx
 
 from ai_service.config import WaslaConfig
 from ai_service.schemas.models import CustomerIntent, ExtractedOrderItem
-from ai_service.understanding.menu_index import MenuIndex, normalize_ar
+from ai_service.understanding.arabic_nlp import normalize_arabic, phonetic_arabic, strip_fillers
+from ai_service.understanding.menu_index import MenuIndex
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
@@ -24,6 +25,9 @@ ARABIC_NUMBERS = {
     "خمسه": 5, "خمسة": 5,
     "سته": 6, "ستة": 6,
 }
+
+# Prefixes indicating a customer self-correction (e.g., "لأ اقصد مارجريتا", "خليها بيبروني")
+CORRECTION_PREFIXES = ("لا ", "لأ ", "اقصد", "قصدي", "خليها", "خليه", "بدلها", "بدله", "غيرها")
 
 
 class GeminiLLMClient:
@@ -70,25 +74,32 @@ class GeminiLLMClient:
 
 
 class OfflineEgyptianNLU:
-    """Deterministic Egyptian Arabic NLU parser grounded strictly in MOKA's MenuIndex.
+    """Typo-tolerant Egyptian Arabic NLU parser grounded strictly in MOKA's MenuIndex.
 
-    Used for offline automated tests, fallback resilience, and verifying safety guardrails
-    without requiring live paid API calls.
+    Clearly identified as offline deterministic/fuzzy NLU (never presented as live LLM inference).
     """
 
     def __init__(self, menu_index: MenuIndex):
         self.menu_index = menu_index
 
-    def parse(self, text: str) -> dict[str, Any]:
-        norm = normalize_ar(text)
+    def parse(self, text: str, category_hint: str | None = None) -> dict[str, Any]:
+        norm = normalize_arabic(text)
+        if not norm:
+            return {
+                "intent": CustomerIntent.UNCLEAR_REQUEST.value,
+                "confidence": 0.0,
+                "items": [],
+                "requires_clarification": True,
+                "clarification_reason": "empty_message",
+            }
 
         # 1. Human handoff / complaint
-        if any(k in norm for k in ["كلم موظف", "اكلم حد", "الكاشير", "مساعده بشريه", "شكوي", "شكوى", "الاكل بارد", "اتأخرتوا", "اتاخر"]):
+        if any(k in norm for k in ["كلم موظف", "اكلم حد", "الكاشير", "مساعده بشريه", "شكوي", "الاكل بارد", "اتاخرتوا", "اتاخر"]):
             intent = CustomerIntent.COMPLAINT if any(k in norm for k in ["شكو", "بارد", "تاخر"]) else CustomerIntent.REQUEST_HUMAN
             return {"intent": intent.value, "confidence": 0.92, "items": [], "requires_clarification": False}
 
         # 2. Cancel order
-        if any(k in norm for k in ["الغي", "الغاء", "مش عايز", "كنسل", "الغي الطلب", "الغي الاوردر"]):
+        if any(k in norm for k in ["الغي الطلب", "الغي الاوردر", "الغاء الطلب", "كنسل", "الغي كل", "مش عايز حاجه"]):
             return {"intent": CustomerIntent.CANCEL_ORDER.value, "confidence": 0.93, "items": [], "requires_clarification": False}
 
         # 3. Confirm order
@@ -100,14 +111,26 @@ class OfflineEgyptianNLU:
             return {"intent": CustomerIntent.DELIVERY_INQUIRY.value, "confidence": 0.90, "items": [], "requires_clarification": False}
 
         # 5. Price inquiry
-        if any(k in norm for k in ["بكام", "سعر", "سعره", "اسعار"]):
-            items = self._extract_items(text)
-            return {"intent": CustomerIntent.PRICE_INQUIRY.value, "confidence": 0.91, "items": items, "requires_clarification": False}
+        if any(k in norm for k in ["بكام", "بكم", "سعر", "سعره", "سعرها", "اسعار"]):
+            items, meta = self._extract_items(text, category_hint=category_hint)
+            return {
+                "intent": CustomerIntent.PRICE_INQUIRY.value,
+                "confidence": 0.91,
+                "items": items,
+                "requires_clarification": False,
+                "match_meta": meta,
+            }
 
         # 6. Remove item
-        if any(k in norm for k in ["شيل", "احذف", "امسح", "لغي ال"]):
-            items = self._extract_items(text)
-            return {"intent": CustomerIntent.REMOVE_ITEM.value, "confidence": 0.90, "items": items, "requires_clarification": False}
+        if any(k in norm for k in ["شيل", "احذف", "امسح"]):
+            items, meta = self._extract_items(text, category_hint=category_hint)
+            return {
+                "intent": CustomerIntent.REMOVE_ITEM.value,
+                "confidence": 0.90,
+                "items": items,
+                "requires_clarification": False,
+                "match_meta": meta,
+            }
 
         # 7. Greeting only
         if norm in {"السلام عليكم", "مساء الخير", "صباح الخير", "اهلا", "ازيك", "الو", "هاي", "hello", "hi"}:
@@ -117,18 +140,54 @@ class OfflineEgyptianNLU:
         if any(k in norm for k in ["المنيو", "عندكم ايه", "ابعت المنيو", "القائمه"]):
             return {"intent": CustomerIntent.MENU_INQUIRY.value, "confidence": 0.92, "items": [], "requires_clarification": False}
 
-        # 9. Order extraction
-        items = self._extract_items(text)
+        # 9. Customer self-correction or Order extraction
+        is_correction = any(norm.startswith(p) for p in CORRECTION_PREFIXES)
+        items, meta = self._extract_items(text, category_hint=category_hint)
         if items:
-            return {"intent": CustomerIntent.ADD_TO_CART.value, "confidence": 0.88, "items": items, "requires_clarification": False}
+            best_conf = max((m.get("confidence", 0.8) for m in meta), default=0.85)
+            return {
+                "intent": CustomerIntent.MODIFY_ORDER.value if is_correction else CustomerIntent.ADD_TO_CART.value,
+                "confidence": round(best_conf, 2),
+                "items": items,
+                "requires_clarification": False,
+                "match_meta": meta,
+                "is_correction": is_correction,
+            }
+
+        # If customer typed a food request with fillers (e.g. "عايزة سوشي") that matched NO MOKA item
+        cleaned = strip_fillers(text)
+        if cleaned:
+            return {
+                "intent": CustomerIntent.ADD_TO_CART.value,
+                "confidence": 0.35,
+                "items": [ExtractedOrderItem(product_id=None, raw_mention=cleaned, quantity=self._extract_quantity(norm)).model_dump()],
+                "requires_clarification": True,
+                "clarification_reason": "unknown_product",
+                "match_meta": [{"tier": "low", "confidence": 0.0, "candidates": []}],
+            }
 
         return {
             "intent": CustomerIntent.UNCLEAR_REQUEST.value,
-            "confidence": 0.45,
+            "confidence": 0.35,
             "items": [],
             "requires_clarification": True,
-            "clarification_reason": "لم يتم التعرف على صنف محدد من منيو MOKA.",
+            "clarification_reason": "unclear_item",
         }
+
+    def _split_segments(self, text: str) -> list[str]:
+        """Split multi-item Arabic orders cleanly without breaking words that contain 'و'."""
+        norm = normalize_arabic(text)
+        # Split on explicit separators: standalone 'و', '+', ',', '،', newline
+        parts = re.split(r"\s+و\s+|\+|,|،|\n", norm)
+        final_parts: list[str] = []
+        # Also split Egyptian attached 'و' before quantities or major category nouns (e.g. "بيتزا مارجريتا وكريب كريسبي")
+        attach_re = re.compile(
+            r"\s+و(?=(?:واحد|واحده|اتنين|اثنين|تلاته|اربعه|بيتزا|كريب|برجر|باستا|وجبه|بطاطس|وافل|بان|قشطوطه|طاجن|ميلك|ايس|هوت|قهوه|سندوتش|\d+))"
+        )
+        for p in parts:
+            sub = attach_re.split(p.strip())
+            final_parts.extend(s.strip() for s in sub if s.strip())
+        return final_parts
 
     def _extract_quantity(self, segment: str) -> int:
         digit_match = re.search(r"\b(\d+)\b", segment)
@@ -150,99 +209,107 @@ class OfflineEgyptianNLU:
             return "D"
         if any(w in norm for w in ["سنجل", "single"]):
             return "S"
-        if any(w in norm for w in ["كبير", "كبيره", "لارج", "large"]):
+        if any(w in norm for w in ["كبير", "كبيره", "لارج", "large"]) or re.search(r"\bl\b", norm):
             return "L"
-        if any(w in norm for w in ["وسط", "ميديم", "medium"]):
+        if any(w in norm for w in ["وسط", "ميديم", "medium"]) or re.search(r"\bm\b", norm):
             return "M"
         return None
 
     def _extract_modifiers(self, norm: str) -> list[str]:
+        ph = phonetic_arabic(norm)
         mods: list[str] = []
-        if any(w in norm for w in ["موتزريلا", "موزاريلا"]):
+        if "موتزريلا" in ph:
             mods.append("mod_crepe_mozzarella")
-        if "هالبينو" in norm and "بيتزا تشكن هالبينو" not in norm and "بطاطس شيدر هالبينو" not in norm:
+        if "هالبينو" in ph and "بيتزا تشكن هالبينو" not in ph and "بطاطس شيدر هالبينو" not in ph:
             mods.append("mod_crepe_jalapeno")
-        if "بصل مكرمل" in norm:
+        if "بصل مكرمل" in ph:
             mods.append("mod_crepe_caramelized_onion")
-        if "صوص زياده" in norm or "اكسترا صوص" in norm or "صوص من اختيارك" in norm:
+        if "صوص زياده" in ph or "اكسترا صوص" in ph or "صوص من اختيارك" in ph:
             mods.append("mod_crepe_sauce_choice")
-        if "حشو اطراف" in norm or "ستافد كراست" in norm:
+        if "حشو اطراف" in ph or "ستافد كراست" in ph:
             mods.append("mod_pizza_stuffed_crust")
-        if "حبه كامله" in norm:
+        if "حبه كامله" in ph:
             mods.append("mod_pizza_whole_wheat_crust")
-        if "اكسترا بسطرمه" in norm or "اكسترا بيبروني" in norm:
+        if "اكسترا بسطرمه" in ph or "اكسترا بيبروني" in ph:
             mods.append("mod_pizza_extra_pastrami_pepperoni")
         return mods
 
     def _extract_notes(self, text: str) -> str:
-        match = re.search(r"((?:من غير|بدون)\s+[\u0600-\u06FF\s]+)", text)
+        match = re.search(r"((?:من غير|بدون)\s+[\u0600-\u06FFa-zA-Z0-9\s]+)", text)
         return match.group(1).strip() if match else ""
 
-    def _extract_items(self, text: str) -> list[dict[str, Any]]:
-        norm_full = normalize_ar(text)
-        segments = re.split(r"\bو\b|\+|,|،|\n", text)
+    def _extract_options(self, product_id: str, seg_norm: str) -> dict[str, str]:
+        opts: dict[str, str] = {}
+        if product_id == "item_037":  # بيتزا تشكن رانش/باربكيو
+            ph = phonetic_arabic(seg_norm)
+            has_ranch = "رانش" in ph
+            has_bbq = "باربكيو" in ph
+            if has_ranch and not has_bbq:
+                opts["sauce"] = "رانش"
+            elif has_bbq and not has_ranch:
+                opts["sauce"] = "باربيكيو"
+        elif product_id == "item_092":  # ميكس صودا كلاسيك
+            for flavor in ["فراوله", "صن شاين", "كيوي", "مانجو", "توت", "خوخ"]:
+                if flavor in seg_norm:
+                    opts["flavor"] = flavor
+                    break
+        return opts
+
+    def _extract_items(
+        self,
+        text: str,
+        category_hint: str | None = None,
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        segments = self._split_segments(text)
         extracted: list[dict[str, Any]] = []
+        match_meta: list[dict[str, Any]] = []
         seen_ids: set[str] = set()
 
-        # Check longest product names first across full text or segments
-        sorted_products = sorted(self.menu_index.products.values(), key=lambda p: len(p.name_ar), reverse=True)
         for seg in segments:
-            seg_norm = normalize_ar(seg)
-            if not seg_norm:
+            cleaned = strip_fillers(seg)
+            if not cleaned:
                 continue
-            matched = None
-            for p in sorted_products:
-                p_norm = normalize_ar(p.name_ar)
-                if p_norm in seg_norm:
-                    matched = p
-                    break
-            if matched and matched.product_id not in seen_ids:
-                seen_ids.add(matched.product_id)
-                opts: dict[str, str] = {}
-                if matched.product_id == "item_037":  # بيتزا تشكن رانش/باربكيو
-                    has_ranch = "رانش" in seg_norm
-                    has_bbq = "باربكيو" in seg_norm or "باربيكيو" in seg_norm
-                    if has_ranch and not has_bbq:
-                        opts["sauce"] = "رانش"
-                    elif has_bbq and not has_ranch:
-                        opts["sauce"] = "باربيكيو"
+
+            res = self.menu_index.resolve_mention_with_confidence(cleaned, category_hint=category_hint)
+            qty = self._extract_quantity(seg)
+            size = self._extract_size(seg)
+            notes = self._extract_notes(seg)
+
+            if res.tier == "high" and res.product is not None:
+                if res.product.product_id in seen_ids:
+                    continue
+                seen_ids.add(res.product.product_id)
+                mods = [m for m in self._extract_modifiers(seg) if m in res.product.modifiers]
+                opts = self._extract_options(res.product.product_id, seg)
                 extracted.append(
                     ExtractedOrderItem(
-                        product_id=matched.product_id,
-                        raw_mention=seg.strip(),
-                        quantity=self._extract_quantity(seg_norm),
-                        size_code=self._extract_size(seg_norm),
-                        modifier_ids=[m for m in self._extract_modifiers(seg_norm) if m in matched.modifiers],
+                        product_id=res.product.product_id,
+                        raw_mention=cleaned,
+                        quantity=qty,
+                        size_code=size,
+                        modifier_ids=mods,
                         selected_options=opts,
-                        notes=self._extract_notes(seg),
+                        notes=notes,
                     ).model_dump()
                 )
-            else:
-                # Check colloquial aliases or ambiguous short mentions
-                cleaned = re.sub(r"\b(عايز|عاوز|محتاج|هات|ممكن|لو سمحت|بكام|سعر|شيل|احذف|واحد|واحده|اتنين|تلاته|\d+)\b", "", seg_norm).strip()
-                cleaned = re.sub(r"\b(كبير|وسط|سنجل|دبل|من غير.*|بدون.*)\b", "", cleaned).strip()
-                if cleaned:
-                    exact, candidates = self.menu_index.resolve_mention(cleaned)
-                    if exact and exact.product_id not in seen_ids:
-                        seen_ids.add(exact.product_id)
-                        extracted.append(
-                            ExtractedOrderItem(
-                                product_id=exact.product_id,
-                                raw_mention=seg.strip(),
-                                quantity=self._extract_quantity(seg_norm),
-                                size_code=self._extract_size(seg_norm),
-                                modifier_ids=[m for m in self._extract_modifiers(seg_norm) if m in exact.modifiers],
-                                notes=self._extract_notes(seg),
-                            ).model_dump()
-                        )
-                    elif candidates:
-                        extracted.append(
-                            ExtractedOrderItem(
-                                product_id=None,
-                                raw_mention=cleaned,
-                                quantity=self._extract_quantity(seg_norm),
-                                size_code=self._extract_size(seg_norm),
-                                notes=self._extract_notes(seg),
-                            ).model_dump()
-                        )
-        return extracted
+                match_meta.append({"tier": "high", "confidence": res.confidence, "candidates": []})
+            elif res.tier in ("ambiguous", "medium") and res.candidates:
+                extracted.append(
+                    ExtractedOrderItem(
+                        product_id=None,
+                        raw_mention=cleaned,
+                        quantity=qty,
+                        size_code=size,
+                        notes=notes,
+                    ).model_dump()
+                )
+                match_meta.append(
+                    {
+                        "tier": res.tier,
+                        "confidence": res.confidence,
+                        "candidates": [c.product_id for c in res.candidates],
+                        "category_hint": res.category_hint,
+                    }
+                )
+
+        return extracted, match_meta
