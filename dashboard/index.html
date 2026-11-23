@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wasla AI — مركز عمليات الكاشير (MOKA)</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">W</div>
+        <div>
+          <strong>Wasla AI</strong>
+          <span>MOKA Operations Console</span>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="التنقل الرئيسي">
+        <button class="nav-item active" data-view="ordersView" type="button">
+          <span class="nav-icon">📋</span>
+          <span>لوحة الطلبات الحية</span>
+          <span class="nav-badge" id="navNewBadge">0</span>
+        </button>
+        <button class="nav-item" data-view="menuView" type="button">
+          <span class="nav-icon">🍽️</span>
+          <span>توافر المنيو (MOKA)</span>
+          <span class="nav-badge muted" id="navOutBadge">0</span>
+        </button>
+        <button class="nav-item" data-view="aiView" type="button">
+          <span class="nav-icon">🤖</span>
+          <span>محاكي الوكيل الذكي</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sys-pill">
+          <span class="dot" id="wsDot"></span>
+          <span id="connection">جاري الاتصال...</span>
+        </div>
+        <button id="enableSound" type="button" class="btn btn-ghost full-width">
+          🔔 تفعيل صوت التنبيهات
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <div class="main-wrap">
+      <header class="topbar">
+        <div>
+          <h1 id="viewTitle">لوحة الطلبات الحية</h1>
+          <p class="subtitle">تحديث لحظي عبر WebSockets • مطعم MOKA</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="refreshBtn" type="button" class="btn btn-outline">↻ تحديث البيانات</button>
+        </div>
+      </header>
+
+      <div id="toastStack" class="toast-stack" aria-live="polite"></div>
+
+      <!-- VIEW 1: LIVE ORDERS -->
+      <section id="ordersView" class="view active">
+        <div class="kpi-grid">
+          <article class="kpi-card accent-blue">
+            <span class="kpi-label">طلبات جديدة</span>
+            <strong class="kpi-value" id="kpiNew">0</strong>
+          </article>
+          <article class="kpi-card accent-amber">
+            <span class="kpi-label">في المطبخ</span>
+            <strong class="kpi-value" id="kpiKitchen">0</strong>
+          </article>
+          <article class="kpi-card accent-indigo">
+            <span class="kpi-label">خرج للتوصيل</span>
+            <strong class="kpi-value" id="kpiDispatched">0</strong>
+          </article>
+          <article class="kpi-card accent-green">
+            <span class="kpi-label">تم التسليم</span>
+            <strong class="kpi-value" id="kpiFulfilled">0</strong>
+          </article>
+          <article class="kpi-card accent-orange">
+            <span class="kpi-label">إجمالي المبيعات</span>
+            <strong class="kpi-value" id="kpiRevenue">0.00 ج.م</strong>
+          </article>
+          <article class="kpi-card">
+            <span class="kpi-label">تحويل للكاشير / تقييم</span>
+            <strong class="kpi-value" id="kpiHandoffRating">0 / —</strong>
+          </article>
+        </div>
+
+        <div class="toolbar">
+          <div class="filter-pills" id="statusFilters">
+            <button class="pill active" data-status="ALL" type="button">الكل</button>
+            <button class="pill" data-status="SUBMITTED" type="button">جديد</button>
+            <button class="pill" data-status="IN_KITCHEN" type="button">في المطبخ</button>
+            <button class="pill" data-status="DISPATCHED" type="button">في التوصيل</button>
+            <button class="pill" data-status="UNREACHABLE_ALERT" type="button">لا يمكن الوصول</button>
+            <button class="pill" data-status="FULFILLED" type="button">مكتمل</button>
+            <button class="pill" data-status="CANCELLED" type="button">ملغي</button>
+          </div>
+          <input id="orderSearch" type="search" class="search-input" placeholder="ابحث باسم العميل أو رقم الطلب أو الموبايل...">
+        </div>
+
+        <div id="orders" class="orders-grid" aria-live="polite"></div>
+      </section>
+
+      <!-- VIEW 2: LIVE MENU AVAILABILITY -->
+      <section id="menuView" class="view">
+        <div class="toolbar">
+          <select id="categoryFilter" class="select-input">
+            <option value="ALL">كل الأقسام</option>
+          </select>
+          <input id="menuSearch" type="search" class="search-input" placeholder="ابحث عن صنف في منيو MOKA (145 صنف)...">
+        </div>
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>الصنف</th>
+                <th>القسم</th>
+                <th>السعر الأساسي</th>
+                <th>الحالة</th>
+                <th>إجراء</th>
+              </tr>
+            </thead>
+            <tbody id="menuTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- VIEW 3: WASLA AI LIVE SIMULATOR -->
+      <section id="aiView" class="view">
+        <div class="ai-layout">
+          <div class="chat-panel">
+            <div class="chat-header">
+              <div>
+                <h2>محاكي واتساب — Wasla AI Dispatcher</h2>
+                <p class="subtitle">اختبر فهم العامية المصرية واستخراج الطلبات وتثبيتها مباشرة في لوحة الكاشير</p>
+              </div>
+              <input id="simPhone" type="text" class="phone-input" value="01012345678" aria-label="رقم موبايل العميل">
+            </div>
+            <div id="chatMessages" class="chat-messages">
+              <div class="msg assistant">أهلاً بك في محاكي Wasla AI لمطعم MOKA! جرب تكتب مثلاً: "عايز بيتزا مارجريتا كبير حبة كاملة" أو "كريب كريسبي بكام؟"</div>
+            </div>
+            <form id="chatForm" class="chat-form">
+              <input id="chatInput" type="text" required placeholder="اكتب رسالة العميل بالعامية المصرية..." autocomplete="off">
+              <button type="submit" class="btn btn-primary">إرسال</button>
+            </form>
+          </div>
+
+          <aside class="inspector-panel">
+            <h3>مراقب الذكاء الاصطناعي (Live Telemetry)</h3>
+            <div class="inspector-block">
+              <span class="label">آخر نية مكتشفة (Intent)</span>
+              <code id="inspIntent">—</code>
+            </div>
+            <div class="inspector-block">
+              <span class="label">الموديل المستخدم</span>
+              <code id="inspModel">—</code>
+            </div>
+            <div class="inspector-block">
+              <span class="label">حالة السلة الحية</span>
+              <pre id="inspCart">{}</pre>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Smart Cashier Directive Modal -->
+  <dialog id="directiveModal" class="modal">
+    <form id="directiveForm" method="dialog">
+      <div class="modal-head">
+        <h2>توجيه ذكي للعميل (Human-in-the-Loop)</h2>
+        <button type="button" id="closeDirectiveX" class="icon-btn" aria-label="إغلاق">✕</button>
+      </div>
+      <p class="subtitle" style="margin-bottom:12px;">اختر أمراً سريعاً أو اكتب توجيهاً حراً وسيقوم Wasla AI بصياغة رسالة مهذبة بالعامية المصرية:</p>
+      <div class="preset-row">
+        <button type="button" class="btn btn-outline btn-sm" data-preset="unreachable_client">🚨 الطيار تحت المنزل (لا يرد)</button>
+        <button type="button" class="btn btn-outline btn-sm" data-preset="kitchen_delay">⏱️ تأخير مطبخ 15 دقيقة</button>
+        <button type="button" class="btn btn-outline btn-sm" data-preset="out_of_stock">⚠️ صنف غير متوفر (بديل)</button>
+      </div>
+      <input type="hidden" id="directiveType" value="free_text">
+      <textarea id="directiveText" required minlength="3" placeholder="مثال: الاستربس خلصان، اعرض كريب زنجر حار كبديل..."></textarea>
+      <div id="directivePreview" class="directive-preview" hidden></div>
+      <div class="modal-actions">
+        <button type="button" id="cancelDirective" class="btn btn-outline">إغلاق</button>
+        <button type="submit" class="btn btn-primary">إرسال التوجيه عبر Wasla AI</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>

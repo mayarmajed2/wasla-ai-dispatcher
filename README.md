@@ -1,41 +1,89 @@
-# Wasla — Restaurant AI Dispatcher (MOKA Pilot)
+# Wasla AI — Commercial Restaurant AI Dispatcher (MOKA Pilot)
 
-Commercial AI Intelligence Layer (**Wasla**) for Egyptian Arabic WhatsApp Restaurant Ordering (Voice-First + Text + Human-in-the-Loop Cashier Directives).
+**Wasla AI** is a production-oriented, Egyptian Arabic Voice-First AI Ordering & Cashier Operations platform engineered for restaurants and cafes, piloted with **MOKA Restaurant & Cafe** (145 confirmed menu items across 23 categories).
 
-## Project Status
+---
 
-- **Current Phase:** Phase 0–2 (Workspace Inspection, Menu Extraction, Architecture & Roadmap Approval Gate)
-- **Implementation Status:** Pending explicit architecture & roadmap approval before AI service coding begins.
-- **Existing Backend & Cashier Dashboard:** Developed independently by another team member and not currently present in this workspace. This repository develops the **independent AI intelligence layer** with clean integration contracts and a temporary Mock Backend for isolated testing.
+## Core Capabilities
+
+- **Egyptian Arabic Voice-First & Text Ordering (`ai_service/`):** Understands colloquial Egyptian Arabic, mixed English/Arabic menu names, multi-item orders, sizes (`M/L`, `S/D`, `10PCS/20PCS`), paid extras (`حبة كاملة`, `حشو اطراف`, `موتزريلا`, etc.), and free removals (`من غير بصل`).
+- **Option C Hybrid Audio Pipeline:** Validated WhatsApp `audio/ogg` ingestion (magic-byte & size checks) using active **Gemini 3.5 Flash-Lite** direct multimodal audio with automatic fallback to **Groq Whisper Large v3 Turbo** or **OpenAI `gpt-transcribe`**.
+- **Deterministic Business Safety:** Prices, modifiers, delivery fees, and stock availability are NEVER invented by the LLM. All financial calculations use exact `Decimal` arithmetic in the authoritative FastAPI Backend (`backend/app/cart_calculator.py`).
+- **Transactional Reliability:** Enforces `confirmed_by_customer=True`, `backup_phone`, `idempotency_key` deduplication, Meta webhook `meta_message_id` deduplication, HMAC-SHA256 webhook verification, and a 7-state `OrderStatus` machine (`DRAFTING` → `SUBMITTED` → `IN_KITCHEN` → `DISPATCHED` ↔ `UNREACHABLE_ALERT` → `FULFILLED` / `CANCELLED`).
+- **Human-in-the-Loop Cashier Operations Console (`dashboard/`):** Commercial Arabic RTL SaaS dashboard with real-time WebSocket updates (`/ws/cashier`), SQL-backed KPI metrics (`/api/metrics`), 1-click MOKA inventory availability toggles (`/api/menu/{id}/availability`), smart cashier directive presets, and a live Wasla AI chat simulator (`/api/ai/chat`).
+
+---
 
 ## Repository Structure
 
 ```text
-.
-├── docs/
-│   └── RESTAURANT_AI_PROJECT_ROADMAP.pdf   # Comprehensive 28-section commercial roadmap
-├── menu/
-│   ├── menu.json                           # Full structured MOKA menu (source of truth)
-│   ├── categories.json                     # Extracted menu categories
-│   ├── products.json                       # Extracted products, prices, sizes, descriptions
-│   ├── modifiers.json                      # Extracted extras and modifiers
-│   └── extraction_report.md                # Extraction summary & items awaiting confirmation
-├── المواصفات الفنية للنظام.pdf               # Existing restaurant technical specification (read-only)
-├── WhatsApp Image *.jpeg                   # Source restaurant menu images (read-only)
-├── .env.example                            # Environment variable template (no secrets)
-├── .gitignore                              # Git ignore rules
-└── README.md                               # This file
+wasla-ai-dispatcher/
+├── ai_service/                     # Independent AI Intelligence Layer
+│   ├── adapters/                   # Abstract interfaces, MockBackendAdapter, RealBackendAdapter
+│   ├── audio/                      # Option C Hybrid OGG/Opus audio pipeline
+│   ├── dispatcher/                 # WaslaAIDispatcher, 3s MessageDebouncer, CashierDirectiveInterpreter
+│   ├── models/                     # Active Gemini 3.5 Flash-Lite / 3.8 Flash client + OfflineEgyptianNLU
+│   ├── schemas/                    # Strict Pydantic v2 DTOs & Backend contracts
+│   ├── security/                   # PII log redaction, prompt-injection guardrails, audio validation
+│   ├── tools/                      # 8 Function Calling tools & validated ToolExecutor
+│   └── understanding/              # MOKA 145-item MenuIndex & Egyptian Arabic disambiguation
+├── backend/                        # Integrated FastAPI + SQLAlchemy + WebSockets Backend
+│   ├── app/                        # main.py, models.py, cart_calculator.py, ws_manager.py, database.py
+│   ├── Dockerfile                  # Production container image
+│   ├── render.yaml                 # Render deployment blueprint
+│   └── test_cart_calculator.py     # Deterministic Decimal math tests
+├── dashboard/                      # Redesigned Commercial Arabic RTL Cashier Console
+│   ├── index.html
+│   └── assets/                     # styles.css, app.js
+├── menu/                           # Canonical MOKA Menu (145 products, 23 categories, 7 extras)
+├── datasets/                       # Grounded MOKA evaluation cases + HF real Egyptian audio loader
+├── docs/                           # Roadmap PDF, Integration Contract, Audit & Test Results
+├── scripts/                        # Menu seeder & Hugging Face Egyptian Arabic ASR loader
+├── tests/                          # Unit, Integration, AI Eval, and Real-Backend E2E suites
+├── requirements.txt
+└── .env.example
 ```
 
-## Key Architectural Principles
+---
 
-1. **Deterministic Business Safety:** The AI layer never invents prices, discounts, delivery fees, or item availability. Authoritative business state and financial calculations live in the Backend.
-2. **Egyptian Arabic Voice-First:** Built specifically for Egyptian colloquial Arabic text and WhatsApp voice notes (`audio/ogg`).
-3. **Human-in-the-Loop:** Preserves full cashier operational control for unavailable items, kitchen delays, unreachable deliveries, and free-text cashier directives.
-4. **Clean Integration Contracts:** Decoupled from the unavailable Backend via well-defined service interfaces (`MenuProvider`, `CartService`, `DeliveryService`, `OrderService`, `HumanHandoff`) and tested against an isolated Mock Backend adapter.
+## Quick Start (Local Development)
 
-## Next Steps
+### 1. Install Dependencies
 
-1. Review `menu/extraction_report.md` and confirm unclear menu details.
-2. Review `docs/RESTAURANT_AI_PROJECT_ROADMAP.pdf` and approve architecture, model selection, and audio pipeline options.
-3. Begin independent AI layer development (Phase 3+).
+```bash
+pip install -r requirements.txt
+```
+
+*(Note on Windows Smart App Control with Python 3.14: install pure-Python SQLAlchemy if Cython `.pyd` extensions are blocked: `DISABLE_SQLALCHEMY_CEXT=1 pip install --no-binary sqlalchemy "sqlalchemy>=2.0.40,<2.1"`.)*
+
+### 2. Configure Environment
+
+Copy `.env.example` to `.env` and populate keys locally (never commit `.env`):
+
+```bash
+cp .env.example .env
+```
+
+### 3. Run the Integrated Server & Cashier Dashboard
+
+```bash
+cd backend
+uvicorn app.main:app --reload --port 8000
+```
+
+Open **http://localhost:8000** in your browser to access the **Wasla Cashier Operations Console** (Live Orders, 145-Item MOKA Inventory Toggle, and Live Wasla AI Simulator).
+
+### 4. Run Automated Tests
+
+```bash
+pytest -v tests/ backend/test_cart_calculator.py
+```
+
+---
+
+## Documentation
+
+- [Commercial Project Roadmap (PDF)](docs/RESTAURANT_AI_PROJECT_ROADMAP.pdf)
+- [Verified Backend & Dashboard Integration Contract](docs/INTEGRATION_CONTRACT.md)
+- [MOKA Menu Extraction Report](menu/extraction_report.md)
+- [Project Audit & Test Results](docs/PROJECT_AUDIT_AND_TEST_RESULTS.md)
