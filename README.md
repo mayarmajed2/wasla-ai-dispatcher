@@ -1,6 +1,6 @@
-# Restaurant AI Dispatcher (MOKA)
+# Wasla — Restaurant AI Dispatcher (MOKA Pilot)
 
-Commercial AI Intelligence Layer for Egyptian Arabic WhatsApp Restaurant Ordering (Voice-First + Text + Human-in-the-Loop Cashier Directives).
+Commercial AI Intelligence Layer (**Wasla**) for Egyptian Arabic WhatsApp Restaurant Ordering (Voice-First + Text + Human-in-the-Loop Cashier Directives).
 
 ## Project Status
 
