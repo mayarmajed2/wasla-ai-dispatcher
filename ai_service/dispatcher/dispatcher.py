@@ -10,6 +10,7 @@ from ai_service.adapters.interfaces import BackendIntegrationError
 from ai_service.audio.pipeline import HybridAudioPipeline
 from ai_service.config import WaslaConfig
 from ai_service.dispatcher.cashier_directives import CashierDirectiveInterpreter
+from ai_service.models.finetuned_intent import FineTunedIntentClassifier
 from ai_service.models.llm_client import GeminiLLMClient, OfflineEgyptianNLU
 from ai_service.schemas.models import (
     AudioInput,
@@ -45,6 +46,7 @@ class WaslaAIDispatcher:
         self.backend = backend
         self.llm_client = llm_client or GeminiLLMClient(config)
         self.offline_nlu = OfflineEgyptianNLU(menu_index)
+        self.finetuned_intent = FineTunedIntentClassifier()
         self.audio_pipeline = audio_pipeline or HybridAudioPipeline(config)
         self.tools = ToolExecutor(backend)
         self.directive_interpreter = CashierDirectiveInterpreter(menu_index)
@@ -107,7 +109,22 @@ class WaslaAIDispatcher:
         # 4. Run NLU (Gemini 3.5 Flash-Lite / 3.8 Flash if configured, else deterministic typo-tolerant OfflineEgyptianNLU)
         category_hint = (session.pending_clarification or {}).get("category_hint")
         parsed, model_used = await self._run_nlu(clean_text, category_hint=category_hint)
-        intent = CustomerIntent(parsed.get("intent", CustomerIntent.UNCLEAR_REQUEST.value))
+        raw_intent_str = str(parsed.get("intent", CustomerIntent.UNCLEAR_REQUEST.value)).strip().lower()
+        intent_alias_map = {
+            "place_order": "add_to_cart",
+            "order": "add_to_cart",
+            "create_order": "add_to_cart",
+            "ask_price": "price_inquiry",
+            "ask_menu": "menu_inquiry",
+            "confirm": "confirm_order",
+            "cancel": "cancel_order",
+            "human": "request_human",
+        }
+        raw_intent_str = intent_alias_map.get(raw_intent_str, raw_intent_str)
+        try:
+            intent = CustomerIntent(raw_intent_str)
+        except ValueError:
+            intent = CustomerIntent.ADD_TO_CART if parsed.get("items") else CustomerIntent.UNCLEAR_REQUEST
         confidence = float(parsed.get("confidence", 0.7))
         raw_items = [ExtractedOrderItem(**i) for i in parsed.get("items", [])]
         match_meta = parsed.get("match_meta", [])
@@ -178,9 +195,11 @@ class WaslaAIDispatcher:
 
     async def _run_nlu(self, text: str, category_hint: str | None = None) -> tuple[dict[str, Any], str]:
         if self.llm_client.is_configured:
+            allowed_intents = ", ".join(i.value for i in CustomerIntent)
             system_prompt = (
                 "You are Wasla AI NLU for MOKA Egyptian restaurant. Return ONLY valid JSON with keys: "
-                "intent, confidence, items (list of {product_id, raw_mention, quantity, size_code, modifier_ids, selected_options, notes}), "
+                f"intent (MUST be one of: {allowed_intents}), confidence (0..1), "
+                "items (list of {product_id, raw_mention, quantity, size_code, modifier_ids, selected_options, notes}), "
                 "requires_clarification, clarification_reason. Never invent product_ids or prices.\n"
                 + self.menu_index.build_compact_prompt_catalog()
             )

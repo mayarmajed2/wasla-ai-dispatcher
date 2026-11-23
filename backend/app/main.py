@@ -519,6 +519,8 @@ def readiness(db: Session = Depends(get_db)):
             "groq_whisper_configured": bool(wasla_config.groq_api_key and not wasla_config.groq_api_key.startswith("your_")),
             "meta_whatsapp_configured": meta_client.is_configured,
             "meta_webhook_hmac_enabled": bool(settings.meta_app_secret),
+            "finetuned_lora_checkpoint_exists": ai_dispatcher.finetuned_intent.checkpoint_exists,
+            "finetuned_lora_loaded": ai_dispatcher.finetuned_intent.is_loaded,
         },
     }
 

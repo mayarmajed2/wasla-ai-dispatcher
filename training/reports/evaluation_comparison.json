@@ -1,0 +1,31 @@
+{
+  "evaluation_dataset": "training/data/test_unseen.jsonl",
+  "dataset_origin": "synthetic_moka_grounded (held-out unseen split, zero overlap with train & moka_typo_eval_150)",
+  "samples": 106,
+  "model_a_untrained_base": {
+    "name": "CAMeL-Lab/bert-base-arabic-camelbert-mix",
+    "intent_accuracy": 0.3962,
+    "macro_f1": 0.0504,
+    "weighted_f1": 0.2451,
+    "avg_latency_ms": 60.01,
+    "samples": 106
+  },
+  "model_b_finetuned_lora": {
+    "name": "CAMeL-Lab/bert-base-arabic-camelbert-mix + PEFT LoRA",
+    "checkpoint": "training\\checkpoints\\camelbert-wasla-lora",
+    "intent_accuracy": 0.7925,
+    "macro_f1": 0.5382,
+    "weighted_f1": 0.7606,
+    "avg_latency_ms": 60.52,
+    "samples": 106
+  },
+  "model_c_wasla_hybrid_nlu": {
+    "name": "Wasla OfflineEgyptianNLU + Fuzzy MenuIndex",
+    "intent_accuracy": 0.7736,
+    "macro_f1": 0.6043,
+    "weighted_f1": 0.7311,
+    "hallucinated_product_count": 0,
+    "avg_latency_ms": 101.9,
+    "samples": 106
+  }
+}

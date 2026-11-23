@@ -1,0 +1,41 @@
+{
+  "experiment_name": "wasla-camelbert-mix-lora-v1",
+  "base_model": "CAMeL-Lab/bert-base-arabic-camelbert-mix",
+  "license": "MIT",
+  "device": "cpu",
+  "trainable_params": 304140,
+  "total_params": 109394712,
+  "trainable_ratio_pct": 0.278,
+  "train_examples": 520,
+  "val_examples": 106,
+  "duration_seconds": 375.48,
+  "epoch_0_base_val_loss": 2.2265,
+  "epoch_0_base_val_acc": 0.3962,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 2.0461,
+      "val_loss": 1.6425,
+      "val_acc": 0.4906
+    },
+    {
+      "epoch": 2,
+      "train_loss": 1.4877,
+      "val_loss": 1.131,
+      "val_acc": 0.5849
+    },
+    {
+      "epoch": 3,
+      "train_loss": 1.1141,
+      "val_loss": 0.8812,
+      "val_acc": 0.7358
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.9331,
+      "val_loss": 0.8179,
+      "val_acc": 0.7358
+    }
+  ],
+  "checkpoint_dir": "training\\checkpoints\\camelbert-wasla-lora"
+}

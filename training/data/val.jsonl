@@ -1,0 +1,106 @@
+{"text": "عاوز بطاطس ستربس شيدر من غير صوص", "intent": "add_to_cart", "expected_product_ids": ["item_067"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "يعني ايه", "intent": "unclear_request", "expected_product_ids": [], "size_code": null, "requires_clarification": true, "data_origin": "synthetic_moka_grounded"}
+{"text": "عايز تلاتة بان كيك نوتيلا 10 قطع", "intent": "add_to_cart", "expected_product_ids": ["item_112"], "size_code": "10PCS", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "سلامو عليكم", "intent": "greeting", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "محتاجة كريب مشكل فراخ", "intent": "add_to_cart", "expected_product_ids": ["item_011"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "cancel my order", "intent": "cancel_order", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "محتاج بطاطس سويت شيلي", "intent": "add_to_cart", "expected_product_ids": ["item_068"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "في دليفري للدقي؟", "intent": "delivery_inquiry", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اديني كريب سوبر كرانشي", "intent": "add_to_cart", "expected_product_ids": ["item_007"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بتوصلوا في خلال قد إيه؟", "intent": "delivery_inquiry", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اعملي اتنين سندوتش ميكس تشيز", "intent": "add_to_cart", "expected_product_ids": ["item_043"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "احذف وافل لوتس لو سمحت", "intent": "remove_item", "expected_product_ids": ["item_138"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "مش هكمل الطلب الغيه", "intent": "cancel_order", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اديني واحد وجبة شيش طاووق", "intent": "add_to_cart", "expected_product_ids": ["item_022"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "شيل كريب شاورما من السلة", "intent": "remove_item", "expected_product_ids": ["item_008"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "امسح قهوه نوتيلا مش عايزه", "intent": "remove_item", "expected_product_ids": ["item_080"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "نفسي في واحد بيتزا سوبر سوبريم وسط", "intent": "add_to_cart", "expected_product_ids": ["item_034"], "size_code": "M", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بكم قشطوطة نوتيلا", "intent": "price_inquiry", "expected_product_ids": ["item_119"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "السلام عليكم ورحمة الله", "intent": "greeting", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بعد اذنك هاتلي واحد وايلد برجر سنجل", "intent": "add_to_cart", "expected_product_ids": ["item_055"], "size_code": "S", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "الغي كريب تشكن رانش من السلة", "intent": "remove_item", "expected_product_ids": ["item_013"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عاوزة اتنين سندوتش سوبر سوبريم", "intent": "add_to_cart", "expected_product_ids": ["item_049"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "الغي الطلب لو سمحت", "intent": "cancel_order", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عايزة أتكلم مع المدير", "intent": "request_human", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "غيرها وخليها بان كيك كيندر", "intent": "modify_order", "expected_product_ids": ["item_117"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "ايه انواع القشطوطة عندكم", "intent": "menu_inquiry", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بتوصلوا فين بالظبط", "intent": "delivery_inquiry", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "ممكن تجيبلي 2 تشيزي لافرز تشكين دبل بدون مخلل", "intent": "add_to_cart", "expected_product_ids": ["item_061"], "size_code": "D", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "مظبوط جداً أكد الأوردر", "intent": "confirm_order", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عايزة اتنين سولتد كراميل من غير بصل", "intent": "add_to_cart", "expected_product_ids": ["item_105"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "شيل ميكس صودا كلاسيك من السلة", "intent": "remove_item", "expected_product_ids": ["item_084"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اديني تشيز برجر سنجل من غير بصل", "intent": "add_to_cart", "expected_product_ids": ["item_051"], "size_code": "S", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اقصد ريد بول ميكس باشون فروت بدل اللي فات", "intent": "modify_order", "expected_product_ids": ["item_110"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بلاش باكت بطاطس احذفه", "intent": "remove_item", "expected_product_ids": ["item_065"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "لأ خليها قشطوطة كراميل", "intent": "modify_order", "expected_product_ids": ["item_121"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اعملي واحد وافل نوتيلا", "intent": "add_to_cart", "expected_product_ids": ["item_137"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "أيوه ده طلبي أكده", "intent": "confirm_order", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "معلش بدلها بـ سبانش لاتيه", "intent": "modify_order", "expected_product_ids": ["item_102"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بكم بان كيك لوتس", "intent": "price_inquiry", "expected_product_ids": ["item_113"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عايزة واحد سندوتش تشكن رانش", "intent": "add_to_cart", "expected_product_ids": ["item_045"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عاوز اتنين طاجن لوتس", "intent": "add_to_cart", "expected_product_ids": ["item_133"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "ممكن تجيبلي تلاتة تشيز برجر دبل", "intent": "add_to_cart", "expected_product_ids": ["item_051"], "size_code": "D", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "ايه أنواع البرجر عندكم", "intent": "menu_inquiry", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "سعر سولتد كراميل كام لو سمحت؟", "intent": "price_inquiry", "expected_product_ids": ["item_105"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "قولي نكتة", "intent": "unclear_request", "expected_product_ids": [], "size_code": null, "requires_clarification": true, "data_origin": "synthetic_moka_grounded"}
+{"text": "عاوزة 2 هوت اوريو", "intent": "add_to_cart", "expected_product_ids": ["item_077"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "محتاجة اتنين مولتن كيك", "intent": "add_to_cart", "expected_product_ids": ["item_125"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "إيه الأصناف اللي عندكم؟", "intent": "menu_inquiry", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "الغي الأوردر بتاع دلوقتي", "intent": "cancel_order", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "ممكن أعرف سعر اسبرسو؟", "intent": "price_inquiry", "expected_product_ids": ["item_073"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "سلام عليكم", "intent": "greeting", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عايز أكلم شخص حقيقي", "intent": "request_human", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "شيل ريد بول ميكس باشون فروت من الطلب", "intent": "remove_item", "expected_product_ids": ["item_110"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "نفسي في تلاتة قهوه تركي", "intent": "add_to_cart", "expected_product_ids": ["item_079"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عايزة 2 كولسلو كبير من غير صوص", "intent": "add_to_cart", "expected_product_ids": ["item_071"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "محتاجة تلاتة ميلك شيك كيوي", "intent": "add_to_cart", "expected_product_ids": ["item_094"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "محتاج 2 كريب سموك كرانشي", "intent": "add_to_cart", "expected_product_ids": ["item_017"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عندكم وجبات إيه؟", "intent": "menu_inquiry", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "أسعار كابوتشينو إيه؟", "intent": "price_inquiry", "expected_product_ids": ["item_075"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اعملي تلاتة كريب هوت دوج", "intent": "add_to_cart", "expected_product_ids": ["item_004"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اقصد ميكس صودا باشون فروت بدل اللي فات", "intent": "modify_order", "expected_product_ids": ["item_083"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "هاتلي تلاتة كابوتشينو", "intent": "add_to_cart", "expected_product_ids": ["item_075"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "ممكن تحويل للكاشير", "intent": "request_human", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اعملي ميكس صودا مانجو لوكو", "intent": "add_to_cart", "expected_product_ids": ["item_082"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "هاتلي سندوتش تشيكن سوبريم", "intent": "add_to_cart", "expected_product_ids": ["item_047"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "شكوى بخصوص الطلب الأخير", "intent": "complaint", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بكام بان كيك وايت شوكليت؟", "intent": "price_inquiry", "expected_product_ids": ["item_114"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "كلملي الكاشير ضروري", "intent": "request_human", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "غيرها وخليها ميلك شيك باشون فروت", "intent": "modify_order", "expected_product_ids": ["item_098"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بعد اذنك هاتلي تلاتة وافل وايت شوكليت", "intent": "add_to_cart", "expected_product_ids": ["item_139"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "سندوتش سوبر سوبريم عامل كام دلوقتي؟", "intent": "price_inquiry", "expected_product_ids": ["item_049"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "ممكن أعرف سعر بيتزا بيبروني؟", "intent": "price_inquiry", "expected_product_ids": ["item_033"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "محتاج مولتن كيك", "intent": "add_to_cart", "expected_product_ids": ["item_125"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عاوزة واحد بيتزا سوبر سوبريم وسط من غير صوص", "intent": "add_to_cart", "expected_product_ids": ["item_034"], "size_code": "M", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "شيل وافل نوتيلا و وايت من السلة", "intent": "remove_item", "expected_product_ids": ["item_140"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "امسح بان كيك نوتيلا ميكس لوتس مش عايزه", "intent": "remove_item", "expected_product_ids": ["item_116"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "مساء الخير يا فندم", "intent": "greeting", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "ممكن تجيبلي اتنين كريب كريسبي بدون مخلل", "intent": "add_to_cart", "expected_product_ids": ["item_005"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "asdfghjkl", "intent": "unclear_request", "expected_product_ids": [], "size_code": null, "requires_clarification": true, "data_origin": "synthetic_moka_grounded"}
+{"text": "لا قصدي بيتزا تشكن سوبريم لو سمحت", "intent": "modify_order", "expected_product_ids": ["item_039"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بكم قشطوطة لوتس", "intent": "price_inquiry", "expected_product_ids": ["item_120"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بعد اذنك هاتلي 2 طاجن نوتيلا", "intent": "add_to_cart", "expected_product_ids": ["item_130"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "محتاج اتنين ايس وايت موكا", "intent": "add_to_cart", "expected_product_ids": ["item_103"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "سعر كب وافل كام لو سمحت؟", "intent": "price_inquiry", "expected_product_ids": ["item_145"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "بكام بان كيك بستاشيو؟", "intent": "price_inquiry", "expected_product_ids": ["item_118"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "الاكل مش طازة", "intent": "complaint", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اديني اتنين باربكيو تشكين دبل", "intent": "add_to_cart", "expected_product_ids": ["item_062"], "size_code": "D", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "محتاج اتنين كولسلو صغير", "intent": "add_to_cart", "expected_product_ids": ["item_072"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "محتاج تلاتة بيتزا تشكن الا ترك وسط بدون مخلل", "intent": "add_to_cart", "expected_product_ids": ["item_038"], "size_code": "M", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "غيرها وخليها كريب تشيز كرانشي", "intent": "modify_order", "expected_product_ids": ["item_015"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اديني 2 كوفي لاتيه", "intent": "add_to_cart", "expected_product_ids": ["item_074"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "البيتزا وصلت باردة", "intent": "complaint", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "كام رسوم التوصيل؟", "intent": "delivery_inquiry", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "هاتلي تلاتة فرابتشينو كراميل", "intent": "add_to_cart", "expected_product_ids": ["item_106"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "ممكن أعرف سعر ميلك شيك باشون فروت؟", "intent": "price_inquiry", "expected_product_ids": ["item_098"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "لو سمحت عايز تلاتة كريب ميجا", "intent": "add_to_cart", "expected_product_ids": ["item_016"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عاوزة 2 بيتزا تشكن هالبينو وسط", "intent": "add_to_cart", "expected_product_ids": ["item_036"], "size_code": "M", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "لو سمحت عايز اتنين كلاسيك تشكن سنجل", "intent": "add_to_cart", "expected_product_ids": ["item_059"], "size_code": "S", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عايزة بان كيك وايت شوكليت 10 قطع", "intent": "add_to_cart", "expected_product_ids": ["item_114"], "size_code": "10PCS", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "الأوردر اتأخر أكتر من ساعة", "intent": "complaint", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "عايزة بيتزا سجق كبير", "intent": "add_to_cart", "expected_product_ids": ["item_032"], "size_code": "L", "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "لا قصدي وافل لوتس لو سمحت", "intent": "modify_order", "expected_product_ids": ["item_138"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "كده", "intent": "unclear_request", "expected_product_ids": [], "size_code": null, "requires_clarification": true, "data_origin": "synthetic_moka_grounded"}
+{"text": "نعم أؤكد الطلب", "intent": "confirm_order", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "يلا أكد الطلب بسرعة", "intent": "confirm_order", "expected_product_ids": [], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}
+{"text": "اقصد ميلك شيك بستاشيو بدل اللي فات", "intent": "modify_order", "expected_product_ids": ["item_093"], "size_code": null, "requires_clarification": false, "data_origin": "synthetic_moka_grounded"}

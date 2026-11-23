@@ -1,0 +1,25 @@
+{
+  "experiment_name": "wasla-camelbert-mix-lora-v1",
+  "base_model": "CAMeL-Lab/bert-base-arabic-camelbert-mix",
+  "base_model_license": "MIT",
+  "task": "egyptian_arabic_restaurant_intent_classification",
+  "dataset_provenance": "synthetic_moka_grounded (derived strictly from verified 145-item MOKA menu; zero real customer PII; zero overlap with moka_typo_eval_150.json)",
+  "seed": 42,
+  "max_length": 64,
+  "lora": {
+    "r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.1,
+    "target_modules": ["query", "value"],
+    "bias": "none"
+  },
+  "training": {
+    "epochs": 4,
+    "batch_size": 16,
+    "learning_rate": 0.0005,
+    "weight_decay": 0.01,
+    "warmup_ratio": 0.1
+  },
+  "output_dir": "training/checkpoints/camelbert-wasla-lora",
+  "report_dir": "training/reports"
+}
