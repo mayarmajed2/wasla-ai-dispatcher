@@ -1,14 +1,31 @@
 {
-  "timestamp_utc": "2026-11-23T21:54:02.482443+00:00",
+  "timestamp_utc": "2026-11-23T22:16:51.234318+00:00",
   "token_configured": true,
   "cashier_chat_configured": false,
   "owner_chat_configured": false,
   "bot_identity": null,
+  "webhook_info": null,
+  "update_delivery_mode": null,
+  "discovered_groups": [],
+  "discovered_private_chats": [],
   "discovered_chats": [],
   "cashier_permission_check": null,
   "owner_permission_check": null,
   "live_test_results": {},
+  "api_trace": [
+    {
+      "attempt_number": 1,
+      "method": "getMe",
+      "http_status": 429,
+      "timestamp_utc": "2026-11-23T22:17:25.858760+00:00",
+      "error_description": "Too Many Requests: retry after 32",
+      "retry_after": 32,
+      "server_header": "nginx/1.30.7"
+    }
+  ],
   "status": "RATE_LIMITED",
   "http_status": 429,
-  "error": "Too Many Requests: retry after 32"
+  "retry_after": 32,
+  "error": "Too Many Requests: retry after 32",
+  "root_cause_notes": "Telegram returned HTTP 429 directly on the single getMe authentication request with zero retries and zero local polling processes active. Remaining possibilities: remote consumer/webhook using this bot token, persistent flood penalty on the bot ID, or shared ISP/CGNAT IP throttling."
 }

@@ -35,6 +35,7 @@ logs/
 tmp/
 temp/
 *.tmp
+.telegram_offset.json
 .DS_Store
 Thumbs.db
 

@@ -174,43 +174,100 @@ class TelegramBotClient:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             return await client.post(url, **body_kw)
 
-    async def _api_call(self, method: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def _api_call(
+        self,
+        method: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        auto_retry_429: bool = False,
+    ) -> dict[str, Any]:
+        ts_utc = datetime.now(timezone.utc).isoformat()
         if not self.is_configured:
-            return {"ok": False, "mode": "unconfigured", "reason": "TELEGRAM_BOT_TOKEN is not configured"}
+            return {
+                "ok": False,
+                "mode": "unconfigured",
+                "reason": "TELEGRAM_BOT_TOKEN is not configured",
+                "_meta": {
+                    "method": method,
+                    "http_status": None,
+                    "timestamp_utc": ts_utc,
+                    "error_description": "TELEGRAM_BOT_TOKEN is not configured",
+                    "retry_after": None,
+                    "server_header": None,
+                },
+            }
         url = f"https://api.telegram.org/bot{self.bot_token}/{method}"
         try:
             resp = await self._post_telegram(url, payload or {})
+            ts_utc = datetime.now(timezone.utc).isoformat()
             try:
                 data = resp.json()
             except Exception:
                 data = {}
-            if resp.status_code == 429:
-                retry_after = min(int((data.get("parameters") or {}).get("retry_after", 5)), 45)
-                await asyncio.sleep(retry_after + 1)
+            retry_after = (data.get("parameters") or {}).get("retry_after") if isinstance(data, dict) else None
+            if resp.status_code == 429 and auto_retry_429:
+                wait_s = min(int(retry_after or 5), 45)
+                await asyncio.sleep(wait_s + 1)
                 resp = await self._post_telegram(url, payload or {})
+                ts_utc = datetime.now(timezone.utc).isoformat()
                 try:
                     data = resp.json()
                 except Exception:
                     data = {}
-            if not resp.is_success:
+                retry_after = (data.get("parameters") or {}).get("retry_after") if isinstance(data, dict) else None
+
+            err_desc = None if (resp.is_success and data.get("ok", True)) else (
+                self._sanitize_error(data.get("description") or f"Telegram API HTTP {resp.status_code}")
+            )
+            meta = {
+                "method": method,
+                "http_status": resp.status_code,
+                "timestamp_utc": ts_utc,
+                "error_description": err_desc,
+                "retry_after": retry_after,
+                "server_header": resp.headers.get("server"),
+            }
+            if not resp.is_success or not data.get("ok", True):
                 return {
                     "ok": False,
                     "status_code": resp.status_code,
-                    "description": data.get("description") or f"Telegram API HTTP {resp.status_code}",
+                    "retry_after": retry_after,
+                    "description": err_desc,
+                    "_meta": meta,
                 }
+            data["_meta"] = meta
             return data
         except Exception as exc:
             detail = self._sanitize_error(repr(exc) if not str(exc) else str(exc))
-            return {"ok": False, "description": detail}
+            return {
+                "ok": False,
+                "status_code": None,
+                "retry_after": None,
+                "description": detail,
+                "_meta": {
+                    "method": method,
+                    "http_status": None,
+                    "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+                    "error_description": detail,
+                    "retry_after": None,
+                    "server_header": None,
+                },
+            }
 
     async def get_me(self) -> dict[str, Any]:
-        return await self._api_call("getMe")
+        return await self._api_call("getMe", auto_retry_429=False)
 
-    async def get_updates(self, limit: int = 25) -> dict[str, Any]:
-        return await self._api_call("getUpdates", {"limit": limit})
+    async def get_webhook_info(self) -> dict[str, Any]:
+        return await self._api_call("getWebhookInfo", auto_retry_429=False)
+
+    async def get_updates(self, limit: int = 25, offset: int | None = None) -> dict[str, Any]:
+        payload: dict[str, Any] = {"limit": limit}
+        if offset is not None:
+            payload["offset"] = offset
+        return await self._api_call("getUpdates", payload, auto_retry_429=False)
 
     async def get_chat_member(self, chat_id: str, user_id: int) -> dict[str, Any]:
-        return await self._api_call("getChatMember", {"chat_id": chat_id, "user_id": user_id})
+        return await self._api_call("getChatMember", {"chat_id": chat_id, "user_id": user_id}, auto_retry_429=False)
 
     async def send_message(
         self,
@@ -223,6 +280,7 @@ class TelegramBotClient:
             return {
                 "sent": False,
                 "mode": "unconfigured",
+                "http_status": None,
                 "reason": "TELEGRAM_BOT_TOKEN or target chat_id is not configured",
             }
 
@@ -233,9 +291,11 @@ class TelegramBotClient:
             "disable_web_page_preview": True,
         }
         last_err: str | None = None
+        last_status: int | None = None
         for attempt in range(max_retries + 1):
             try:
                 resp = await self._post_telegram(url, payload)
+                last_status = resp.status_code
                 try:
                     data = resp.json()
                 except Exception:
@@ -246,7 +306,7 @@ class TelegramBotClient:
                     continue
                 if not resp.is_success or not data.get("ok", True):
                     raise RuntimeError(data.get("description") or f"Telegram API HTTP {resp.status_code}")
-                return {"sent": True, "mode": "live", "telegram_response": data}
+                return {"sent": True, "mode": "live", "http_status": resp.status_code, "telegram_response": data}
             except Exception as exc:
                 msg = repr(exc) if not str(exc) else str(exc)
                 last_err = self._sanitize_error(msg)
@@ -254,7 +314,7 @@ class TelegramBotClient:
                     await asyncio.sleep(0.4 * (attempt + 1))
 
         logger.error("Telegram sendMessage failed after retries: %s", last_err)
-        return {"sent": False, "mode": "error", "error": last_err or "Telegram send failed"}
+        return {"sent": False, "mode": "error", "http_status": last_status, "error": last_err or "Telegram send failed"}
 
 
 class NotificationService:

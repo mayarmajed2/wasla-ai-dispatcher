@@ -239,3 +239,120 @@ def test_alembic_0001_to_0003_includes_scheduler_lease_columns(tmp_path):
 
     alembic_command.downgrade(cfg, "base")
     alembic_command.upgrade(cfg, "head")
+
+
+def test_telegram_429_stops_after_single_attempt_with_trace_and_no_token_leak():
+    """Verify single-shot getMe stops immediately on HTTP 429, records full trace, and never leaks token."""
+    from app.config import Settings
+    from app.notifications import TelegramBotClient
+    from scripts.setup_telegram_verify import run_verification
+
+    fake_token = "MOCK_TG_UNIT_TOKEN_XYZ"
+    calls: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls.append(req.url.path)
+        return httpx.Response(
+            429,
+            headers={"server": "nginx/1.18.0"},
+            json={"ok": False, "error_code": 429, "description": "Too Many Requests: retry after 32", "parameters": {"retry_after": 32}},
+        )
+
+    async def _run():
+        mock_http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        cfg = Settings(telegram_bot_token=fake_token)
+        tg = TelegramBotClient(bot_token=fake_token, client=mock_http)
+        res = await run_verification(send_test=False, settings=cfg, client=tg, offset_file=None)
+        await mock_http.aclose()
+
+        assert calls == [f"/bot{fake_token}/getMe"]  # Strictly 1 request, zero retry loop!
+        assert res["status"] == "RATE_LIMITED"
+        assert res["http_status"] == 429
+        assert res["retry_after"] == 32
+        assert len(res["api_trace"]) == 1
+        assert res["api_trace"][0]["method"] == "getMe"
+        assert res["api_trace"][0]["attempt_number"] == 1
+        assert fake_token not in str(res)
+
+    asyncio.run(_run())
+
+
+def test_telegram_webhook_active_skips_get_updates_mutual_exclusion():
+    """When getWebhookInfo reports an active webhook, getUpdates MUST NOT be called."""
+    from app.config import Settings
+    from app.notifications import TelegramBotClient
+    from scripts.setup_telegram_verify import run_verification
+
+    fake_token = "MOCK_TG_WEBHOOK_TOKEN"
+    called_methods: list[str] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        method = req.url.path.rsplit("/", 1)[-1]
+        called_methods.append(method)
+        if method == "getMe":
+            return httpx.Response(200, json={"ok": True, "result": {"id": 9267386407, "username": "wwaslabot", "first_name": "Wasla", "can_join_groups": True}})
+        if method == "getWebhookInfo":
+            return httpx.Response(200, json={"ok": True, "result": {"url": "https://example.onrender.com/tg/webhook", "pending_update_count": 0}})
+        return httpx.Response(404, json={"ok": False})
+
+    async def _run():
+        mock_http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        cfg = Settings(telegram_bot_token=fake_token)
+        tg = TelegramBotClient(bot_token=fake_token, client=mock_http)
+        res = await run_verification(send_test=False, settings=cfg, client=tg, offset_file=None)
+        await mock_http.aclose()
+
+        assert res["status"] == "TOKEN_VALIDATED_DISCOVERY_COMPLETE"
+        assert res["update_delivery_mode"] == "webhook_active"
+        assert "getUpdates" not in called_methods
+        assert called_methods == ["getMe", "getWebhookInfo"]
+
+    asyncio.run(_run())
+
+
+def test_telegram_get_updates_offset_and_wasla_ai_group_discovery(tmp_path):
+    """When no webhook exists, single getUpdates discovers Wasla-AI group + private owner ID & saves offset."""
+    import json
+    from app.config import Settings
+    from app.notifications import TelegramBotClient
+    from scripts.setup_telegram_verify import run_verification
+
+    fake_token = "MOCK_TG_POLL_TOKEN"
+    offset_file = tmp_path / ".telegram_offset.json"
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        method = req.url.path.rsplit("/", 1)[-1]
+        if method == "getMe":
+            return httpx.Response(200, json={"ok": True, "result": {"id": 9267386407, "username": "wwaslabot", "first_name": "Wasla", "can_join_groups": True}})
+        if method == "getWebhookInfo":
+            return httpx.Response(200, json={"ok": True, "result": {"url": "", "pending_update_count": 2}})
+        if method == "getUpdates":
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "result": [
+                        {"update_id": 100, "message": {"chat": {"id": -100555666, "type": "supergroup", "title": "Wasla-AI"}, "text": "/start@wwaslabot"}},
+                        {"update_id": 101, "message": {"chat": {"id": 987654321, "type": "private", "first_name": "Owner"}, "text": "/start"}},
+                    ],
+                },
+            )
+        if method == "getChatMember":
+            return httpx.Response(200, json={"ok": True, "result": {"status": "member", "can_send_messages": True}})
+        return httpx.Response(404)
+
+    async def _run():
+        mock_http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        cfg = Settings(telegram_bot_token=fake_token)
+        tg = TelegramBotClient(bot_token=fake_token, client=mock_http)
+        res = await run_verification(send_test=False, settings=cfg, client=tg, offset_file=offset_file)
+        await mock_http.aclose()
+
+        assert res["update_delivery_mode"] == "polling_getUpdates"
+        assert res["discovered_groups"] == [{"chat_id": "-100555666", "type": "supergroup", "title": "Wasla-AI"}]
+        assert res["discovered_private_chats"] == [{"chat_id": "987654321", "type": "private", "title": "Owner"}]
+        assert res["cashier_permission_check"]["can_send_messages"] is True
+        assert json.loads(offset_file.read_text(encoding="utf-8"))["next_offset"] == 102
+
+    asyncio.run(_run())
+
