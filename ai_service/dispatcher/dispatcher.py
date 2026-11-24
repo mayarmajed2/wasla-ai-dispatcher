@@ -797,6 +797,10 @@ class WaslaAIDispatcher:
         phone_match = re.search(r"(?:رقم\s*بديل|البديل|تليفون\s*بديل)\s*[:\-]?\s*(01[0125]\d{8})", text)
         if phone_match:
             session.backup_phone = phone_match.group(1).strip()
+        elif session.awaiting_final_confirmation and not session.backup_phone:
+            bare_phone = re.search(r"\b(01[0125]\d{8})\b", text)
+            if bare_phone:
+                session.backup_phone = bare_phone.group(1).strip()
 
     def _extract_zone(self, text: str) -> str | None:
         for z in ["المعادي", "مدينة نصر", "التجمع", "الدقي", "المهندسين", "free_zone"]:

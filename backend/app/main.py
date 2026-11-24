@@ -1802,6 +1802,115 @@ async def verify_telegram_from_server(
     return result
 
 
+def _telegram_webhook_secret() -> str:
+    return hmac.new(
+        settings.auth_secret_key.encode("utf-8"),
+        b"wasla-tg-webhook-secret",
+        hashlib.sha256,
+    ).hexdigest()[:48]
+
+
+@app.post("/api/settings/telegram/activate-chat-webhook")
+async def activate_telegram_chat_webhook(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Register official Telegram HTTPS webhook for live customer text & voice ordering (private chats only)."""
+    webhook_url = f"{settings.dashboard_public_url.rstrip('/')}/api/telegram/webhook"
+    res = await telegram_client.set_webhook(webhook_url, _telegram_webhook_secret())
+    log_audit(db, admin.username, "activate_telegram_webhook", target=webhook_url, details={"ok": res.get("ok")})
+    db.commit()
+    return {"ok": bool(res.get("ok")), "webhook_url": webhook_url, "description": res.get("description")}
+
+
+@app.post("/api/telegram/webhook")
+async def telegram_customer_webhook(request: Request, db: Session = Depends(get_db)):
+    """Zero-cost live Telegram customer ordering & Egyptian voice-note channel (strictly private chats only)."""
+    provided_sec = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if not provided_sec or not hmac.compare_digest(provided_sec, _telegram_webhook_secret()):
+        raise HTTPException(status_code=401, detail="Invalid Telegram webhook secret")
+
+    body = await request.json()
+    update_id = body.get("update_id")
+    if update_id is not None:
+        dedup_key = f"tg_upd:{update_id}"
+        if db.scalar(select(ProcessedMessage).where(ProcessedMessage.meta_message_id == dedup_key)) is not None:
+            return {"ok": True, "duplicate": True}
+        db.add(ProcessedMessage(meta_message_id=dedup_key))
+
+    msg = body.get("message") or {}
+    chat = msg.get("chat") or {}
+    if chat.get("type") != "private":
+        db.commit()
+        return {"ok": True, "ignored": "non_private_chat"}
+
+    chat_id_str = str(chat.get("id", "")).strip()
+    if not chat_id_str:
+        db.commit()
+        return {"ok": True}
+    phone_key = chat_id_str if len(chat_id_str) >= 8 else chat_id_str.zfill(10)
+
+    text_body = (msg.get("text") or "").strip()
+    if text_body.startswith(("/start", "/reset")):
+        ai_dispatcher.sessions.pop(phone_key, None)
+        ai_dispatcher.set_human_takeover(phone_key, False)
+        existing_sess = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_key))
+        if existing_sess is not None:
+            existing_sess.needs_human_takeover = False
+            existing_sess.human_takeover_by = None
+            existing_sess.pending_cart = {}
+        db.commit()
+        welcome = (
+            "أهلاً بيك في مطعم MOKA ❤️🍕\n"
+            "أنا وصلة (Wasla AI)، مساعدك الذكي!\n"
+            "تقدر تطلب مني كتابة أو تبعتلي فويس نوت باللهجة المصرية وهحسبلك طلبك وأبعته للمطبخ فوراً 😊\n"
+            "تحب تطلب إيه النهارده؟ (اكتب /reset في أي وقت لبدء طلب جديد)"
+        )
+        await telegram_client.send_message(chat_id_str, welcome)
+        return {"ok": True, "action": "welcome_sent"}
+
+    existing_sess = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_key))
+    if existing_sess is not None:
+        ai_dispatcher.set_human_takeover(
+            phone_key, bool(existing_sess.needs_human_takeover), actor=existing_sess.human_takeover_by
+        )
+
+    if text_body:
+        ai_resp = await ai_dispatcher.handle_text(
+            phone_key,
+            text_body,
+            data_source="telegram_bot",
+            is_test=False,
+        )
+        await _persist_ai_interaction(db, phone_key, text_body, ai_resp)
+        db.commit()
+        if not ai_resp.suppress_ai_reply and ai_resp.reply_ar:
+            await telegram_client.send_message(chat_id_str, ai_resp.reply_ar)
+        return {"ok": True, "intent": ai_resp.intent.value}
+
+    voice_obj = msg.get("voice") or msg.get("audio")
+    if voice_obj and voice_obj.get("file_id"):
+        try:
+            audio_bytes = await telegram_client.download_file(voice_obj["file_id"])
+            mime = voice_obj.get("mime_type") or "audio/ogg"
+            ai_resp = await ai_dispatcher.handle_audio(
+                phone_key,
+                AudioInput(audio_bytes=audio_bytes, mime_type=mime, filename="voice.ogg"),
+            )
+            await _persist_ai_interaction(db, phone_key, ai_resp.transcript or "", ai_resp)
+            db.commit()
+            if not ai_resp.suppress_ai_reply and ai_resp.reply_ar:
+                await telegram_client.send_message(chat_id_str, ai_resp.reply_ar)
+            return {"ok": True, "intent": ai_resp.intent.value, "transcript": ai_resp.transcript}
+        except Exception as exc:
+            db.commit()
+            await telegram_client.send_message(chat_id_str, "معلش الصوت مكنش واضح، ممكن تبعته تاني أو تكتب طلبك؟ 😊")
+            return {"ok": False, "audio_error": str(exc)}
+
+    db.commit()
+    return {"ok": True}
+
+
 @app.websocket("/ws/cashier")
 async def cashier_socket(websocket: WebSocket):
     await ws_manager.connect(websocket)

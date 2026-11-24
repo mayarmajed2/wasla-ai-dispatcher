@@ -260,7 +260,7 @@ def test_telegram_429_stops_after_single_attempt_with_trace_and_no_token_leak():
 
     async def _run():
         mock_http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-        cfg = Settings(telegram_bot_token=fake_token)
+        cfg = Settings(telegram_bot_token=fake_token, cashier_telegram_chat_id="", restaurant_owner_telegram_chat_id="")
         tg = TelegramBotClient(bot_token=fake_token, client=mock_http)
         res = await run_verification(send_test=False, settings=cfg, client=tg, offset_file=None)
         await mock_http.aclose()
@@ -297,7 +297,7 @@ def test_telegram_webhook_active_skips_get_updates_mutual_exclusion():
 
     async def _run():
         mock_http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-        cfg = Settings(telegram_bot_token=fake_token)
+        cfg = Settings(telegram_bot_token=fake_token, cashier_telegram_chat_id="", restaurant_owner_telegram_chat_id="")
         tg = TelegramBotClient(bot_token=fake_token, client=mock_http)
         res = await run_verification(send_test=False, settings=cfg, client=tg, offset_file=None)
         await mock_http.aclose()
@@ -343,7 +343,7 @@ def test_telegram_get_updates_offset_and_wasla_ai_group_discovery(tmp_path):
 
     async def _run():
         mock_http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-        cfg = Settings(telegram_bot_token=fake_token)
+        cfg = Settings(telegram_bot_token=fake_token, cashier_telegram_chat_id="", restaurant_owner_telegram_chat_id="")
         tg = TelegramBotClient(bot_token=fake_token, client=mock_http)
         res = await run_verification(send_test=False, settings=cfg, client=tg, offset_file=offset_file)
         await mock_http.aclose()

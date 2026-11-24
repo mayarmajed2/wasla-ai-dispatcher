@@ -270,6 +270,44 @@ class TelegramBotClient:
     async def get_chat_member(self, chat_id: str, user_id: int) -> dict[str, Any]:
         return await self._api_call("getChatMember", {"chat_id": chat_id, "user_id": user_id}, auto_retry_429=False)
 
+    async def set_webhook(self, webhook_url: str, secret_token: str) -> dict[str, Any]:
+        return await self._api_call(
+            "setWebhook",
+            {
+                "url": webhook_url,
+                "secret_token": secret_token,
+                "allowed_updates": ["message"],
+            },
+            auto_retry_429=False,
+        )
+
+    async def download_file(self, file_id: str) -> bytes:
+        info = await self._api_call("getFile", {"file_id": file_id}, auto_retry_429=False)
+        file_path = (info.get("result") or {}).get("file_path")
+        if not info.get("ok") or not file_path:
+            raise RuntimeError(self._sanitize_error(info.get("description") or "Telegram getFile failed"))
+        dl_url = f"https://api.telegram.org/file/bot{self.bot_token}/{file_path}"
+        try:
+            if self._external_client is not None:
+                resp = await self._external_client.get(dl_url)
+                resp.raise_for_status()
+                return resp.content
+            if sys.platform.startswith("win"):
+                def _sync_get() -> bytes:
+                    transport = httpx.HTTPTransport(local_address="0.0.0.0")
+                    with httpx.Client(timeout=self.timeout, transport=transport) as client:
+                        r = client.get(dl_url)
+                        r.raise_for_status()
+                        return r.content
+                return await asyncio.to_thread(_sync_get)
+            transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0")
+            async with httpx.AsyncClient(timeout=self.timeout, transport=transport) as client:
+                r = await client.get(dl_url)
+                r.raise_for_status()
+                return r.content
+        except Exception as exc:
+            raise RuntimeError(self._sanitize_error(str(exc))) from exc
+
     async def send_message(
         self,
         chat_id: str,
