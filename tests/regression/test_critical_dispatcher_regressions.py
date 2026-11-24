@@ -19,7 +19,12 @@ if str(ROOT) not in sys.path:
 from ai_service.adapters.mock_backend import MockBackendAdapter
 from ai_service.config import WaslaConfig
 from ai_service.dispatcher.dispatcher import WaslaAIDispatcher
-from ai_service.schemas.models import CustomerIntent
+from ai_service.models.finetuned_intent import FineTunedIntentClassifier
+from ai_service.schemas.models import (
+    BackendCartItemPayload,
+    BackendConfirmOrderPayload,
+    CustomerIntent,
+)
 from ai_service.understanding.menu_index import MenuIndex
 
 MENU_PATH = ROOT / "menu" / "menu.json"
@@ -187,5 +192,185 @@ def test_gibberish_and_prompt_injection_do_not_mutate_cart():
         assert injected.requires_clarification is True
         assert len(backend._orders) == 0
         assert len(injected.cart.items) == 1
+
+    asyncio.run(run())
+
+
+def test_category_questions_search_only_the_requested_menu_category():
+    async def run():
+        dispatcher, _ = _dispatcher()
+        phone = "01070000009"
+
+        juice = await dispatcher.handle_text(phone, "عندكو عصير ايه؟")
+        pasta = await dispatcher.handle_text(phone, "عندكو باستا ايه؟")
+
+        assert juice.intent == CustomerIntent.MENU_INQUIRY
+        assert juice.tool_calls[0].tool_name == "get_active_menu"
+        assert juice.tool_calls[0].arguments == {"category": "عصير"}
+        assert "عصير" in juice.reply_ar
+        assert juice.cart.items == []
+
+        assert pasta.intent == CustomerIntent.MENU_INQUIRY
+        assert pasta.tool_calls[0].tool_name == "get_active_menu"
+        assert pasta.tool_calls[0].arguments == {"category": "باستا"}
+        assert pasta.cart.items == []
+        assert "باستا" in pasta.reply_ar
+
+    asyncio.run(run())
+
+
+def test_order_tracking_without_a_customer_order_never_checks_delivery_fees():
+    async def run():
+        dispatcher, _ = _dispatcher()
+        phone = "01070000010"
+
+        for message in ("الأوردر طلع ولا لسه؟", "الأوردر اتحرك ولا لسه؟"):
+            response = await dispatcher.handle_text(phone, message)
+            assert response.intent == CustomerIntent.ORDER_STATUS
+            assert response.order_id is None
+            assert response.requires_clarification is True
+            assert response.clarification_reason == "order_not_found"
+            assert [call.tool_name for call in response.tool_calls] == ["get_customer_order_status"]
+            assert "رقم الأوردر" in response.reply_ar
+            assert "resolve_delivery" not in [call.tool_name for call in response.tool_calls]
+
+    asyncio.run(run())
+
+
+def test_order_tracking_uses_only_the_customers_recorded_status_and_fails_closed():
+    async def run():
+        dispatcher, backend = _dispatcher()
+        phone = "01070000011"
+
+        payload = BackendConfirmOrderPayload(
+            customer_name="عميل التتبع",
+            customer_phone=phone,
+            backup_phone="01170000011",
+            delivery_address="المعادي شارع 9",
+            items=[BackendCartItemPayload(item_id=1, quantity=1)],
+            idempotency_key="tracking-own-order",
+            confirmed_by_customer=True,
+        )
+        order = await backend.confirm_and_lock_order(payload)
+        backend._orders[order["id"]]["status"] = "OUT_FOR_DELIVERY"
+
+        other_payload = payload.model_copy(
+            update={
+                "customer_phone": "01070000012",
+                "idempotency_key": "tracking-other-order",
+            }
+        )
+        other = await backend.confirm_and_lock_order(other_payload)
+        backend._orders[other["id"]]["status"] = "DELIVERED"
+
+        response = await dispatcher.handle_text(phone, "الأوردر وصل لفين؟")
+        assert response.intent == CustomerIntent.ORDER_STATUS
+        assert response.order_id == order["id"]
+        assert "خرج للتوصيل" in response.reply_ar
+        assert "دقيقة" not in response.reply_ar
+        assert "تم تسليمه" not in response.reply_ar
+
+        async def unknown_status(_phone_number: str, _order_id: int | None = None):
+            return {"id": order["id"], "status": None}
+
+        backend.get_customer_order_status = unknown_status
+        unavailable = await dispatcher.handle_text(phone, "الأوردر طلع؟")
+        assert unavailable.intent == CustomerIntent.ORDER_STATUS
+        assert unavailable.requires_clarification is True
+        assert unavailable.clarification_reason == "order_tracking_unavailable"
+        assert "مش متاحة" in unavailable.reply_ar
+        assert "OUT_FOR_DELIVERY" not in unavailable.reply_ar
+        assert "دقيقة" not in unavailable.reply_ar
+
+    asyncio.run(run())
+
+
+def test_milkshake_availability_rejection_removal_and_report_are_distinct():
+    async def run():
+        dispatcher, backend = _dispatcher()
+        phone = "01070000013"
+        await backend.modify_cart(phone, "item_089", 1)
+
+        availability = await dispatcher.handle_text(phone, "مفيش ميلك شيك؟")
+        assert availability.intent == CustomerIntent.AVAILABILITY_INQUIRY
+        assert availability.tool_calls[0].tool_name == "get_active_menu"
+        assert "ميلك شيك نوتيلا" in availability.reply_ar
+        assert len(availability.cart.items) == 1
+
+        rejected = await dispatcher.handle_text(phone, "مش عايز ميلك شيك")
+        assert rejected.intent == CustomerIntent.REJECT_PRODUCT
+        assert len(rejected.cart.items) == 1
+
+        removed = await dispatcher.handle_text(phone, "شيل الميلك شيك")
+        assert removed.intent == CustomerIntent.REMOVE_ITEM
+        assert removed.cart.items == []
+
+        report = await dispatcher.handle_text(phone, "الميلك شيك مش موجود")
+        assert report.intent == CustomerIntent.REPORT_UNAVAILABLE
+        assert report.tool_calls[0].tool_name == "get_active_menu"
+        assert "راجعت التوفر الحالي" in report.reply_ar
+        assert "ميلك شيك نوتيلا" in report.reply_ar
+        assert report.cart.items == []
+
+        backend.set_item_unavailable("item_089")
+        unavailable = await dispatcher.handle_text(phone, "مفيش ميلك شيك نوتيلا؟")
+        assert unavailable.intent == CustomerIntent.AVAILABILITY_INQUIRY
+        assert unavailable.tool_calls[0].tool_name == "check_item_availability"
+        assert "غير متاح" in unavailable.reply_ar
+        assert unavailable.cart.items == []
+
+    asyncio.run(run())
+
+
+@pytest.mark.parametrize(
+    ("gemini_configured", "gemini_available"),
+    [(True, True), (True, False), (False, False)],
+    ids=("gemini-enabled-lora-unavailable", "gemini-outage-lora-unavailable", "both-unavailable"),
+)
+def test_provider_matrix_never_routes_category_questions_to_cart(gemini_configured, gemini_available):
+    class FakeGemini:
+        is_configured = gemini_configured
+
+        async def generate_json(self, _system_prompt, _user_prompt, use_fallback_model=False):
+            if not gemini_available:
+                raise RuntimeError("simulated provider outage")
+            return {
+                "intent": "add_to_cart",
+                "confidence": 0.99,
+                "items": [{"product_id": "item_001", "raw_mention": "بيتزا"}],
+            }, "fake-gemini"
+
+    async def run():
+        idx = MenuIndex(MENU_PATH)
+        backend = MockBackendAdapter(idx)
+        dispatcher = WaslaAIDispatcher(
+            WaslaConfig(gemini_api_key="configured" if gemini_configured else "", lora_enabled=False),
+            idx,
+            backend,
+            llm_client=FakeGemini(),
+            finetuned_intent=FineTunedIntentClassifier(enabled=False),
+        )
+
+        response = await dispatcher.handle_text("01070000014", "عندكو باستا ايه؟")
+        assert response.intent == CustomerIntent.MENU_INQUIRY
+        assert response.tool_calls[0].tool_name == "get_active_menu"
+        assert response.cart.items == []
+        assert backend._carts["01070000014"].items == []
+
+        unknown_question = await dispatcher.handle_text("01070000014", "هل عندكم شوربة؟")
+        assert unknown_question.intent == CustomerIntent.UNCLEAR_REQUEST
+        assert unknown_question.cart.items == []
+        assert "modify_cart" not in [call.tool_name for call in unknown_question.tool_calls]
+
+        unpunctuated_question = await dispatcher.handle_text("01070000014", "عندكو شوربة")
+        assert unpunctuated_question.intent == CustomerIntent.UNCLEAR_REQUEST
+        assert unpunctuated_question.cart.items == []
+        assert "modify_cart" not in [call.tool_name for call in unpunctuated_question.tool_calls]
+
+        tracking = await dispatcher.handle_text("01070000014", "الأوردر طلع ولا لسه؟")
+        assert tracking.intent == CustomerIntent.ORDER_STATUS
+        assert tracking.order_id is None
+        assert "رقم الأوردر" in tracking.reply_ar
+        assert "resolve_delivery" not in [call.tool_name for call in tracking.tool_calls]
 
     asyncio.run(run())

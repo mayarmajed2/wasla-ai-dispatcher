@@ -448,6 +448,32 @@ class _DirectDBOrderBridge(MockBackendAdapter):
         finally:
             db.close()
 
+    async def get_customer_order_status(
+        self, phone_number: str, order_id: int | None = None
+    ) -> dict | None:
+        db = SessionLocal()
+        try:
+            stmt = select(Order).where(Order.customer_phone == phone_number)
+            if settings.app_env.lower() == "production":
+                stmt = stmt.where(Order.is_test.is_(False))
+            if order_id is not None:
+                stmt = stmt.where(Order.id == order_id)
+                order = db.scalar(stmt)
+            else:
+                session_row = db.scalar(
+                    select(ChatSession).where(ChatSession.phone_number == phone_number)
+                )
+                if session_row is not None and session_row.active_order_id is not None:
+                    order = db.scalar(stmt.where(Order.id == session_row.active_order_id))
+                else:
+                    order = db.scalar(stmt.order_by(Order.created_at.desc(), Order.id.desc()).limit(1))
+            if order is None:
+                return None
+            status = getattr(order.status, "value", order.status)
+            return {"id": order.id, "status": str(status)}
+        finally:
+            db.close()
+
 
 wasla_config = WaslaConfig(menu_json_path=MENU_JSON_PATH)
 menu_index = MenuIndex(MENU_JSON_PATH)

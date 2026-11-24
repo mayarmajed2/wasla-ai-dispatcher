@@ -102,6 +102,15 @@ class RealBackendAdapter(MockBackendAdapter):
     async def confirm_and_lock_order(self, payload: BackendConfirmOrderPayload) -> dict[str, Any]:
         return await self._request("POST", "/api/orders", json_body=payload.model_dump())
 
+    async def get_customer_order_status(
+        self, phone_number: str, order_id: int | None = None
+    ) -> dict[str, Any] | None:
+        raise BackendIntegrationError(
+            "ORDER_TRACKING_UNAVAILABLE",
+            "This adapter has no authenticated customer-order status endpoint.",
+            503,
+        )
+
     async def notify_order_modification(self, order_id: int, message: str) -> dict[str, Any]:
         return await self._request("POST", f"/api/orders/{order_id}/modification", json_body={"message": message})
 

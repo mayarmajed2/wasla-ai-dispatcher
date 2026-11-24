@@ -34,6 +34,17 @@ TOOL_DECLARATIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "get_customer_order_status",
+        "description": (
+            "استرجاع الحالة المسجلة فعلياً لآخر أوردر مرتبط برقم العميل الحالي؛ "
+            "لا تخمّن الحالة أو وقت الوصول."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {"order_id": {"type": "integer"}},
+        },
+    },
+    {
         "name": "modify_cart",
         "description": "إضافة أو تعديل صنف في سلة العميل وإعادة حساب الإجمالي برمجياً في الـ Backend.",
         "parameters": {
@@ -162,6 +173,40 @@ class ToolExecutor:
                 return (
                     ToolCallRecord(tool_name=tool_name, arguments={"product_id": pid}, success=True, result_summary=f"available={available}"),
                     {"available": available, "item": item},
+                )
+
+            if tool_name == "get_customer_order_status":
+                raw_order_id = args.get("order_id")
+                if raw_order_id is None:
+                    order_id = None
+                else:
+                    try:
+                        order_id = int(raw_order_id)
+                    except (TypeError, ValueError) as exc:
+                        raise BackendIntegrationError("INVALID_TOOL_ARGS", "order_id must be an integer.", 400) from exc
+                    if order_id < 1:
+                        raise BackendIntegrationError("INVALID_TOOL_ARGS", "order_id must be positive.", 400)
+                lookup = getattr(self.backend, "get_customer_order_status", None)
+                if lookup is None:
+                    raise BackendIntegrationError(
+                        "ORDER_TRACKING_UNAVAILABLE", "Order tracking is not available in this backend.", 503
+                    )
+                result = await lookup(session.phone_number, order_id)
+                if result is not None and not isinstance(result, dict):
+                    raise BackendIntegrationError(
+                        "INVALID_BACKEND_RESPONSE", "Order status lookup returned an invalid response.", 502
+                    )
+                if executed_signatures is not None:
+                    executed_signatures.add(sig)
+                summary = "order_not_found" if result is None else f"order_id={result.get('id')}"
+                return (
+                    ToolCallRecord(
+                        tool_name=tool_name,
+                        arguments={"order_id": order_id} if order_id is not None else {},
+                        success=True,
+                        result_summary=summary,
+                    ),
+                    result,
                 )
 
             if tool_name == "modify_cart":

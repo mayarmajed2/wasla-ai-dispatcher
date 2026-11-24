@@ -67,6 +67,73 @@ def test_database_cart_removes_only_the_selected_variant(tmp_path):
     asyncio.run(run())
 
 
+def test_database_order_status_is_scoped_to_the_customer_and_active_order(tmp_path):
+    _, database, main, models = _fresh_app_modules(tmp_path / "order_tracking.db")
+    phone = "01055550009"
+    db = database.SessionLocal()
+    try:
+        orders = [
+            models.Order(
+                customer_name="عميل التتبع",
+                customer_phone=phone,
+                backup_phone="01155550009",
+                confirmed_by_customer=True,
+                delivery_address="المعادي شارع 9",
+                subtotal=Decimal("100.00"),
+                delivery_fee=Decimal("20.00"),
+                total_amount=Decimal("120.00"),
+                status="OUT_FOR_DELIVERY",
+                items_snapshot=[],
+                data_source="api",
+                is_test=False,
+            ),
+            models.Order(
+                customer_name="عميل التتبع",
+                customer_phone=phone,
+                backup_phone="01155550009",
+                confirmed_by_customer=True,
+                delivery_address="المعادي شارع 9",
+                subtotal=Decimal("100.00"),
+                delivery_fee=Decimal("20.00"),
+                total_amount=Decimal("120.00"),
+                status="DELIVERED",
+                items_snapshot=[],
+                data_source="api",
+                is_test=False,
+            ),
+            models.Order(
+                customer_name="عميل آخر",
+                customer_phone="01055550010",
+                backup_phone="01155550010",
+                confirmed_by_customer=True,
+                delivery_address="الدقي شارع التحرير",
+                subtotal=Decimal("100.00"),
+                delivery_fee=Decimal("20.00"),
+                total_amount=Decimal("120.00"),
+                status="DELIVERED",
+                items_snapshot=[],
+                data_source="api",
+                is_test=False,
+            ),
+        ]
+        db.add_all(orders)
+        db.flush()
+        active_id = orders[0].id
+        other_id = orders[2].id
+        db.add(models.ChatSession(phone_number=phone, active_order_id=active_id))
+        db.commit()
+    finally:
+        db.close()
+
+    async def run():
+        status = await main.db_bridge.get_customer_order_status(phone)
+        assert status == {"id": active_id, "status": "OUT_FOR_DELIVERY"}
+        assert await main.db_bridge.get_customer_order_status(phone, other_id) is None
+        assert await main.db_bridge.get_customer_order_status("01055550099") is None
+
+    asyncio.run(run())
+
+
 def test_order_api_uses_database_prices_and_enforces_idempotency(tmp_path):
     config, database, main, models = _fresh_app_modules(tmp_path / "order_integrity.db")
 

@@ -310,6 +310,23 @@ class MockBackendAdapter:
         self._idempotency_map[payload.idempotency_key] = order_id
         return {"id": order_id, "status": OrderStatus.SUBMITTED.value, "cart": cart.model_dump()}
 
+    async def get_customer_order_status(
+        self, phone_number: str, order_id: int | None = None
+    ) -> dict[str, Any] | None:
+        if order_id is not None:
+            order = self._orders.get(order_id)
+            if order is None or order.get("customer_phone") != phone_number:
+                return None
+            return {"id": order["id"], "status": order.get("status")}
+
+        customer_orders = [
+            order for order in self._orders.values() if order.get("customer_phone") == phone_number
+        ]
+        if not customer_orders:
+            return None
+        order = max(customer_orders, key=lambda row: row["id"])
+        return {"id": order["id"], "status": order.get("status")}
+
     async def notify_order_modification(self, order_id: int, message: str) -> dict[str, Any]:
         if order_id not in self._orders:
             raise BackendIntegrationError("ORDER_NOT_FOUND", f"Order {order_id} not found.", 404)

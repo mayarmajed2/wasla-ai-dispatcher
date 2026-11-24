@@ -59,6 +59,8 @@ def render_menu_overview(
             preview.append(f"• {p.name_ar} ({p_price})")
         more = f"\n...وغيرها ({len(items)} صنف متوفرين في القسم ده)." if len(items) > 8 else ""
         return f"أشهر أصناف قسم {requested_category} المتوفرة دلوقتي في MOKA ✨\n" + "\n".join(preview) + more + "\nتحب أضيفلك حاجة منهم؟"
+    if requested_category:
+        return f"مش لاقي أصناف متاحة من قسم {requested_category} في المنيو الحالية. تحب تشوف قسم تاني؟"
 
     return (
         f"عندنا {len(items)} صنف متوفرين حالياً في منيو MOKA 😊 "
@@ -91,6 +93,66 @@ def render_multi_price_reply(entries: list[tuple[MenuItemDTO, bool, str | None]]
     header = "أسعار الأصناف في منيو MOKA ✨"
     footer = "تحب أضيفلك حاجة منهم في الطلب؟" if any_available else "تحب أرشحلك بدائل متوفرة حالياً؟"
     return f"{header}\n" + "\n".join(lines) + f"\n{footer}"
+
+
+def render_order_status(order_id: int, status: str) -> str | None:
+    labels = {
+        "DRAFTING": "لسه بيتجهز",
+        "SUBMITTED": "تم استلامه من المطعم",
+        "PENDING_CONFIRMATION": "في انتظار تأكيد المطعم",
+        "CONFIRMED": "تم تأكيده",
+        "ACCEPTED": "تم قبوله",
+        "IN_KITCHEN": "قيد التحضير في المطبخ",
+        "PREPARING": "قيد التحضير",
+        "READY": "جاهز",
+        "DISPATCHED": "خرج للتوصيل",
+        "OUT_FOR_DELIVERY": "خرج للتوصيل",
+        "FULFILLED": "تم تسليمه",
+        "DELIVERED": "تم تسليمه",
+        "CANCELLED": "ملغي",
+        "UNREACHABLE_ALERT": "فيه مشكلة في التواصل بخصوصه",
+        "FAILED": "تعذر إكماله",
+    }
+    label = labels.get(status.strip().upper())
+    return f"آخر حالة مسجلة للأوردر #{order_id}: {label}." if label else None
+
+
+def render_cart_summary(cart: CartSnapshot) -> str:
+    if not cart.items:
+        return "السلة فاضية حالياً. تحب تطلب حاجة من المنيو؟"
+    lines = "\n".join(f"• {item.quantity} × {item.name_ar}: {item.line_total} ج.م" for item in cart.items)
+    return (
+        f"ملخص سلتك:\n{lines}\n"
+        f"المجموع: {cart.subtotal} ج.م، التوصيل: {cart.delivery_fee} ج.م، "
+        f"الإجمالي: {cart.total_amount} ج.م."
+    )
+
+
+def render_availability_result(
+    category: str,
+    available_items: Iterable[MenuItemDTO],
+    *,
+    category_exists: bool,
+    reported_unavailable: bool = False,
+) -> str:
+    items = list(available_items)
+    if items:
+        names = "، ".join(item.name_ar for item in items[:8])
+        prefix = "راجعت التوفر الحالي، و" if reported_unavailable else "المتاح حالياً من قسم "
+        if reported_unavailable:
+            return f"{prefix}متوفر من {category}: {names}."
+        return f"{prefix}{category}: {names}. تحب تطلب حاجة منهم؟"
+    if not category_exists:
+        return f"راجعت المنيو الحالية ومفيش قسم أو أصناف باسم {category} فيها."
+    return f"راجعت التوفر الحالي ومفيش أصناف متاحة من قسم {category} دلوقتي."
+
+
+def render_product_availability(prod: MenuItemDTO, available: bool, *, reported_unavailable: bool = False) -> str:
+    if available:
+        if reported_unavailable:
+            return f"راجعت التوفر الحالي، و{prod.name_ar} متاح في المنيو."
+        return f"أيوه، {prod.name_ar} متاح حالياً في المنيو."
+    return f"راجعت التوفر الحالي، و{prod.name_ar} غير متاح حالياً."
 
 
 def render_item_added(

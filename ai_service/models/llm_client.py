@@ -289,6 +289,46 @@ class OfflineEgyptianNLU:
         ):
             return {"intent": CustomerIntent.CANCEL_ORDER.value, "confidence": 0.93, "items": [], "requires_clarification": False}
 
+        # 2b. Tracking is a read-only order lookup, never a delivery-fee question.
+        has_order_subject = any(term in norm for term in ("الاوردر", "اوردر", "الطلب", "طلب"))
+        if has_order_subject and any(
+            term in norm for term in ("اتحرك", "طلع", "وصل", "لفين", "فين", "حالته", "تتبع")
+        ):
+            return {"intent": CustomerIntent.ORDER_STATUS.value, "confidence": 0.98, "items": [], "requires_clarification": False}
+
+        if any(term in norm for term in ("المجموع كام", "الاجمالي كام", "اجمالي الطلب كام", "حسابي كام")):
+            return {"intent": CustomerIntent.GET_CART.value, "confidence": 0.95, "items": [], "requires_clarification": False}
+
+        # Availability questions, product rejection, and customer-reported stock issues are distinct.
+        unavailable_report = re.search(r"\s+مش\s+(?:موجود|متوفر|متاح)(?:\s|$)", norm)
+        if unavailable_report:
+            return {
+                "intent": CustomerIntent.REPORT_UNAVAILABLE.value,
+                "confidence": 0.95,
+                "items": [],
+                "requires_clarification": False,
+            }
+
+        if re.match(r"^مفيش\s+", norm):
+            return {
+                "intent": CustomerIntent.AVAILABILITY_INQUIRY.value,
+                "confidence": 0.95,
+                "items": [],
+                "requires_clarification": False,
+            }
+
+        rejected_product = re.match(r"^مش\s+(?:عايزه?|عاوزه?|حابب|محتاجه?)\s+(.+)$", norm)
+        if rejected_product:
+            item_text = rejected_product.group(1).strip()
+            items, meta = self._extract_items(item_text, category_hint=category_hint)
+            return {
+                "intent": CustomerIntent.REJECT_PRODUCT.value,
+                "confidence": 0.95,
+                "items": items,
+                "requires_clarification": False,
+                "match_meta": meta,
+            }
+
         # 3. Confirm order (also preserve any items mentioned in the same burst before confirming)
         if any(k in norm for k in ["اكد الطلب", "اكد الاوردر", "تمام اكد", "ايوه اكد", "موافق اكد", "ابعت الاوردر", "نفذ الطلب"]):
             items, meta = self._extract_items(text, category_hint=category_hint)
@@ -356,8 +396,18 @@ class OfflineEgyptianNLU:
         if norm in {"السلام عليكم", "مساء الخير", "صباح الخير", "اهلا", "ازيك", "الو", "هاي", "hello", "hi"}:
             return {"intent": CustomerIntent.GREETING.value, "confidence": 0.96, "items": [], "requires_clarification": False}
 
-        # 9. Menu inquiry
-        if any(k in norm for k in ["المنيو", "عندكم ايه", "ابعت المنيو", "القائمه"]):
+        # 9. Category-specific menu inquiry. These questions must not fall through
+        # to fuzzy add-to-cart extraction, even when the requested category is absent.
+        category_terms = [
+            normalize_arabic(c.get("name_ar", ""))
+            for c in self.menu_index.categories.values()
+        ] + ["عصير", "عصاير", "عصائر", "باستا", "برجر", "بيتزا", "ميلك شيك"]
+        asks_for_category = any(term and term in norm for term in category_terms)
+        asks_what_is_available = any(term in norm for term in ("ايه", "انواع", "المتاح", "موجود"))
+        addresses_restaurant = any(term in norm for term in ("عندكم", "عندكو", "عندنا"))
+        if any(k in norm for k in ["المنيو", "عندكم ايه", "عندكو ايه", "ابعت المنيو", "القائمه"]) or (
+            addresses_restaurant and asks_for_category and asks_what_is_available
+        ):
             return {"intent": CustomerIntent.MENU_INQUIRY.value, "confidence": 0.92, "items": [], "requires_clarification": False}
 
         # 10. Customer self-correction or Order extraction
