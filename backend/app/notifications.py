@@ -171,7 +171,8 @@ class TelegramBotClient:
                 raise last_exc  # type: ignore[misc]
 
             return await asyncio.to_thread(_sync_post)
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        transport = httpx.AsyncHTTPTransport(local_address="0.0.0.0")
+        async with httpx.AsyncClient(timeout=self.timeout, transport=transport) as client:
             return await client.post(url, **body_kw)
 
     async def _api_call(
