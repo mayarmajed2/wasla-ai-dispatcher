@@ -1,7 +1,7 @@
 {
-  "timestamp_utc": "2026-11-24T11:14:00.901536+00:00",
+  "timestamp_utc": "2026-11-24T11:24:05.204932+00:00",
   "token_configured": true,
-  "cashier_chat_configured": false,
+  "cashier_chat_configured": true,
   "owner_chat_configured": true,
   "bot_identity": {
     "id": 9267386407,
@@ -13,26 +13,32 @@
     "active": false,
     "url": "",
     "has_custom_certificate": false,
-    "pending_update_count": 2,
+    "pending_update_count": 3,
     "last_error_message": null
   },
   "update_delivery_mode": "polling_getUpdates",
-  "discovered_groups": [],
-  "discovered_private_chats": [
+  "discovered_groups": [
     {
-      "chat_id": "880634962",
-      "type": "private",
-      "title": "mayarmajed2"
+      "chat_id": "-1003955668284",
+      "type": "supergroup",
+      "title": "Wasla-AI-M"
     }
   ],
+  "discovered_private_chats": [],
   "discovered_chats": [
     {
-      "chat_id": "880634962",
-      "type": "private",
-      "title": "mayarmajed2"
+      "chat_id": "-1003955668284",
+      "type": "supergroup",
+      "title": "Wasla-AI-M"
     }
   ],
-  "cashier_permission_check": null,
+  "cashier_permission_check": {
+    "chat_id": "-1003955668284",
+    "ok": true,
+    "member_status": "administrator",
+    "can_send_messages": true,
+    "error": null
+  },
   "owner_permission_check": {
     "chat_id": "880634962",
     "ok": true,
@@ -40,10 +46,16 @@
     "error": null
   },
   "live_test_results": {
+    "cashier_group": {
+      "sent": true,
+      "http_status": 200,
+      "message_id": 9,
+      "error": null
+    },
     "owner_private": {
       "sent": true,
       "http_status": 200,
-      "message_id": 10,
+      "message_id": 11,
       "error": null
     }
   },
@@ -52,7 +64,7 @@
       "attempt_number": 1,
       "method": "getMe",
       "http_status": 200,
-      "timestamp_utc": "2026-11-24T11:14:01.208120+00:00",
+      "timestamp_utc": "2026-11-24T11:24:05.510114+00:00",
       "error_description": null,
       "retry_after": null,
       "server_header": "nginx/1.30.7"
@@ -61,7 +73,7 @@
       "attempt_number": 1,
       "method": "getWebhookInfo",
       "http_status": 200,
-      "timestamp_utc": "2026-11-24T11:14:01.641625+00:00",
+      "timestamp_utc": "2026-11-24T11:24:05.805397+00:00",
       "error_description": null,
       "retry_after": null,
       "server_header": "nginx/1.30.7"
@@ -70,7 +82,7 @@
       "attempt_number": 1,
       "method": "getUpdates",
       "http_status": 200,
-      "timestamp_utc": "2026-11-24T11:14:01.944399+00:00",
+      "timestamp_utc": "2026-11-24T11:24:06.254125+00:00",
       "error_description": null,
       "retry_after": null,
       "server_header": "nginx/1.30.7"
@@ -79,7 +91,16 @@
       "attempt_number": 1,
       "method": "getChatMember",
       "http_status": 200,
-      "timestamp_utc": "2026-11-24T11:14:02.243487+00:00",
+      "timestamp_utc": "2026-11-24T11:24:06.564465+00:00",
+      "error_description": null,
+      "retry_after": null,
+      "server_header": "nginx/1.30.7"
+    },
+    {
+      "attempt_number": 2,
+      "method": "getChatMember",
+      "http_status": 200,
+      "timestamp_utc": "2026-11-24T11:24:06.919491+00:00",
       "error_description": null,
       "retry_after": null,
       "server_header": "nginx/1.30.7"
@@ -88,13 +109,22 @@
       "attempt_number": 1,
       "method": "sendMessage",
       "http_status": 200,
-      "timestamp_utc": "2026-11-24T11:14:02.607865+00:00",
+      "timestamp_utc": "2026-11-24T11:24:07.331724+00:00",
+      "error_description": null,
+      "retry_after": null,
+      "server_header": null
+    },
+    {
+      "attempt_number": 2,
+      "method": "sendMessage",
+      "http_status": 200,
+      "timestamp_utc": "2026-11-24T11:24:07.804328+00:00",
       "error_description": null,
       "retry_after": null,
       "server_header": null
     }
   ],
-  "status": "PARTIALLY_VERIFIED",
+  "status": "LIVE_AND_VERIFIED",
   "http_status": 200,
   "retry_after": null,
   "error": null
