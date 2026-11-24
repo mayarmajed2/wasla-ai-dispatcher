@@ -47,7 +47,7 @@ class MockBackendAdapter:
         self._handoffs: list[dict[str, Any]] = []
         self._next_order_id = 1
 
-        # Mirrors existing Backend default delivery fee logic (`free_zone` = 0, default = 20 EGP)
+        # Test fixture rates only; production quotes come from backend delivery settings.
         self._zones: dict[str, Decimal] = {
             "default": Decimal("20.00"),
             "free_zone": Decimal("0.00"),
@@ -273,7 +273,7 @@ class MockBackendAdapter:
             deliverable=True,
             zone_name=zone_key,
             delivery_fee=fee,
-            estimated_minutes=40,
+            estimated_minutes=None,
             message=f"التوصيل متاح لمنطقة {zone_key} بتكلفة {fee} جنيه.",
         )
 

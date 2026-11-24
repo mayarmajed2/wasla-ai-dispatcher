@@ -84,6 +84,7 @@ from ai_service.schemas.models import (
     BackendConfirmOrderPayload,
     CartSnapshot,
     CashierDirectiveRequest,
+    DeliveryResolution,
     SessionState,
 )
 from ai_service.understanding.menu_index import MenuIndex
@@ -226,6 +227,25 @@ def seed_moka_menu_if_empty() -> int:
         return inserted
     finally:
         db.close()
+
+
+def _delivery_quote(zone_name: str) -> dict:
+    zone = zone_name.strip() or "default"
+    fee = settings.delivery_free_zone_fee if zone == settings.delivery_free_zone else settings.delivery_default_fee
+    return {
+        "deliverable": True,
+        "zone_name": zone,
+        "delivery_fee": str(fee),
+        "estimated_minutes": settings.delivery_estimated_minutes,
+    }
+
+
+def _associate_active_order(phone_number: str, order_id: int, db: Session) -> None:
+    row = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_number))
+    if row is None:
+        db.add(ChatSession(phone_number=phone_number, active_order_id=order_id))
+    else:
+        row.active_order_id = order_id
 
 
 class _DirectDBOrderBridge(MockBackendAdapter):
@@ -405,9 +425,21 @@ class _DirectDBOrderBridge(MockBackendAdapter):
 
     async def resolve_delivery(self, phone_number: str, *args, **kwargs):
         self._hydrate_cart_from_db(phone_number)
-        res = await super().resolve_delivery(phone_number, *args, **kwargs)
-        self._persist_cart_to_db(phone_number, self._carts.get(phone_number, CartSnapshot()))
-        return res
+        zone_name = str(kwargs.get("zone_name") or (args[0] if args else "")).strip() or "default"
+        quote = _delivery_quote(zone_name)
+        cart = self._carts.get(phone_number, CartSnapshot())
+        updated = self._recalculate(
+            cart.model_copy(update={"delivery_fee": Decimal(quote["delivery_fee"]), "zone_name": zone_name})
+        )
+        self._carts[phone_number] = updated
+        self._persist_cart_to_db(phone_number, updated)
+        return DeliveryResolution(
+            deliverable=True,
+            zone_name=zone_name,
+            delivery_fee=Decimal(quote["delivery_fee"]),
+            estimated_minutes=quote["estimated_minutes"],
+            message=f"رسوم التوصيل لمنطقة {zone_name}: {quote['delivery_fee']} ج.م.",
+        )
 
     async def revalidate_cart(self, phone_number: str):
         self._hydrate_cart_from_db(phone_number)
@@ -648,6 +680,11 @@ class StatusUpdate(BaseModel):
     status: OrderStatus
 
 
+class CustomerOrderStatusRequest(BaseModel):
+    customer_phone: str = Field(min_length=8, max_length=32)
+    order_id: int | None = Field(default=None, ge=1)
+
+
 class OrderModification(BaseModel):
     message: str
 
@@ -756,6 +793,10 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
 
     existing = db.scalar(select(Order).where(Order.idempotency_key == payload.idempotency_key))
     if existing is not None:
+        if existing.customer_phone != payload.customer_phone:
+            raise HTTPException(status_code=409, detail="Idempotency key belongs to a different customer.")
+        _associate_active_order(payload.customer_phone, existing.id, db)
+        db.commit()
         return {"id": existing.id, "status": existing.status, "duplicate": True}
 
     resolved_items = []
@@ -839,7 +880,7 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
             }
         )
 
-    delivery_fee = "0.00" if payload.zone_name == "free_zone" else "20.00"
+    delivery_fee = _delivery_quote(payload.zone_name)["delivery_fee"]
     cart = calculate_cart(resolved_items, Decimal(delivery_fee))
     now = datetime.now(timezone.utc)
     order = Order(
@@ -866,7 +907,12 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
         existing = db.scalar(select(Order).where(Order.idempotency_key == payload.idempotency_key))
         if existing is None:
             raise
+        if existing.customer_phone != payload.customer_phone:
+            raise HTTPException(status_code=409, detail="Idempotency key belongs to a different customer.")
+        _associate_active_order(payload.customer_phone, existing.id, db)
+        db.commit()
         return {"id": existing.id, "status": existing.status, "duplicate": True}
+    _associate_active_order(payload.customer_phone, order.id, db)
     db.add_all(
         [
             OrderStatusHistory(
@@ -969,7 +1015,9 @@ def readiness(db: Session = Depends(get_db)):
             "finetuned_lora_checkpoint_exists": ai_status["checkpoint_exists"],
             "finetuned_lora_loaded": ai_status["model_loaded"],
             "finetuned_lora_version": ai_status["model_version"],
+            "finetuned_lora_taxonomy_compatible": ai_status["taxonomy_compatible"],
             "finetuned_lora_inference_available": ai_status["inference_available"],
+            "finetuned_lora_routing_available": ai_status["routing_available"],
             "active_inference_route": ai_status["active_inference_route"],
         },
         "ai_models": ai_status,
@@ -1403,6 +1451,41 @@ async def ai_chat(payload: AIChatRequest, db: Session = Depends(get_db)):
 @app.post("/api/orders", status_code=201)
 async def confirm_order(payload: ConfirmOrder, db: Session = Depends(get_db)):
     return await _create_order_in_db(payload, db)
+
+
+@app.get("/api/delivery/quote")
+def delivery_quote(zone_name: str = Query(default="default")):
+    return _delivery_quote(zone_name)
+
+
+@app.post("/api/customer/order-status")
+def customer_order_status(
+    payload: CustomerOrderStatusRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    expected_key = settings.backend_service_api_key
+    supplied_key = request.headers.get("X-Backend-Service-Key", "")
+    if not expected_key:
+        raise HTTPException(status_code=503, detail="Customer order tracking service authentication is not configured.")
+    if not supplied_key or not hmac.compare_digest(supplied_key, expected_key):
+        raise HTTPException(status_code=401, detail="Backend service authentication required.")
+
+    stmt = select(Order).where(Order.customer_phone == payload.customer_phone)
+    if settings.app_env.lower() == "production":
+        stmt = stmt.where(Order.is_test.is_(False))
+    if payload.order_id is not None:
+        order = db.scalar(stmt.where(Order.id == payload.order_id))
+    else:
+        session_row = db.scalar(select(ChatSession).where(ChatSession.phone_number == payload.customer_phone))
+        if session_row is not None and session_row.active_order_id is not None:
+            order = db.scalar(stmt.where(Order.id == session_row.active_order_id))
+        else:
+            order = db.scalar(stmt.order_by(Order.created_at.desc(), Order.id.desc()).limit(1))
+    if order is None:
+        return {"id": None, "status": None}
+    status = getattr(order.status, "value", order.status)
+    return {"id": order.id, "status": str(status)}
 
 
 @app.get("/api/orders")

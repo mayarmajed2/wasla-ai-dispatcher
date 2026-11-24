@@ -47,6 +47,7 @@ class WaslaConfig:
     backend_adapter_mode: str = field(default_factory=lambda: os.getenv("BACKEND_ADAPTER_MODE", "mock"))
     backend_base_url: str = field(default_factory=lambda: os.getenv("BACKEND_BASE_URL", "http://localhost:8000"))
     backend_timeout_seconds: float = field(default_factory=lambda: float(os.getenv("BACKEND_TIMEOUT_SECONDS", "10.0")))
+    backend_service_api_key: str = field(default_factory=lambda: os.getenv("BACKEND_SERVICE_API_KEY", ""))
 
     # Conversation, Upsell & Safety
     message_debounce_seconds: float = field(default_factory=lambda: float(os.getenv("MESSAGE_DEBOUNCE_SECONDS", "3.0")))

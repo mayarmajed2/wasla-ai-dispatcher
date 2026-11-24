@@ -134,8 +134,170 @@ def test_database_order_status_is_scoped_to_the_customer_and_active_order(tmp_pa
     asyncio.run(run())
 
 
+def test_pending_order_id_followup_persists_through_database_restart(tmp_path):
+    _, database, main, models = _fresh_app_modules(tmp_path / "pending_tracking_restart.db")
+    from ai_service.config import WaslaConfig
+    from ai_service.dispatcher.dispatcher import WaslaAIDispatcher
+    from ai_service.understanding.menu_index import MenuIndex
+
+    phone = "01055550011"
+    config = WaslaConfig(gemini_api_key="", session_ttl_seconds=3600, lora_enabled=False)
+    first_bridge = main._DirectDBOrderBridge(MenuIndex(main.MENU_JSON_PATH))
+    first_bridge.sync_menu_sync()
+    first_dispatcher = WaslaAIDispatcher(config, first_bridge.menu_index, first_bridge)
+
+    async def run():
+        prompted = await first_dispatcher.handle_text(phone, "الأوردر فين؟")
+        assert prompted.clarification_reason == "order_not_found"
+        assert first_dispatcher.get_session(phone).pending_order_status_lookup is True
+
+        db = database.SessionLocal()
+        try:
+            orders = [
+                models.Order(
+                    customer_name="عميل التتبع",
+                    customer_phone=phone,
+                    backup_phone="01155550011",
+                    confirmed_by_customer=True,
+                    delivery_address="المعادي شارع 9",
+                    subtotal=Decimal("100.00"),
+                    delivery_fee=Decimal("20.00"),
+                    total_amount=Decimal("120.00"),
+                    status=status,
+                    items_snapshot=[],
+                    data_source="api",
+                    is_test=False,
+                )
+                for status in ("DELIVERED", "OUT_FOR_DELIVERY")
+            ]
+            db.add_all(orders)
+            db.commit()
+            order_id = orders[0].id
+        finally:
+            db.close()
+
+        second_bridge = main._DirectDBOrderBridge(MenuIndex(main.MENU_JSON_PATH))
+        second_bridge.sync_menu_sync()
+        restarted_dispatcher = WaslaAIDispatcher(
+            config,
+            second_bridge.menu_index,
+            second_bridge,
+        )
+        assert restarted_dispatcher.get_session(phone).pending_order_status_lookup is True
+
+        tracked = await restarted_dispatcher.handle_text(
+            phone,
+            f"معلش رقم الطلب {order_id} وصل لفين؟",
+        )
+        assert tracked.intent.value == "order_status"
+        assert tracked.order_id == order_id
+        assert "تم تسليمه" in tracked.reply_ar
+        assert restarted_dispatcher.get_session(phone).pending_order_status_lookup is False
+
+    asyncio.run(run())
+
+
+def test_delivery_quote_uses_configured_fee_and_has_no_unverified_eta(tmp_path):
+    config, _, main, _ = _fresh_app_modules(tmp_path / "delivery_quote.db")
+    config.settings.delivery_default_fee = Decimal("37.50")
+    config.settings.delivery_free_zone_fee = Decimal("0.00")
+    config.settings.delivery_estimated_minutes = None
+
+    async def run():
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            paid = await client.get("/api/delivery/quote", params={"zone_name": "nasr-city"})
+            free = await client.get("/api/delivery/quote", params={"zone_name": "free_zone"})
+
+        assert paid.json() == {
+            "deliverable": True,
+            "zone_name": "nasr-city",
+            "delivery_fee": "37.50",
+            "estimated_minutes": None,
+        }
+        assert free.json()["delivery_fee"] == "0.00"
+
+    asyncio.run(run())
+
+
+def test_http_customer_status_requires_service_auth_and_enforces_phone_ownership(tmp_path):
+    config, database, main, models = _fresh_app_modules(tmp_path / "authenticated_tracking.db")
+    config.settings.backend_service_api_key = ""
+    phone = "01055550021"
+    db = database.SessionLocal()
+    try:
+        own = models.Order(
+            customer_name="عميل التتبع",
+            customer_phone=phone,
+            backup_phone="01155550021",
+            confirmed_by_customer=True,
+            delivery_address="المعادي شارع 9",
+            subtotal=Decimal("100.00"),
+            delivery_fee=Decimal("20.00"),
+            total_amount=Decimal("120.00"),
+            status="IN_KITCHEN",
+            items_snapshot=[],
+            data_source="api",
+            is_test=False,
+        )
+        foreign = models.Order(
+            customer_name="عميل آخر",
+            customer_phone="01055550022",
+            backup_phone="01155550022",
+            confirmed_by_customer=True,
+            delivery_address="الدقي شارع التحرير",
+            subtotal=Decimal("100.00"),
+            delivery_fee=Decimal("20.00"),
+            total_amount=Decimal("120.00"),
+            status="DELIVERED",
+            items_snapshot=[],
+            data_source="api",
+            is_test=False,
+        )
+        db.add_all([own, foreign])
+        db.flush()
+        db.add(models.ChatSession(phone_number=phone, active_order_id=own.id))
+        db.commit()
+        own_id, foreign_id = own.id, foreign.id
+    finally:
+        db.close()
+
+    async def run():
+        transport = httpx.ASGITransport(app=main.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            path = "/api/customer/order-status"
+            payload = {"customer_phone": phone}
+            unconfigured = await client.post(path, json=payload)
+            config.settings.backend_service_api_key = "unit-test-service-key"
+            unauthenticated = await client.post(path, json=payload)
+            own_status = await client.post(
+                path,
+                headers={"X-Backend-Service-Key": "unit-test-service-key"},
+                json=payload,
+            )
+            foreign_status = await client.post(
+                path,
+                headers={"X-Backend-Service-Key": "unit-test-service-key"},
+                json={"customer_phone": phone, "order_id": foreign_id},
+            )
+            missing_status = await client.post(
+                path,
+                headers={"X-Backend-Service-Key": "unit-test-service-key"},
+                json={"customer_phone": "01055550023", "order_id": own_id},
+            )
+
+        assert unconfigured.status_code == 503
+        assert unauthenticated.status_code == 401
+        assert own_status.json() == {"id": own_id, "status": "IN_KITCHEN"}
+        assert foreign_status.json() == {"id": None, "status": None}
+        assert missing_status.json() == {"id": None, "status": None}
+
+    asyncio.run(run())
+
+
 def test_order_api_uses_database_prices_and_enforces_idempotency(tmp_path):
     config, database, main, models = _fresh_app_modules(tmp_path / "order_integrity.db")
+    config.settings.delivery_default_fee = Decimal("37.50")
 
     async def run():
         transport = httpx.ASGITransport(app=main.app)
@@ -210,11 +372,19 @@ def test_order_api_uses_database_prices_and_enforces_idempotency(tmp_path):
 
             created = await client.post("/api/orders", headers=headers, json=payload)
             duplicate = await client.post("/api/orders", headers=headers, json=payload)
+            foreign_replay = await client.post(
+                "/api/orders",
+                headers=headers,
+                json={**payload, "customer_phone": "01055550003"},
+            )
             assert created.status_code == 201
             assert duplicate.status_code == 201
             assert duplicate.json()["duplicate"] is True
             assert duplicate.json()["id"] == created.json()["id"]
+            assert foreign_replay.status_code == 409
+            assert "id" not in foreign_replay.json()
             assert Decimal(created.json()["cart"]["subtotal"]) == expected_subtotal
+            assert Decimal(created.json()["cart"]["delivery_fee"]) == Decimal("37.50")
             snapshot = created.json()["cart"]["items"][0]
             assert Decimal(snapshot["modifiers"][0]["price"]) == Decimal(extra["price"])
 
@@ -225,6 +395,11 @@ def test_order_api_uses_database_prices_and_enforces_idempotency(tmp_path):
                 ).all()
                 assert len(orders) == 1
                 assert orders[0].items_snapshot[0]["selected_options"] == {"sauce": "باربيكيو"}
+                session_row = db.scalar(
+                    select(models.ChatSession).where(models.ChatSession.phone_number == payload["customer_phone"])
+                )
+                assert session_row is not None
+                assert session_row.active_order_id == orders[0].id
             finally:
                 db.close()
 

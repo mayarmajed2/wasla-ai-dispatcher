@@ -14,6 +14,14 @@ services:
         sync: false
       - key: DATABASE_URL
         sync: false
+      - key: BACKEND_SERVICE_API_KEY
+        sync: false
+      - key: DELIVERY_DEFAULT_FEE
+        value: "20.00"
+      - key: DELIVERY_FREE_ZONE
+        value: free_zone
+      - key: DELIVERY_FREE_ZONE_FEE
+        value: "0.00"
       - key: AUTH_SECRET_KEY
         generateValue: true
       - key: SCHEDULER_CRON_SECRET

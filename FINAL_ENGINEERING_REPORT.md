@@ -4,6 +4,8 @@
 **Branch:** `mayarmajed2-remaining-fallback-fixes` (based on `main`)
 **Report date:** 24 November 2026
 
+> Historical report for the preceding stabilization branch. Its implementation and verification statements are superseded by [`FINAL_RELEASE_VERIFICATION.md`](FINAL_RELEASE_VERIFICATION.md); use that document for current release status.
+
 ## Delivered
 
 - Category questions such as `عندكو عصير ايه؟` and `عندكو باستا ايه؟` are classified as menu inquiries and execute category-filtered menu lookups. Missing categories are reported as absent from the current menu rather than treated as products to order.

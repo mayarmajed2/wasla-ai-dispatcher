@@ -179,10 +179,11 @@ class AudioInput(BaseModel):
 
 class AudioTranscriptionResult(BaseModel):
     transcript: str
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     provider: str
     latency_ms: float = Field(ge=0.0)
     used_fallback: bool = False
+    is_usable: bool = False
 
 
 class ConversationMessage(BaseModel):
@@ -200,6 +201,7 @@ class SessionState(BaseModel):
     zone_name: str = "default"
     cart: CartSnapshot = Field(default_factory=CartSnapshot)
     active_order_id: int | None = None
+    pending_order_status_lookup: bool = False
     needs_human_takeover: bool = False
     human_takeover_by: str | None = None
     pending_clarification: dict[str, Any] | None = None

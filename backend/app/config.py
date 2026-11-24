@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +38,11 @@ class Settings(BaseSettings):
     arrival_check_delay_minutes: int = 90
     scheduler_cron_secret: str = ""
     scheduler_lease_seconds: int = 120
+    backend_service_api_key: str = ""
+    delivery_default_fee: Decimal = Decimal("20.00")
+    delivery_free_zone: str = "free_zone"
+    delivery_free_zone_fee: Decimal = Decimal("0.00")
+    delivery_estimated_minutes: int | None = None
 
     # Authentication & RBAC
     auth_secret_key: str = "change-me-in-production-min-32-chars-secret"

@@ -11,13 +11,14 @@ Features:
 
 from __future__ import annotations
 
-import importlib.util
 import json
 import logging
 import threading
 import time
 from pathlib import Path
 from typing import Any
+
+from ai_service.schemas.models import CustomerIntent
 
 logger = logging.getLogger("wasla.finetuned_intent")
 
@@ -70,10 +71,6 @@ def _detect_target_device(prefer_gpu: bool = True) -> str:
     return "cpu"
 
 
-def _deps_installed() -> bool:
-    return all(importlib.util.find_spec(pkg) is not None for pkg in ("torch", "transformers", "peft"))
-
-
 class FineTunedIntentClassifier:
     """Lazy-loading, cached PEFT LoRA adapter for Egyptian Arabic restaurant intent classification."""
 
@@ -117,7 +114,21 @@ class FineTunedIntentClassifier:
 
     @property
     def inference_available(self) -> bool:
-        return bool(self.enabled and self.checkpoint_exists and _deps_installed() and self._load_error is None)
+        return bool(self.enabled and self.is_loaded and self._load_error is None)
+
+    @property
+    def taxonomy_compatible(self) -> bool:
+        if not self.checkpoint_exists:
+            return False
+        try:
+            label2id, _ = _load_label_mapping(self.checkpoint_dir / "label_map.json")
+        except (OSError, ValueError, json.JSONDecodeError):
+            return False
+        return set(label2id) == {intent.value for intent in CustomerIntent}
+
+    @property
+    def routing_available(self) -> bool:
+        return self.inference_available and self.taxonomy_compatible
 
     @property
     def load_error(self) -> str | None:
@@ -249,8 +260,10 @@ class FineTunedIntentClassifier:
             "model_loaded": self.is_loaded,
             "model_version": self.model_version,
             "base_model_id": self._resolve_base_model_id(),
+            "taxonomy_compatible": self.taxonomy_compatible,
             "device": self._device if self.is_loaded else _detect_target_device(prefer_gpu=self.prefer_gpu),
             "inference_available": self.inference_available,
+            "routing_available": self.routing_available,
             "load_time_ms": self._load_time_ms,
             "load_error": self._load_error,
         }

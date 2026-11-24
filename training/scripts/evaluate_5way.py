@@ -1,5 +1,5 @@
 """5-Way Scientific Evaluation + 12x12 Confusion Matrix + Per-Class Precision/Recall/F1
-on the Genuinely Independent 204-Example Challenge Benchmark (`independent_challenge_200.jsonl`).
+on the versioned independent 203-example challenge benchmark.
 
 Compares:
 - Model A: Supervised TF-IDF (Char+Word N-gram) + Class-Balanced LogisticRegression Baseline
@@ -34,15 +34,19 @@ from ai_service.dispatcher.dispatcher import WaslaAIDispatcher  # noqa: E402
 from ai_service.understanding.menu_index import MenuIndex  # noqa: E402
 
 TRAIN_PATH = ROOT / "training" / "data" / "train.jsonl"
-IND_200_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_200.jsonl"
+IND_200_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_203_v2.jsonl"
 CKPT_V1 = ROOT / "training" / "checkpoints" / "camelbert-wasla-lora"
 CKPT_V2 = ROOT / "training" / "checkpoints" / "camelbert-wasla-lora-v2"
 BASE_MODEL = "CAMeL-Lab/bert-base-arabic-camelbert-mix"
-OUT_REPORT = ROOT / "training" / "reports" / "evaluation_5way_independent.json"
+OUT_REPORT = ROOT / "training" / "reports" / "evaluation_5way_independent_v2.json"
 
 
 def _load_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def _norm_text(text: str) -> str:
+    return " ".join(text.lower().split())
 
 
 def _metrics_block(y_true: list[str], y_pred: list[str], labels: list[str], latencies: list[float]) -> dict:
@@ -123,6 +127,21 @@ async def _eval_wasla_rule_nlu(rows: list[dict], labels: list[str]) -> tuple[dic
 def main() -> dict:
     train_rows = _load_jsonl(TRAIN_PATH)
     ind_rows = _load_jsonl(IND_200_PATH)
+    independent_texts = {_norm_text(row["text"]) for row in ind_rows}
+    split_paths = {
+        "train": TRAIN_PATH,
+        "validation": ROOT / "training" / "data" / "val.jsonl",
+        "test": ROOT / "training" / "data" / "test_unseen.jsonl",
+    }
+    overlaps = {
+        name: independent_texts & {_norm_text(row["text"]) for row in _load_jsonl(path)}
+        for name, path in split_paths.items()
+    }
+    if any(overlaps.values()):
+        raise ValueError(
+            "Independent evaluation overlaps existing dataset split(s): "
+            + ", ".join(f"{name}={len(rows)}" for name, rows in overlaps.items() if rows)
+        )
     labels = sorted({r["intent"] for r in ind_rows})
     y_true = [r["intent"] for r in ind_rows]
 
@@ -164,8 +183,13 @@ def main() -> dict:
     res_e = _metrics_block(y_true, y_pred_e, labels, [res_c["avg_latency_ms"]])
 
     report = {
-        "benchmark": "datasets/evaluation/independent_challenge_200.jsonl",
+        "benchmark": "datasets/evaluation/independent_challenge_203_v2.jsonl",
         "samples": len(ind_rows),
+        "dataset_independence": {
+            "exact_train_eval_overlap": 0,
+            "exact_validation_eval_overlap": 0,
+            "exact_test_eval_overlap": 0,
+        },
         "model_a_tfidf_logreg_baseline": res_a,
         "model_b_camelbert_lora_v1": res_b,
         "model_c_camelbert_lora_v2": res_c,

@@ -12,9 +12,9 @@ from sklearn.metrics.pairwise import cosine_similarity
 ROOT = Path(__file__).resolve().parent.parent.parent
 TRAIN_PATH = ROOT / "training" / "data" / "train.jsonl"
 TEST_V1_PATH = ROOT / "training" / "data" / "test_unseen.jsonl"
-IND_200_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_200.jsonl"
+IND_200_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_203_v2.jsonl"
 EVAL_150_PATH = ROOT / "datasets" / "evaluation" / "moka_typo_eval_150.json"
-OUT_REPORT = ROOT / "training" / "reports" / "leakage_audit.json"
+OUT_REPORT = ROOT / "training" / "reports" / "leakage_audit_independent_challenge_v2.json"
 
 
 def _load_jsonl(path: Path) -> list[str]:
@@ -54,7 +54,7 @@ def main() -> dict:
         "train_size": len(train_t),
         "audits": [
             pair_leakage(train_t, test_v1, "train_v1 vs test_unseen_v1 (same generator)"),
-            pair_leakage(train_t, ind_200, "train_v1 vs independent_challenge_200 (separate author)"),
+            pair_leakage(train_t, ind_200, "train_v1 vs independent_challenge_203_v2 (separate author)"),
             pair_leakage(train_t, eval_150, "train_v1 vs moka_typo_eval_150 (separate typo suite)"),
         ],
     }
