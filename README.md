@@ -72,13 +72,15 @@ pytest -v wasla_phase_a_repro_tests.py tests/ backend/test_cart_calculator.py
 python training/scripts/evaluate_phase_b_scientific.py
 ```
 
-*(Verified local result: **61 passed** across Phase A reproductions, Phase B hardening tests, 154-case MOKA typo suite, dialogue flows, cart math, RBAC, and Alembic migrations.)*
+*(Measured 24 November 2026 local baseline: **59 passed / 2 failed** for the established 61-test command on this Windows host. Both failures are the real-LoRA loading checks: Windows Smart App Control blocks the `regex` native DLL import. The separate deterministic critical-surface suite adds **10 passing regressions**.)*
 
 ---
 
 ## Documentation
 
 - [Phase B Implementation Report](docs/PHASE_B_IMPLEMENTATION_REPORT.md)
+- [Engineering Reference & Release Report](docs/ENGINEERING_REFERENCE.md)
+- [Final Engineering QA Report](FINAL_ENGINEERING_REPORT.md)
 - [Phase B Repaired AI Architecture](docs/AI_ARCHITECTURE.md)
 - [Model & Inference Scientific Evaluation Report (Phase B)](docs/MODEL_INFERENCE_REPORT.md)
 - [Phase B Regression Test Report](docs/REGRESSION_TEST_REPORT.md)
