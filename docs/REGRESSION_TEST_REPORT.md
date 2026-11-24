@@ -1,5 +1,23 @@
 # Wasla AI — Phase B Regression Test Report
 
+## 24 November 2026 Measured Host Addendum
+
+The established 61-test command was rerun on this Windows host on 24 November 2026:
+
+```text
+59 passed, 2 failed
+```
+
+The two failures are `test_real_finetuned_lora_checkpoint_loads_and_predicts` and `test_lora_v1_v2_loading_caching_and_ready_honesty`. Both stop at native `regex` DLL loading because Windows Application Control blocks `_regex.pyd`; no live LoRA inference success is claimed.
+
+A new deterministic suite was added and passed 10/10:
+
+```text
+tests/regression/test_critical_dispatcher_regressions.py
+```
+
+See `ENGINEERING_REFERENCE.md` and `FINAL_ENGINEERING_REPORT.md` for the release interpretation.
+
 **Date:** 24 November 2026  
 **Environment:** Windows 11, Python 3.14.5 (`C:\Users\Mayoura\AppData\Local\Programs\Python\Python314\python.exe`), `pytest 9.2.0`, `pytest-asyncio 1.5.0`, `torch 2.15.0`, `transformers 5.24.0`, `peft 0.22.0`
 
