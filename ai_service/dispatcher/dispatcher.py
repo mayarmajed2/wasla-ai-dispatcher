@@ -401,6 +401,19 @@ class WaslaAIDispatcher:
                 continue
             sanitized = self._sanitize_item_dict(item_dict, fallback_mention=clean_text)
             raw_items.append(ExtractedOrderItem(**sanitized))
+
+        if self._is_customer_question(clean_text) and intent in (
+            CustomerIntent.ADD_TO_CART,
+            CustomerIntent.MODIFY_ORDER,
+        ):
+            intent = CustomerIntent.UNCLEAR_REQUEST
+            raw_items = []
+            parsed = {**parsed, "natural_reply_ar": ""}
+        if intent == CustomerIntent.REJECT_PRODUCT and any(
+            item.product_id and any(line.product_id == item.product_id for line in session.cart.items)
+            for item in raw_items
+        ):
+            intent = CustomerIntent.REMOVE_ITEM
         match_meta = parsed.get("match_meta", [])
 
         # Execute validated non-destructive Gemini function calls (menu / availability / delivery) cleanly via ToolExecutor
@@ -479,8 +492,40 @@ class WaslaAIDispatcher:
                 session, "get_active_menu", {"category": req_cat} if req_cat else {}, executed_signatures=executed_signatures
             )
             tool_calls.append(rec)
-            reply = persona.render_menu_overview(items, requested_category=req_cat)
+            if not rec.success:
+                reply = "معلش، مش قادر أتحقق من المنيو المتاحة دلوقتي. جرّب تاني بعد شوية."
+            elif req_cat and not items:
+                reply = persona.render_availability_result(
+                    req_cat,
+                    items,
+                    category_exists=bool(self.menu_index.list_by_category(req_cat)),
+                )
+            else:
+                reply = persona.render_menu_overview(items, requested_category=req_cat)
             return self._finish(session, intent, confidence, raw_items, False, None, tool_calls, reply, model_used)
+
+        if intent == CustomerIntent.ORDER_STATUS:
+            return await self._handle_order_status(
+                session, tool_calls, model_used, executed_signatures=executed_signatures
+            )
+
+        if intent == CustomerIntent.GET_CART:
+            rec, cart = await self.tools.execute(
+                session, "get_cart_summary", {}, executed_signatures=executed_signatures
+            )
+            tool_calls.append(rec)
+            reply = persona.render_cart_summary(cart) if rec.success else "معلش، مش قادر أتحقق من ملخص السلة دلوقتي."
+            return self._finish(session, intent, confidence, [], False, None, tool_calls, reply, model_used)
+
+        if intent in (CustomerIntent.AVAILABILITY_INQUIRY, CustomerIntent.REPORT_UNAVAILABLE):
+            return await self._handle_availability_inquiry(
+                session,
+                clean_text,
+                intent,
+                tool_calls,
+                model_used,
+                executed_signatures=executed_signatures,
+            )
 
         if intent == CustomerIntent.PRICE_INQUIRY:
             return await self._handle_price_inquiry(
@@ -528,6 +573,10 @@ class WaslaAIDispatcher:
             return await self._handle_remove_item(
                 session, raw_items, tool_calls, model_used, executed_signatures=executed_signatures
             )
+
+        if intent == CustomerIntent.REJECT_PRODUCT:
+            reply = "ولا يهمك، مش هضيفه للطلب 😊"
+            return self._finish(session, intent, confidence, raw_items, False, None, tool_calls, reply, model_used)
 
         if intent == CustomerIntent.CONFIRM_ORDER:
             session.pending_upsell = None
@@ -947,10 +996,13 @@ class WaslaAIDispatcher:
                 "1. Never invent product_ids, menu items, prices, or discounts.\n"
                 "2. Preserve EVERY item and EVERY size/variant if the customer orders multiple sizes of the same product.\n"
                 "3. Never confirm an order without explicit customer approval and required delivery details.\n"
-                "4. If the customer asks for ANY dish/drink NOT in MOKA's catalog below, "
+                "4. For order tracking, select intent='order_status' and never state an order status or arrival time; "
+                "the dispatcher will retrieve the verified order record.\n"
+                "5. If the customer asks for ANY dish/drink NOT in MOKA's catalog below, "
                 "set intent='add_to_cart' (or 'price_inquiry'), include {product_id: null, raw_mention: '<dish>', quantity: 1}, "
                 "set clarification_reason='unknown_product', AND write a polite Egyptian Arabic `natural_reply_ar`.\n"
-                "5. Never repeat a previous assistant reply verbatim; vary phrasing naturally.\n"
+                "6. Never turn a question about menu, availability, or order status into a cart addition.\n"
+                "7. Never repeat a previous assistant reply verbatim; vary phrasing naturally.\n"
                 + self.menu_index.build_compact_prompt_catalog()
             )
             recent_ctx = ""
@@ -1294,6 +1346,10 @@ class WaslaAIDispatcher:
                 if match.product:
                     candidate_ids.add(match.product.product_id)
                 candidate_ids.update(candidate.product_id for candidate in match.candidates)
+                category_mention = re.sub(r"^ال(?=[\u0600-\u06FF])", "", normalize_ar(item.raw_mention))
+                candidate_ids.update(
+                    product.product_id for product in self.menu_index.list_by_category(category_mention)
+                )
 
             matching_lines = [line for line in session.cart.items if line.product_id in candidate_ids]
             if item.size_code:
@@ -1691,10 +1747,176 @@ class WaslaAIDispatcher:
 
     def _extract_requested_category(self, text: str) -> str | None:
         norm = normalize_ar(text)
-        for cat in ["بيتزا", "كريب", "برجر", "باستا", "وجبات", "مشروبات", "وافل", "بان كيك", "قشطوطه", "طواجن", "سندوتش"]:
+        for cat in [
+            "بيتزا",
+            "كريب",
+            "برجر",
+            "باستا",
+            "وجبات",
+            "مشروبات",
+            "عصير",
+            "عصاير",
+            "عصائر",
+            "ميلك شيك",
+            "وافل",
+            "بان كيك",
+            "قشطوطه",
+            "طواجن",
+            "سندوتش",
+        ]:
             if normalize_ar(cat) in norm:
                 return cat
         return None
+
+    def _is_customer_question(self, text: str) -> bool:
+        normalized = normalize_ar(text)
+        question_tokens = {
+            "ايه",
+            "فين",
+            "ازاي",
+            "هل",
+            "كام",
+            "بكام",
+            "ليه",
+            "موجود",
+            "متاح",
+            "متوفر",
+            "عندكم",
+            "عندكو",
+            "فيه",
+            "مفيش",
+        }
+        return "؟" in text or "?" in text or bool(question_tokens.intersection(normalized.split()))
+
+    async def _handle_order_status(
+        self,
+        session: SessionState,
+        tool_calls: list[ToolCallRecord],
+        model_used: str,
+        *,
+        executed_signatures: set[str] | None = None,
+    ) -> DispatcherResponse:
+        args = {"order_id": session.active_order_id} if session.active_order_id is not None else {}
+        rec, result = await self.tools.execute(
+            session,
+            "get_customer_order_status",
+            args,
+            executed_signatures=executed_signatures,
+        )
+        tool_calls.append(rec)
+        if not rec.success:
+            reply = "معلش، تتبع حالة الأوردر مش متاح دلوقتي. جرّب تاني بعد شوية أو كلم الكاشير."
+            return self._finish(
+                session,
+                CustomerIntent.ORDER_STATUS,
+                0.98,
+                [],
+                True,
+                "order_tracking_unavailable",
+                tool_calls,
+                reply,
+                model_used,
+            )
+        if result is None:
+            reply = "مش لاقي أوردر مؤكد مرتبط برقمك الحالي. ابعتلي رقم الأوردر عشان أتحقق منه."
+            return self._finish(
+                session,
+                CustomerIntent.ORDER_STATUS,
+                0.98,
+                [],
+                True,
+                "order_not_found",
+                tool_calls,
+                reply,
+                model_used,
+            )
+
+        order_id = result.get("id")
+        status_value = result.get("status")
+        status = str(getattr(status_value, "value", status_value) or "").strip().upper()
+        reply = persona.render_order_status(order_id, status) if isinstance(order_id, int) else None
+        if not status or not reply:
+            reply = "لقيت الأوردر، لكن حالته مش متاحة في بيانات التتبع دلوقتي. جرّب تاني بعد شوية أو كلم الكاشير."
+            return self._finish(
+                session,
+                CustomerIntent.ORDER_STATUS,
+                0.98,
+                [],
+                True,
+                "order_tracking_unavailable",
+                tool_calls,
+                reply,
+                model_used,
+            )
+        return self._finish(
+            session,
+            CustomerIntent.ORDER_STATUS,
+            0.98,
+            [],
+            False,
+            None,
+            tool_calls,
+            reply,
+            model_used,
+            order_id=order_id,
+        )
+
+    async def _handle_availability_inquiry(
+        self,
+        session: SessionState,
+        clean_text: str,
+        intent: CustomerIntent,
+        tool_calls: list[ToolCallRecord],
+        model_used: str,
+        *,
+        executed_signatures: set[str] | None = None,
+    ) -> DispatcherResponse:
+        mention = normalize_ar(clean_text)
+        mention = re.sub(r"^مفيش\s+", "", mention)
+        mention = re.sub(r"\s+مش\s+(?:موجود|متوفر|متاح)(?:\s|$).*", "", mention).strip()
+        mention = strip_fillers(mention)
+        match = self.menu_index.resolve_mention_with_confidence(mention) if mention else None
+        if match and match.tier == "high" and match.product is not None:
+            rec, result = await self.tools.execute(
+                session,
+                "check_item_availability",
+                {"product_id": match.product.product_id},
+                executed_signatures=executed_signatures,
+            )
+            tool_calls.append(rec)
+            if not rec.success or not isinstance(result, dict) or result.get("item") is None:
+                reply = "معلش، مش قادر أتحقق من توفر الصنف دلوقتي. جرّب تاني بعد شوية."
+            else:
+                reply = persona.render_product_availability(
+                    result["item"],
+                    bool(result.get("available")),
+                    reported_unavailable=intent == CustomerIntent.REPORT_UNAVAILABLE,
+                )
+            return self._finish(session, intent, 0.95, [], False, None, tool_calls, reply, model_used)
+
+        category = (
+            self._extract_requested_category(mention)
+            or (match.category_hint if match else None)
+            or mention
+            or "الصنف المطلوب"
+        )
+        rec, active_items = await self.tools.execute(
+            session,
+            "get_active_menu",
+            {"category": category},
+            executed_signatures=executed_signatures,
+        )
+        tool_calls.append(rec)
+        if not rec.success:
+            reply = "معلش، مش قادر أتحقق من توفر الأصناف دلوقتي. جرّب تاني بعد شوية."
+        else:
+            reply = persona.render_availability_result(
+                category,
+                active_items,
+                category_exists=bool(self.menu_index.list_by_category(category)),
+                reported_unavailable=intent == CustomerIntent.REPORT_UNAVAILABLE,
+            )
+        return self._finish(session, intent, 0.95, [], False, None, tool_calls, reply, model_used)
 
     def _finish(
         self,

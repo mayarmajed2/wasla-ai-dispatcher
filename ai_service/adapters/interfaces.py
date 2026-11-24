@@ -55,6 +55,9 @@ class DeliveryService(Protocol):
 
 class OrderService(Protocol):
     async def confirm_and_lock_order(self, payload: BackendConfirmOrderPayload) -> dict[str, Any]: ...
+    async def get_customer_order_status(
+        self, phone_number: str, order_id: int | None = None
+    ) -> dict[str, Any] | None: ...
     async def notify_order_modification(self, order_id: int, message: str) -> dict[str, Any]: ...
 
 

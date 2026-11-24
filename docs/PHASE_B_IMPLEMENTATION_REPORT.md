@@ -2,7 +2,7 @@
 
 **Project:** Wasla AI — Commercial Restaurant AI Dispatcher (`MOKA Restaurant & Cafe`, 145 Menu Items)  
 **Repository:** `https://github.com/mayarmajed2/wasla-ai-dispatcher`  
-**Phase Scope:** Complete AI architecture repair, LoRA inference activation, native Gemini Function Calling & fallback, PostgreSQL-durable state & menu sync, concurrency isolation, durable inbound debouncing, live Telegram UX fixes, scientific evaluation, and regression suite hardening — **with zero model retraining**.
+**Phase Scope:** AI architecture repair, LoRA inference activation, Gemini Function Calling & fallback handling, PostgreSQL-durable state & menu sync, concurrency isolation, durable inbound debouncing, Telegram UX code changes, scientific evaluation, and regression suite hardening — **with zero model retraining**. This report does not imply live provider or end-to-end Telegram validation.
 
 ---
 
@@ -11,7 +11,7 @@
 | Finding / Defect | Root Cause in Phase A | Phase B Repair Implemented | Primary Verification Evidence |
 | :--- | :--- | :--- | :--- |
 | **A-01:** CAMeLBERT LoRA never called in dispatcher; `torch`/`transformers`/`peft` missing from `requirements.txt` | `WaslaAIDispatcher._run_nlu()` skipped `self.finetuned_intent.predict()`; deps omitted | Pinned CPU PyTorch + `transformers` + `peft` + `safetensors` + `accelerate` in `requirements.txt` & `deploy/hf_requirements.txt`; added thread-safe `_MODEL_CACHE`, lazy loading, offline-first cache check, confidence-routed `predict()` in `_run_nlu()`, and real `ai_models` status on `/api/ready` | `test_dispatcher_uses_finetuned_intent_classifier`, `test_lora_v1_v2_loading_caching_and_ready_honesty`, `test_low_confidence_prediction_never_creates_or_confirms_order` |
-| **A-02:** Gemini Function Calling declarations omitted from API request | `GeminiLLMClient.generate_json()` sent no `tools`/`functionDeclarations` | Injected `tools=[{"functionDeclarations": _build_gemini_function_declarations()}]` + `toolConfig` in `llm_client.py`; added `ToolExecutor` validation, single-turn deduplication (`executed_signatures`), and `_sanitize_item_dict()` against `MenuIndex` | `test_gemini_function_declarations_are_in_client_payload`, `test_gemini_function_calling_validation_dedup_and_hallucination_rejection`, live Gemini HTTP 200 verification |
+| **A-02:** Gemini Function Calling declarations omitted from API request | `GeminiLLMClient.generate_json()` sent no `tools`/`functionDeclarations` | Injected `tools=[{"functionDeclarations": _build_gemini_function_declarations()}]` + `toolConfig` in `llm_client.py`; added `ToolExecutor` validation, single-turn deduplication (`executed_signatures`), and `_sanitize_item_dict()` against `MenuIndex` | `test_gemini_function_declarations_are_in_client_payload`, `test_gemini_function_calling_validation_dedup_and_hallucination_rejection`; mocked HTTP coverage only, not a live-provider verification |
 | **A-03:** Primary Gemini transport/API/JSON errors skipped configured fallback | Only `confidence < 0.72` triggered fallback; exceptions jumped directly to `OfflineEgyptianNLU` | `_run_nlu()` invokes `use_fallback_model=True` across HTTP errors, timeouts, rate limits (`429`), invalid JSON, malformed tool calls, and `confidence < 0.72` with bounded retries before degrading to Local Hybrid | `test_primary_gemini_transport_failure_tries_configured_fallback`, `test_gemini_primary_to_fallback_on_all_error_modes` |
 | **A-04:** Session state & `SESSION_TTL_SECONDS` not durable or restored across restarts/workers | `self._sessions` and `MockBackendAdapter` were process-local RAM; `ChatSession.pending_cart` write-only | Serialized 14+ fields (`SessionState` items, sizes, modifiers, notes, customer details, `last_intent`, clarification, upsell state, history, confirmation, takeover, `session_epoch`, `updated_at`) to `ChatSession` in PostgreSQL (`WITH FOR UPDATE`) & SQLite with `SESSION_TTL_SECONDS` expiration | `test_new_dispatcher_instance_restores_previous_cart_session`, `test_persistent_session_all_14_fields_restart_and_ttl` |
 | **A-05:** Shared mutable request metadata on `WaslaAIDispatcher` | `_current_source` / `_current_is_test` stored on `self` could be overwritten across concurrent turns | Replaced mutable instance attributes with frozen `TurnExecutionContext` passed explicitly and protected turns with per-customer `asyncio.Lock` (`_session_locks`) + idempotent confirmation | `test_concurrent_customers_isolation_and_idempotent_confirm` |
@@ -65,7 +65,7 @@
 | Verification Run | Command | Actual Output |
 | :--- | :--- | :--- |
 | **Phase A Baseline (Before Fixes)** | `py -m pytest -q wasla_phase_a_repro_tests.py` | **7 failed in 1.19s** |
-| **Phase B Complete Suite (After Fixes)** | `$env:GEMINI_API_KEY="disabled"; $env:GROQ_API_KEY="disabled"; py -m pytest -v wasla_phase_a_repro_tests.py tests/ backend/test_cart_calculator.py --tb=short` | **61 passed in 143.59s (0:02:23)** (7/7 Phase A + 43/43 original + 11/11 Phase B hardening) |
+| **Historical Phase B Suite (24 Nov 2026)** | `$env:GEMINI_API_KEY="disabled"; $env:GROQ_API_KEY="disabled"; py -m pytest -v wasla_phase_a_repro_tests.py tests/ backend/test_cart_calculator.py --tb=short` | **61 passed in 143.59s (0:02:23)** at that earlier checkpoint; this is not the current task's test result. See the current [`FINAL_ENGINEERING_REPORT.md`](../FINAL_ENGINEERING_REPORT.md). |
 | **5-Way Scientific Eval (`2026-11-24T19:21:18Z`)** | `py training/scripts/evaluate_phase_b_scientific.py` | Held-Out `test_unseen_106`: Base **39.62%** -> LoRA v1 **79.25%** -> LoRA v2 **82.08%** -> Hybrid **83.02%** (`Macro-P 0.9694`, `Macro-F1 0.7470`); Independent 204: LoRA v2 **60.29%** (`Macro-F1 0.5890`), Gemini 24-sample probe **83.33%**; MOKA Typo 154: **100.00%** intent / **97.52%** exact item / **0.0%** nonexistent FP |
 
 *(Detailed confusion matrices and per-intent metrics are recorded in [`docs/MODEL_INFERENCE_REPORT.md`](docs/MODEL_INFERENCE_REPORT.md) and [`training/reports/phase_b_scientific_evaluation.json`](training/reports/phase_b_scientific_evaluation.json).)*
@@ -73,13 +73,13 @@
 ---
 
 ## 4. Honest Remaining External Limitations
-1. **Meta WhatsApp Outbound Billing (`error_code 141006`):** WABA `594299270435267` currently rejects outbound WhatsApp Graph API messages at Meta's API boundary until an international Visa/Mastercard payment method is attached in Meta Business Manager. Inbound Meta webhooks + HMAC-SHA256 verification and live Telegram ordering (`@wwaslabot`) are operational at 0 EGP.
-2. **Gemini Free-Tier Burst Rate Limits:** High-rate unthrottled bursts encounter upstream `429` / transient timeouts (observed `12.5%` fallback rate on the 24-sample probe); automatically handled by Primary -> Fallback -> Local Hybrid degradation without failing customer replies.
+1. **External channels/providers:** Live WhatsApp, Telegram, Gemini, and Groq end-to-end behavior has not been verified by this task. Previous claims in this report are historical notes, not current live-readiness evidence; mocked HTTP/provider tests are not live integration.
+2. **Gemini quotas:** The primary -> fallback -> local degradation path is covered by mocked/provider-stub tests. Live rate limits and customer delivery behavior remain unverified here.
 3. **Cold Container Base Weights:** PEFT LoRA v1 & v2 adapter files are bundled directly in `training/checkpoints/`, while the ~436 MB `CAMeL-Lab/bert-base-arabic-camelbert-mix` base encoder is downloaded lazily into `HF_HOME` on first LoRA use if not pre-cached; in a strictly air-gapped cold start without base weights cached, `FineTunedIntentClassifier` fails safely and keeps the dispatcher operational via `OfflineEgyptianNLU`.
 
 ---
 
-## 5. GitHub & Deployment Readiness Status
-- **GitHub Repository:** `https://github.com/mayarmajed2/wasla-ai-dispatcher` (branch `main`)
-- **Implementation Commit SHA:** `2e45722` (`2e457228a5ef081e90746435b4cb55fd03701497`)
-- **Live Cloud Target:** `https://mayarmajed-wasla-moka-ai.hf.space` (verified via `/api/ready` and GitHub Actions CI + Docker PostgreSQL checks).
+## 5. Historical GitHub & Deployment Checkpoint
+- **GitHub Repository:** `https://github.com/mayarmajed2/wasla-ai-dispatcher` (default branch `main`)
+- **Prior Phase B Commit:** `2e45722` (`2e457228a5ef081e90746435b4cb55fd03701497`)
+- **Cloud deployment claims:** A configured `/api/ready` response or CI/Docker check is not equivalent to a live customer/provider end-to-end test. Current-task branch, commit, tests, and limitations are documented in [`FINAL_ENGINEERING_REPORT.md`](../FINAL_ENGINEERING_REPORT.md).
