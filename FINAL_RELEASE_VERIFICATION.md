@@ -64,9 +64,10 @@ These are measurements on this manually authored challenge set, not evidence of 
 
 ## 9. Git commit and pushed branch/PR
 
+- Manual order-ID follow-up implementation commit: `29c7bc8566ea4608f78db75e835afac732276e33`.
 - Dedicated branch `mayarmajed2-final-release-stabilization` is pushed to `origin`.
 - Existing PR #2 remains open, based on `mayarmajed2-remaining-fallback-fixes`; this work updates that PR rather than creating a duplicate.
-- The current commit hash is reported in the final handoff.
+- The final verification-report update is committed separately on the same branch.
 
 ## 10. Final release readiness decision
 
