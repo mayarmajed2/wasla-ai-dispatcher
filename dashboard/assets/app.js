@@ -231,7 +231,12 @@ function renderOrders() {
   });
 
   if (!filtered.length) {
-    ordersContainer.innerHTML = `<div class="empty-state">لا توجد طلبات حتى الآن</div>`;
+    ordersContainer.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">☕</div>
+        <strong>لا توجد طلبات حتى الآن</strong>
+        <p>النظام متصل وجاهز لاستقبال طلبات MOKA اللحظية تلقائياً عبر التليجرام وواتساب</p>
+      </div>`;
     return;
   }
 

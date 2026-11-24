@@ -4,27 +4,38 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Wasla AI — Commercial Operations Console (MOKA)</title>
-  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/styles.css?v=20261124">
 </head>
 <body>
   <!-- Authentication Gate -->
-  <div id="loginScreen" class="login-screen" style="min-height:100vh;display:grid;place-items:center;background:#0f172a;padding:20px;">
-    <form id="loginForm" style="background:#fff;width:min(400px,100%);padding:28px;border-radius:16px;box-shadow:0 20px 50px rgb(0 0 0 / 30%);display:flex;flex-direction:column;gap:14px;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div class="brand-mark">W</div>
+  <div id="loginScreen" class="login-screen">
+    <div class="login-glow"></div>
+    <form id="loginForm" class="login-card">
+      <div class="login-brand">
+        <div class="brand-mark lg">M</div>
         <div>
-          <h2 style="font-size:18px;">Wasla AI — تسجيل الدخول</h2>
-          <p class="subtitle">لوحة عمليات مطعم MOKA الإنتاجية</p>
+          <span class="eyebrow">MOKA RESTAURANT &amp; CAFE</span>
+          <h2>تسجيل الدخول للوحة العمليات</h2>
+          <p class="subtitle">منظومة Wasla AI لإدارة الطلبات وتجربة العملاء</p>
         </div>
       </div>
-      <label style="font-size:13px;font-weight:600;">اسم المستخدم
-        <input id="loginUser" type="text" required autocomplete="username" class="search-input full-width" style="margin-top:4px;min-width:0;" placeholder="admin">
-      </label>
-      <label style="font-size:13px;font-weight:600;">كلمة المرور
-        <input id="loginPass" type="password" required autocomplete="current-password" class="search-input full-width" style="margin-top:4px;min-width:0;" placeholder="••••••••">
-      </label>
-      <div id="loginError" style="color:#dc2626;font-size:13px;" hidden></div>
-      <button type="submit" class="btn btn-primary full-width">دخول للوحة العمليات</button>
+
+      <div class="field-group">
+        <label for="loginUser">اسم المستخدم</label>
+        <input id="loginUser" type="text" required autocomplete="username" class="search-input full-width" placeholder="admin">
+      </div>
+
+      <div class="field-group">
+        <label for="loginPass">كلمة المرور</label>
+        <input id="loginPass" type="password" required autocomplete="current-password" class="search-input full-width" placeholder="••••••••">
+      </div>
+
+      <div id="loginError" class="login-error" hidden></div>
+
+      <button type="submit" class="btn btn-primary btn-lg full-width">دخول للوحة العمليات ←</button>
     </form>
   </div>
 
@@ -32,40 +43,48 @@
   <div id="appShell" class="app-shell" hidden>
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">W</div>
-        <div>
-          <strong>Wasla AI</strong>
-          <span>MOKA Production Console</span>
+        <div class="brand-mark">M</div>
+        <div class="brand-copy">
+          <strong>MOKA • Wasla AI</strong>
+          <span>Commercial POS Console</span>
         </div>
       </div>
 
       <nav class="nav" aria-label="التنقل الرئيسي">
         <button class="nav-item active" data-view="ordersView" type="button">
-          <span>📋</span><span data-i18n="nav_orders">الطلبات الحية</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>
+          <span data-i18n="nav_orders">الطلبات الحية</span>
           <span class="nav-badge" id="navNewBadge">0</span>
         </button>
         <button class="nav-item" data-view="conversationsView" type="button">
-          <span>💬</span><span data-i18n="nav_convs">محادثات العملاء</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+          <span data-i18n="nav_convs">محادثات العملاء</span>
         </button>
         <button class="nav-item" data-view="cxView" type="button">
-          <span>⭐</span><span data-i18n="nav_cx">تجربة العملاء والشكاوى</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          <span data-i18n="nav_cx">تجربة العملاء والشكاوى</span>
           <span class="nav-badge" id="navComplaintsBadge">0</span>
         </button>
         <button class="nav-item" data-view="menuView" type="button">
-          <span>🍽️</span><span data-i18n="nav_menu">المنيو والتوافر</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+          <span data-i18n="nav_menu">المنيو والتوافر</span>
           <span class="nav-badge muted" id="navOutBadge">0</span>
         </button>
         <button class="nav-item" data-view="analyticsView" type="button">
-          <span>📊</span><span data-i18n="nav_analytics">تحليلات المبيعات</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          <span data-i18n="nav_analytics">تحليلات المبيعات</span>
         </button>
         <button class="nav-item" data-view="healthView" type="button">
-          <span>🔌</span><span data-i18n="nav_health">حالة AI والتكاملات</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <span data-i18n="nav_health">حالة AI والتكاملات</span>
         </button>
         <button class="nav-item" data-view="staffView" id="staffNavBtn" type="button">
-          <span>👥</span><span data-i18n="nav_staff">الموظفين والصلاحيات</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span data-i18n="nav_staff">الموظفين والصلاحيات</span>
         </button>
         <button class="nav-item" data-view="settingsView" type="button">
-          <span>⚙️</span><span data-i18n="nav_settings">الإعدادات</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.604.852.997 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span data-i18n="nav_settings">الإعدادات</span>
         </button>
       </nav>
 
@@ -74,20 +93,22 @@
           <span class="dot" id="wsDot"></span>
           <span id="connection">جاري الاتصال...</span>
         </div>
-        <button id="enableSound" type="button" class="btn btn-ghost full-width">🔔 تفعيل التنبيه الصوتي</button>
-        <button id="logoutBtn" type="button" class="btn btn-outline full-width" style="background:#1e293b;color:#f87171;border-color:#334155;">تسجيل الخروج</button>
+        <div class="sidebar-actions">
+          <button id="enableSound" type="button" class="btn btn-ghost full-width">🔔 تفعيل التنبيه الصوتي</button>
+          <button id="logoutBtn" type="button" class="btn btn-danger-ghost full-width">تسجيل الخروج</button>
+        </div>
       </div>
     </aside>
 
     <div class="main-wrap">
       <header class="topbar">
-        <div>
+        <div class="topbar-titles">
           <h1 id="viewTitle">الطلبات الحية</h1>
           <p class="subtitle" id="currentUserLabel">MOKA Restaurant • بيانات تشغيلية حقيقية فقط</p>
         </div>
-        <div class="topbar-actions" style="display:flex;gap:8px;">
-          <button id="langToggle" type="button" class="btn btn-outline">EN / عربي</button>
-          <button id="refreshBtn" type="button" class="btn btn-outline">↻ تحديث</button>
+        <div class="topbar-actions">
+          <button id="langToggle" type="button" class="btn btn-outline btn-sm">EN / عربي</button>
+          <button id="refreshBtn" type="button" class="btn btn-secondary btn-sm">↻ تحديث البيانات</button>
         </div>
       </header>
 
@@ -95,16 +116,34 @@
 
       <!-- 1. LIVE ORDERS -->
       <section id="ordersView" class="view active">
-        <div class="kpi-grid">
-          <article class="kpi-card accent-blue"><span class="kpi-label">طلبات جديدة</span><strong class="kpi-value" id="kpiNew">0</strong></article>
-          <article class="kpi-card accent-amber"><span class="kpi-label">في المطبخ</span><strong class="kpi-value" id="kpiKitchen">0</strong></article>
-          <article class="kpi-card accent-indigo"><span class="kpi-label">خرج للتوصيل</span><strong class="kpi-value" id="kpiDispatched">0</strong></article>
-          <article class="kpi-card accent-green"><span class="kpi-label">تم التسليم</span><strong class="kpi-value" id="kpiFulfilled">0</strong></article>
-          <article class="kpi-card accent-orange"><span class="kpi-label">إجمالي المبيعات</span><strong class="kpi-value" id="kpiRevenue">0.00 ج.م</strong></article>
-          <article class="kpi-card"><span class="kpi-label">تحويل للكاشير / تقييم</span><strong class="kpi-value" id="kpiHandoffRating">0 / —</strong></article>
+        <div class="kpi-grid kpi-six">
+          <article class="kpi-card accent-blue">
+            <div class="kpi-top"><span class="kpi-label">طلبات جديدة</span><span class="kpi-dot blue"></span></div>
+            <strong class="kpi-value" id="kpiNew">0</strong>
+          </article>
+          <article class="kpi-card accent-amber">
+            <div class="kpi-top"><span class="kpi-label">في المطبخ</span><span class="kpi-dot amber"></span></div>
+            <strong class="kpi-value" id="kpiKitchen">0</strong>
+          </article>
+          <article class="kpi-card accent-indigo">
+            <div class="kpi-top"><span class="kpi-label">خرج للتوصيل</span><span class="kpi-dot indigo"></span></div>
+            <strong class="kpi-value" id="kpiDispatched">0</strong>
+          </article>
+          <article class="kpi-card accent-green">
+            <div class="kpi-top"><span class="kpi-label">تم التسليم</span><span class="kpi-dot green"></span></div>
+            <strong class="kpi-value" id="kpiFulfilled">0</strong>
+          </article>
+          <article class="kpi-card accent-orange highlight-card">
+            <div class="kpi-top"><span class="kpi-label">إجمالي المبيعات</span><span class="kpi-dot orange"></span></div>
+            <strong class="kpi-value" id="kpiRevenue">0.00 ج.م</strong>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-top"><span class="kpi-label">تدخل بشري / التقييم</span><span class="kpi-dot slate"></span></div>
+            <strong class="kpi-value" id="kpiHandoffRating">0 / —</strong>
+          </article>
         </div>
 
-        <div class="toolbar">
+        <div class="toolbar surface-bar">
           <div class="filter-pills" id="statusFilters">
             <button class="pill active" data-status="ALL" type="button">الكل</button>
             <button class="pill" data-status="SUBMITTED" type="button">جديد</button>
@@ -114,7 +153,9 @@
             <button class="pill" data-status="FULFILLED" type="button">مكتمل</button>
             <button class="pill" data-status="CANCELLED" type="button">ملغي</button>
           </div>
-          <input id="orderSearch" type="search" class="search-input" placeholder="ابحث باسم العميل أو رقم الطلب أو الموبايل...">
+          <div class="search-wrap">
+            <input id="orderSearch" type="search" class="search-input" placeholder="ابحث باسم العميل أو رقم الطلب أو الموبايل...">
+          </div>
         </div>
         <div id="orders" class="orders-grid" aria-live="polite"></div>
       </section>
@@ -133,9 +174,11 @@
 
       <!-- 3. MENU & INVENTORY -->
       <section id="menuView" class="view">
-        <div class="toolbar">
+        <div class="toolbar surface-bar">
           <select id="categoryFilter" class="select-input"><option value="ALL">كل الأقسام</option></select>
-          <input id="menuSearch" type="search" class="search-input" placeholder="ابحث في منيو MOKA (145 صنف)...">
+          <div class="search-wrap">
+            <input id="menuSearch" type="search" class="search-input" placeholder="ابحث في منيو MOKA (145 صنف)...">
+          </div>
         </div>
         <div class="table-card">
           <table class="data-table">
@@ -156,8 +199,10 @@
       <section id="cxView" class="view">
         <div class="kpi-grid" id="cxKpiGrid"></div>
 
-        <h3 style="margin:18px 0 10px;">تذاكر الشكاوى وتصعيد المالك</h3>
-        <div class="table-card" style="margin-bottom:20px;">
+        <div class="section-heading">
+          <h3>تذاكر الشكاوى وتصعيد المالك</h3>
+        </div>
+        <div class="table-card mb-lg">
           <table class="data-table">
             <thead>
               <tr>
@@ -169,9 +214,9 @@
           </table>
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+        <div class="split-grid">
           <div>
-            <h3 style="margin:0 0 10px;">التقييمات الحقيقية للعملاء</h3>
+            <div class="section-heading"><h3>التقييمات الحقيقية للعملاء</h3></div>
             <div class="table-card">
               <table class="data-table">
                 <thead><tr><th>الطلب</th><th>التقييم</th><th>التعليق / المشكلة</th><th>التاريخ</th></tr></thead>
@@ -180,7 +225,7 @@
             </div>
           </div>
           <div>
-            <h3 style="margin:0 0 10px;">سجل الإشعارات والجدولة</h3>
+            <div class="section-heading"><h3>سجل الإشعارات والجدولة</h3></div>
             <div class="table-card">
               <table class="data-table">
                 <thead><tr><th>النوع</th><th>القناة</th><th>الحالة</th><th>الطلب</th><th>ملاحظة</th></tr></thead>
@@ -198,17 +243,17 @@
 
       <!-- 6. STAFF & PERMISSIONS (ADMIN) -->
       <section id="staffView" class="view">
-        <div style="display:grid;grid-template-columns:1fr 1.5fr;gap:18px;">
-          <form id="createStaffForm" class="kpi-card" style="display:flex;flex-direction:column;gap:10px;">
+        <div class="split-grid staff-split mb-lg">
+          <form id="createStaffForm" class="kpi-card form-card">
             <h3>إضافة موظف جديد</h3>
-            <input id="staffUsername" type="text" required placeholder="اسم المستخدم (مثال: cashier1)" class="search-input" style="min-width:0;">
-            <input id="staffFullName" type="text" required placeholder="الاسم بالكامل" class="search-input" style="min-width:0;">
-            <input id="staffPassword" type="password" required minlength="8" placeholder="كلمة المرور (8 أحرف على الأقل)" class="search-input" style="min-width:0;">
-            <select id="staffRole" class="select-input" style="min-width:0;">
+            <input id="staffUsername" type="text" required placeholder="اسم المستخدم (مثال: cashier1)" class="search-input full-width">
+            <input id="staffFullName" type="text" required placeholder="الاسم بالكامل" class="search-input full-width">
+            <input id="staffPassword" type="password" required minlength="8" placeholder="كلمة المرور (8 أحرف على الأقل)" class="search-input full-width">
+            <select id="staffRole" class="select-input full-width">
               <option value="cashier">كاشير (Cashier)</option>
               <option value="admin">مدير (Admin)</option>
             </select>
-            <button type="submit" class="btn btn-primary">إنشاء الحساب</button>
+            <button type="submit" class="btn btn-primary full-width">إنشاء الحساب</button>
           </form>
           <div class="table-card">
             <table class="data-table">
@@ -217,7 +262,7 @@
             </table>
           </div>
         </div>
-        <h3 style="margin:20px 0 10px;">سجل التدقيق الأمني (Audit Logs)</h3>
+        <div class="section-heading"><h3>سجل التدقيق الأمني (Audit Logs)</h3></div>
         <div class="table-card">
           <table class="data-table">
             <thead><tr><th>الوقت</th><th>المستخدم</th><th>الإجراء</th><th>الهدف</th></tr></thead>
@@ -228,11 +273,11 @@
 
       <!-- 7. SETTINGS -->
       <section id="settingsView" class="view">
-        <div class="kpi-card" style="max-width:560px;display:flex;flex-direction:column;gap:12px;">
-          <h3>إعدادات التشغيل واللغة</h3>
+        <div class="kpi-card settings-card">
+          <h3>إعدادات التشغيل والربط السحابي</h3>
           <p class="subtitle">المطعم: <strong>MOKA Restaurant &amp; Cafe</strong> • العملة: <strong>EGP</strong></p>
           <p class="subtitle">تبديل اتجاه الواجهة بين العربية (RTL) والإنجليزية (LTR) متاح من الشريط العلوي.</p>
-          <p class="subtitle">يتم ضبط مفاتيح Google Gemini و Groq و Meta WhatsApp Cloud API و PostgreSQL عبر متغيرات البيئة (<code>.env</code>) فقط ولا تُعرض أبداً في الواجهة.</p>
+          <p class="subtitle">يتم تأمين مفاتيح Gemini و Groq و Meta WhatsApp و Telegram و Neon PostgreSQL عبر متغيرات البيئة المشفرة فقط ولا تُعرض في الواجهة.</p>
         </div>
       </section>
     </div>
@@ -260,6 +305,6 @@
     </form>
   </dialog>
 
-  <script src="/assets/app.js"></script>
+  <script src="/assets/app.js?v=20261124"></script>
 </body>
 </html>
