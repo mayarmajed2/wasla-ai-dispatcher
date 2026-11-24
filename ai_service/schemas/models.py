@@ -183,6 +183,7 @@ class AudioTranscriptionResult(BaseModel):
     provider: str
     latency_ms: float = Field(ge=0.0)
     used_fallback: bool = False
+    is_usable: bool = False
 
 
 class ConversationMessage(BaseModel):

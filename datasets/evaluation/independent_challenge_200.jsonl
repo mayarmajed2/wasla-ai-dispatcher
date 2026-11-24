@@ -120,6 +120,7 @@
 {"id": "ind_120", "text": "ازيكم عاملين ايه النهاردة؟", "intent": "greeting", "dataset_origin": "independent_synthetic_challenge", "reviewed": true}
 {"id": "ind_121", "text": "مساء الخير على أحلى مطعم", "intent": "greeting", "dataset_origin": "independent_synthetic_challenge", "reviewed": true}
 {"id": "ind_122", "text": "سلام عليكم يا شباب", "intent": "greeting", "dataset_origin": "independent_synthetic_challenge", "reviewed": true}
+{"id": "ind_123", "text": "صباح الخير يا موكا", "intent": "greeting", "dataset_origin": "independent_synthetic_challenge", "reviewed": true}
 {"id": "ind_124", "text": "أهلاً بحضراتكم", "intent": "greeting", "dataset_origin": "independent_synthetic_challenge", "reviewed": true}
 {"id": "ind_125", "text": "هاي في حد موجود هنا؟", "intent": "greeting", "dataset_origin": "independent_synthetic_challenge", "reviewed": true}
 {"id": "ind_126", "text": "ألووو السلام عليكم", "intent": "greeting", "dataset_origin": "independent_synthetic_challenge", "reviewed": true}

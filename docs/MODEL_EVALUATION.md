@@ -1,6 +1,6 @@
 # Wasla AI — Independent Model Evaluation & Audio Benchmark Report
 
-> **Validity notice (2026-11-25):** The recorded benchmark included one exact overlap between training data and the independent challenge set. That row has been removed; all scores below describe the prior 204-row dataset and are invalid for the corrected 203-row dataset. Rerun `training/scripts/evaluate_5way.py` and the leakage audit before citing any score.
+> **Validity notice (2026-11-25):** The historical benchmark included one exact overlap between training data and its 204-row independent challenge set. Those historical files and scores remain unchanged and do not describe the separate 203-row v2 set. The corrected v2 evaluation and leakage audit are recorded in `training/reports/evaluation_5way_independent_v2.json` and `training/reports/leakage_audit_independent_challenge_v2.json`; use those reports for the limited v2 benchmark results.
 
 ---
 
@@ -16,7 +16,7 @@
 
 All intent training/evaluation text examples are **manually authored / synthetic Egyptian Arabic domain data** built around MOKA's real 145-item menu (0 real customer WhatsApp logs were available).
 
-Leakage audit (`training/scripts/audit_leakage.py` → `training/reports/leakage_audit.json`):
+Historical leakage audit (`training/reports/leakage_audit.json`, preserved as originally recorded):
 
 | Pair Compared | Exact Overlap | High Template Similarity (`cosine >= 0.70`) | Mean Max Cosine Sim | Interpretation |
 |---|---:|---:|---:|---|
@@ -49,7 +49,7 @@ To fix v1's low Macro-F1 (`0.5382` on `test_unseen_v1`, `0.2703` on independent 
 
 ## 4. Independent 5-Way Scientific Comparison (`independent_challenge_200.jsonl`, n = 204)
 
-All 5 models were evaluated on the exact same **204-example balanced independent Egyptian Arabic benchmark** (17 examples × 12 intents) in `training/scripts/evaluate_5way.py` → `training/reports/evaluation_5way_independent.json`:
+The historical five-model report below evaluates the original **204-example balanced independent Egyptian Arabic benchmark** (17 examples × 12 intents) and is retained unchanged at `training/reports/evaluation_5way_independent.json`. It is not a result for the separate 203-row v2 set; that evaluation is stored at `training/reports/evaluation_5way_independent_v2.json`.
 
 | Model | Intent Accuracy | Macro-F1 | Weighted-F1 | Avg Latency (CPU) | P95 Latency |
 |---|---:|---:|---:|---:|---:|

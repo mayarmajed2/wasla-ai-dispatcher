@@ -1,0 +1,32 @@
+{
+  "train_size": 520,
+  "audits": [
+    {
+      "pair": "train_v1 vs test_unseen_v1 (same generator)",
+      "eval_size": 106,
+      "exact_overlap": 0,
+      "near_duplicate_ge_0_85": 7,
+      "high_template_sim_ge_0_70": 26,
+      "mean_max_cosine_sim": 0.5985,
+      "p95_max_cosine_sim": 0.8569
+    },
+    {
+      "pair": "train_v1 vs independent_challenge_203_v2 (separate author)",
+      "eval_size": 203,
+      "exact_overlap": 0,
+      "near_duplicate_ge_0_85": 2,
+      "high_template_sim_ge_0_70": 10,
+      "mean_max_cosine_sim": 0.4154,
+      "p95_max_cosine_sim": 0.6966
+    },
+    {
+      "pair": "train_v1 vs moka_typo_eval_150 (separate typo suite)",
+      "eval_size": 154,
+      "exact_overlap": 0,
+      "near_duplicate_ge_0_85": 3,
+      "high_template_sim_ge_0_70": 25,
+      "mean_max_cosine_sim": 0.4693,
+      "p95_max_cosine_sim": 0.789
+    }
+  ]
+}

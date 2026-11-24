@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = ROOT / "training" / "data"
 MENU_PATH = ROOT / "menu" / "menu.json"
 EVAL_150_PATH = ROOT / "datasets" / "evaluation" / "moka_typo_eval_150.json"
-INDEPENDENT_EVAL_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_200.jsonl"
+INDEPENDENT_EVAL_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_203_v2.jsonl"
 
 PHONE_RE = re.compile(r"\b01[0125]\d{8}\b")
 

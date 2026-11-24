@@ -257,6 +257,8 @@ class WaslaAIDispatcher:
         is_test: bool = False,
     ) -> DispatcherResponse:
         transcription = await self.audio_pipeline.process(audio)
+        if not transcription.is_usable:
+            return await self._reject_uncertain_audio(phone_number, data_source, is_test)
         response = await self.handle_text(
             phone_number,
             transcription.transcript,
@@ -265,6 +267,40 @@ class WaslaAIDispatcher:
             is_test=is_test,
         )
         return response.model_copy(update={"transcript": transcription.transcript})
+
+    async def _reject_uncertain_audio(
+        self, phone_number: str, data_source: str, is_test: bool
+    ) -> DispatcherResponse:
+        async with self._get_lock(phone_number):
+            session = self.get_session(phone_number)
+            if session.needs_human_takeover:
+                ctx = TurnExecutionContext(
+                    data_source=data_source,
+                    is_test=is_test,
+                    request_id=uuid.uuid4().hex[:12],
+                )
+                response = await self._handle_text_locked(
+                    phone_number, "", input_type="audio", ctx=ctx
+                )
+                return response.model_copy(update={"transcript": ""})
+
+            self._telemetry["turns_total"] += 1
+            session.history.append(
+                ConversationMessage(role="customer", content="", input_type="audio")
+            )
+            reply = persona.render_unclear_request(turn_count=len(session.history))
+            response = self._finish(
+                session,
+                CustomerIntent.UNCLEAR_REQUEST,
+                0.0,
+                [],
+                True,
+                "unclear_audio",
+                [],
+                reply,
+                "audio_quality_gate",
+            )
+            return response.model_copy(update={"transcript": ""})
 
     async def handle_text(
         self,

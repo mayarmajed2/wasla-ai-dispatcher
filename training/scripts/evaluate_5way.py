@@ -1,5 +1,5 @@
 """5-Way Scientific Evaluation + 12x12 Confusion Matrix + Per-Class Precision/Recall/F1
-on the Genuinely Independent 204-Example Challenge Benchmark (`independent_challenge_200.jsonl`).
+on the versioned independent 203-example challenge benchmark.
 
 Compares:
 - Model A: Supervised TF-IDF (Char+Word N-gram) + Class-Balanced LogisticRegression Baseline
@@ -34,11 +34,11 @@ from ai_service.dispatcher.dispatcher import WaslaAIDispatcher  # noqa: E402
 from ai_service.understanding.menu_index import MenuIndex  # noqa: E402
 
 TRAIN_PATH = ROOT / "training" / "data" / "train.jsonl"
-IND_200_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_200.jsonl"
+IND_200_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_203_v2.jsonl"
 CKPT_V1 = ROOT / "training" / "checkpoints" / "camelbert-wasla-lora"
 CKPT_V2 = ROOT / "training" / "checkpoints" / "camelbert-wasla-lora-v2"
 BASE_MODEL = "CAMeL-Lab/bert-base-arabic-camelbert-mix"
-OUT_REPORT = ROOT / "training" / "reports" / "evaluation_5way_independent.json"
+OUT_REPORT = ROOT / "training" / "reports" / "evaluation_5way_independent_v2.json"
 
 
 def _load_jsonl(path: Path) -> list[dict]:
@@ -183,7 +183,7 @@ def main() -> dict:
     res_e = _metrics_block(y_true, y_pred_e, labels, [res_c["avg_latency_ms"]])
 
     report = {
-        "benchmark": "datasets/evaluation/independent_challenge_200.jsonl",
+        "benchmark": "datasets/evaluation/independent_challenge_203_v2.jsonl",
         "samples": len(ind_rows),
         "dataset_independence": {
             "exact_train_eval_overlap": 0,

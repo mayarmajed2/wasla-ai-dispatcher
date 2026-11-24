@@ -52,9 +52,9 @@ from ai_service.models.llm_client import GeminiLLMClient  # noqa: E402
 from ai_service.understanding.menu_index import MenuIndex  # noqa: E402
 
 TEST_UNSEEN_PATH = ROOT / "training" / "data" / "test_unseen.jsonl"
-IND_200_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_200.jsonl"
+IND_200_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_203_v2.jsonl"
 TYPO_EVAL_PATH = ROOT / "datasets" / "evaluation" / "moka_typo_eval_150.json"
-OUT_PATH = ROOT / "training" / "reports" / "phase_b_scientific_evaluation.json"
+OUT_PATH = ROOT / "training" / "reports" / "phase_b_scientific_evaluation_v2.json"
 BASE_MODEL = "CAMeL-Lab/bert-base-arabic-camelbert-mix"
 
 
@@ -331,7 +331,9 @@ async def _probe_and_eval_gemini(rows: list[dict[str, Any]], labels: list[str]) 
 
     gemini_metrics = _compute_metrics(y_true, y_pred_gemini, labels, lats_gemini, fallback_count=fallback_count_gemini)
     gemini_metrics["status"] = "PARTIAL_OR_RATE_LIMITED" if errors else "LIVE_EVALUATED"
-    gemini_metrics["evaluated_subset"] = f"Stratified {len(y_true)} samples from independent_challenge_200.jsonl"
+    gemini_metrics["evaluated_subset"] = (
+        f"Stratified {len(y_true)} samples from independent_challenge_203_v2.jsonl"
+    )
     if errors:
         gemini_metrics["errors"] = errors[:5]
     return gemini_metrics
