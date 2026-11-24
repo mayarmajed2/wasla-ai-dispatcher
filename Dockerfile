@@ -5,6 +5,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     APP_ENV=production \
     PYTHONPATH=/app:/app/backend \
+    HF_HOME=/home/wasla/.cache/huggingface \
     PORT=7860
 
 WORKDIR /app
@@ -24,8 +25,9 @@ COPY backend/ ./backend/
 COPY dashboard/ ./dashboard/
 COPY menu/ ./menu/
 COPY scripts/ ./scripts/
+COPY training/checkpoints/ ./training/checkpoints/
 
-RUN useradd --create-home --uid 1000 --shell /bin/bash wasla && chown -R wasla:wasla /app
+RUN useradd --create-home --uid 1000 --shell /bin/bash wasla && chown -R wasla:wasla /app /home/wasla
 USER wasla
 
 EXPOSE 7860

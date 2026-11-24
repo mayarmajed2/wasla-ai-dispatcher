@@ -33,6 +33,8 @@ jobs:
           cp deploy/hf_packages.txt /tmp/hf_stage/packages.txt
           cp deploy/hf_space_README.md /tmp/hf_stage/README.md
           cp -r ai_service backend dashboard menu scripts /tmp/hf_stage/
+          mkdir -p /tmp/hf_stage/training
+          cp -r training/checkpoints /tmp/hf_stage/training/
           find /tmp/hf_stage -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
           python - << 'EOF'
           import os
@@ -43,8 +45,8 @@ jobs:
               folder_path="/tmp/hf_stage",
               repo_id=space_id,
               repo_type="space",
-              commit_message="Deploy Wasla AI production bundle (free Gradio SDK + FastAPI)",
-              delete_patterns=["*.py", "*.txt", "*.md", "ai_service/**", "backend/**", "dashboard/**", "menu/**", "scripts/**", "Dockerfile"],
+              commit_message="Deploy Wasla AI production bundle (free Gradio SDK + FastAPI + LoRA checkpoints)",
+              delete_patterns=["*.py", "*.txt", "*.md", "ai_service/**", "backend/**", "dashboard/**", "menu/**", "scripts/**", "training/**", "Dockerfile"],
           )
           print(f"Uploaded cleanly to Hugging Face Space: https://huggingface.co/spaces/{space_id}")
           EOF

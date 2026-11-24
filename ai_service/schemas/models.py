@@ -8,12 +8,22 @@ Aligned with the actual existing FastAPI Backend (`existing_system/RESTURANT AI/
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
+
+
+@dataclass(frozen=True)
+class TurnExecutionContext:
+    """Immutable per-request execution context (eliminates shared mutable dispatcher fields)."""
+
+    data_source: str = "api"
+    is_test: bool = False
+    request_id: str = ""
 
 
 class OrderStatus(str, Enum):
@@ -193,6 +203,10 @@ class SessionState(BaseModel):
     rejected_upsell_ids: list[str] = Field(default_factory=list)
     budget_limit: Decimal | None = None
     awaiting_final_confirmation: bool = False
+    order_confirmed: bool = False
+    confirmed_cart_sig: str | None = None
+    session_epoch: int = 1
+    last_intent: str | None = None
     latest_directive: str | None = None
     history: list[ConversationMessage] = Field(default_factory=list)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

@@ -2,14 +2,15 @@
 
 IMPORTANT:
 - This is strictly a testing/development adapter, NOT the production Backend.
-- Mirrors the exact deterministic Decimal arithmetic and validation rules of
-  `existing_system/RESTURANT AI/app/main.py` and `cart_calculator.py`.
+- Mirrors the exact deterministic Decimal arithmetic, session persistence/TTL,
+  and validation rules of the FastAPI/PostgreSQL Backend.
 """
 
 from __future__ import annotations
 
-import uuid
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
+import uuid
 from typing import Any
 
 from ai_service.adapters.interfaces import BackendIntegrationError
@@ -20,6 +21,7 @@ from ai_service.schemas.models import (
     DeliveryResolution,
     MenuItemDTO,
     OrderStatus,
+    SessionState,
 )
 from ai_service.understanding.menu_index import MenuIndex
 
@@ -39,6 +41,7 @@ class MockBackendAdapter:
         self.menu_index = menu_index
         self._unavailable_ids: set[str] = set()
         self._carts: dict[str, CartSnapshot] = {}
+        self._session_store: dict[str, dict[str, Any]] = {}
         self._orders: dict[int, dict[str, Any]] = {}
         self._idempotency_map: dict[str, int] = {}
         self._handoffs: list[dict[str, Any]] = []
@@ -55,25 +58,73 @@ class MockBackendAdapter:
             "المهندسين": Decimal("20.00"),
         }
 
+    def sync_menu_sync(self) -> None:
+        """No-op hook overridden by DB adapter to refresh MenuIndex & unavailability from SQL."""
+        return None
+
+    def load_session_state(self, phone_number: str, ttl_seconds: int = 3600) -> SessionState | None:
+        raw = self._session_store.get(phone_number)
+        now = datetime.now(timezone.utc)
+        if raw is not None:
+            state = SessionState.model_validate(raw)
+            updated_at = state.updated_at
+            if updated_at.tzinfo is None:
+                updated_at = updated_at.replace(tzinfo=timezone.utc)
+            if ttl_seconds > 0 and (now - updated_at) > timedelta(seconds=ttl_seconds) and not state.needs_human_takeover:
+                self._carts[phone_number] = CartSnapshot()
+                expired = SessionState(
+                    phone_number=phone_number,
+                    customer_name=state.customer_name,
+                    backup_phone=state.backup_phone,
+                    delivery_address=state.delivery_address,
+                    session_epoch=state.session_epoch + 1,
+                    updated_at=now,
+                )
+                self.save_session_state(expired)
+                return expired
+            if phone_number in self._carts and len(self._carts[phone_number].items) != len(state.cart.items):
+                state = state.model_copy(update={"cart": self._carts[phone_number]})
+            else:
+                self._carts[phone_number] = state.cart
+            return state
+        if phone_number in self._carts:
+            return SessionState(phone_number=phone_number, cart=self._carts[phone_number])
+        return None
+
+    def save_session_state(self, session: SessionState) -> None:
+        trimmed_history = session.history[-30:] if len(session.history) > 30 else session.history
+        to_save = session.model_copy(update={"history": trimmed_history, "updated_at": datetime.now(timezone.utc)})
+        self._session_store[session.phone_number] = to_save.model_dump(mode="json")
+        self._carts[session.phone_number] = to_save.cart
+
+    def delete_session_state(self, phone_number: str) -> None:
+        self._session_store.pop(phone_number, None)
+        self._carts.pop(phone_number, None)
+
     def set_item_unavailable(self, product_id: str, unavailable: bool = True) -> None:
         if unavailable:
             self._unavailable_ids.add(product_id)
         else:
             self._unavailable_ids.discard(product_id)
+        prod = self.menu_index.get_product(product_id)
+        if prod is not None:
+            self.menu_index.products[product_id] = prod.model_copy(update={"is_available": not unavailable})
 
     async def get_active_menu(self, category: str | None = None) -> list[MenuItemDTO]:
+        self.sync_menu_sync()
         items = self.menu_index.list_by_category(category)
         active = []
         for item in items:
-            if item.product_id not in self._unavailable_ids:
+            if item.product_id not in self._unavailable_ids and item.is_available is not False:
                 active.append(item.model_copy(update={"is_available": True}))
         return active
 
     async def check_item_availability(self, product_id: str) -> tuple[bool, MenuItemDTO | None]:
+        self.sync_menu_sync()
         item = self.menu_index.get_product(product_id)
         if item is None:
             return False, None
-        available = product_id not in self._unavailable_ids
+        available = product_id not in self._unavailable_ids and item.is_available is not False
         return available, item.model_copy(update={"is_available": available})
 
     def _recalculate(self, cart: CartSnapshot) -> CartSnapshot:
@@ -89,6 +140,37 @@ class MockBackendAdapter:
                 "total_amount": _money(subtotal + delivery_fee),
             }
         )
+
+    async def revalidate_cart(self, phone_number: str) -> tuple[CartSnapshot, list[str], bool]:
+        """Revalidate prices and availability for every item currently in the cart."""
+        self.sync_menu_sync()
+        cart = self._carts.get(phone_number, CartSnapshot())
+        if not cart.items:
+            return cart, [], False
+
+        unavailable_names: list[str] = []
+        kept_items: list[CartItemDraft] = []
+        price_changed = False
+
+        for line in cart.items:
+            available, prod = await self.check_item_availability(line.product_id)
+            if not available or prod is None:
+                unavailable_names.append(line.name_ar)
+                continue
+            unit_price, err = self.menu_index.resolve_unit_price(prod, line.size_code)
+            if err or unit_price is None:
+                unavailable_names.append(line.name_ar)
+                continue
+            new_unit = _money(unit_price)
+            mod_total = sum((_money(m.get("price", "0")) for m in line.modifiers), Decimal("0.00"))
+            new_line_total = _money((new_unit + mod_total) * line.quantity)
+            if new_unit != _money(line.unit_price) or new_line_total != _money(line.line_total):
+                price_changed = True
+            kept_items.append(line.model_copy(update={"unit_price": new_unit, "line_total": new_line_total}))
+
+        updated = self._recalculate(cart.model_copy(update={"items": kept_items}))
+        self._carts[phone_number] = updated
+        return updated, unavailable_names, price_changed
 
     async def modify_cart(
         self,
@@ -138,7 +220,7 @@ class MockBackendAdapter:
             resolved_mods.append({"modifier_id": mod.modifier_id, "name": mod.name_ar, "price": str(_money(mod.price))})
             mod_total += _money(mod.price)
 
-        line_total = _money((unit_price + mod_total) * quantity)
+        line_total = _money((_money(unit_price) + mod_total) * quantity)
         cart = self._carts.get(phone_number, CartSnapshot())
         new_item = CartItemDraft(
             cart_item_id=f"ci_{uuid.uuid4().hex[:8]}",
@@ -167,7 +249,9 @@ class MockBackendAdapter:
         return updated
 
     async def get_cart_summary(self, phone_number: str) -> CartSnapshot:
-        return self._carts.get(phone_number, CartSnapshot())
+        self.sync_menu_sync()
+        cart, _, _ = await self.revalidate_cart(phone_number)
+        return cart
 
     async def clear_cart(self, phone_number: str) -> CartSnapshot:
         empty = CartSnapshot()

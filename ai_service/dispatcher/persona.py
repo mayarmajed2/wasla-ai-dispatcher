@@ -3,7 +3,7 @@
 Design Principles:
 - Friendly, concise, natural Egyptian Arabic (warm restaurant staff tone, never robotic).
 - Occasional appropriate emojis (❤️, ✨, 😊), never excessive.
-- Strictly grounded in verified menu items, prices, and cart totals.
+- Strictly grounded in verified menu items, live DB prices, availability, and cart totals.
 - Never invents offers, discounts, items, or delivery times.
 """
 
@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 import re
+from typing import Iterable
 
 from ai_service.recommendation.engine import UpsellOffer
 from ai_service.schemas.models import CartSnapshot, MenuItemDTO
@@ -26,19 +27,70 @@ def render_greeting(turn_count: int = 0) -> str:
     return _GREETING_VARIANTS[turn_count % len(_GREETING_VARIANTS)]
 
 
-def render_menu_overview(active_count: int) -> str:
+def _format_product_price(prod: MenuItemDTO, size_code: str | None = None) -> str:
+    if prod.sizes:
+        if size_code:
+            for sz in prod.sizes:
+                if sz.code.upper() == size_code.upper():
+                    return f"{sz.name_ar}: {sz.price} ج.م"
+        return " | ".join(f"{s.name_ar}: {s.price} ج.م" for s in prod.sizes)
+    return f"{prod.base_price} ج.م"
+
+
+def render_menu_overview(
+    items_or_count: int | Iterable[MenuItemDTO],
+    requested_category: str | None = None,
+) -> str:
+    if isinstance(items_or_count, int):
+        return (
+            f"عندنا {items_or_count} صنف جاهزين في منيو MOKA 😊 "
+            "بيتزا وساندوتش بيتزا، كريب، برجر لحم وفراخ، باستا، وجبات، ومشروبات وحلويات. "
+            "تحب تعرف أسعار قسم معين؟"
+        )
+
+    items = list(items_or_count)
+    if requested_category and items:
+        preview = []
+        for p in items[:8]:
+            if p.sizes:
+                p_price = f"من {min(s.price for s in p.sizes)} ج.م"
+            else:
+                p_price = f"{p.base_price} ج.م"
+            preview.append(f"• {p.name_ar} ({p_price})")
+        more = f"\n...وغيرها ({len(items)} صنف متوفرين في القسم ده)." if len(items) > 8 else ""
+        return f"أشهر أصناف قسم {requested_category} المتوفرة دلوقتي في MOKA ✨\n" + "\n".join(preview) + more + "\nتحب أضيفلك حاجة منهم؟"
+
     return (
-        f"عندنا {active_count} صنف جاهزين في منيو MOKA 😊 "
+        f"عندنا {len(items)} صنف متوفرين حالياً في منيو MOKA 😊 "
         "بيتزا وساندوتش بيتزا، كريب، برجر لحم وفراخ، باستا، وجبات، ومشروبات وحلويات. "
-        "تحب تعرف أسعار قسم معين؟"
+        "تحب تعرف أسعار قسم معين أو تطلب صنف محدد؟"
     )
 
 
-def render_price_reply(prod: MenuItemDTO) -> str:
-    if prod.sizes:
-        prices = " | ".join(f"{s.name_ar}: {s.price} ج.م" for s in prod.sizes)
-        return f"سعر {prod.name_ar}: {prices} ✨ تحب أضيفهولك في الطلب؟"
-    return f"سعر {prod.name_ar}: {prod.base_price} ج.م ✨ تحب أضيفهولك في الطلب؟"
+def render_price_reply(prod: MenuItemDTO, available: bool = True, size_code: str | None = None) -> str:
+    if not available or prod.is_available is False:
+        return f"معلش، {prod.name_ar} غير متوفر حالياً في منيو MOKA 🙏 تحب أرشحلك صنف بديل؟"
+    price_text = _format_product_price(prod, size_code=size_code)
+    return f"سعر {prod.name_ar}: {price_text} ✨ تحب أضيفهولك في الطلب؟"
+
+
+def render_multi_price_reply(entries: list[tuple[MenuItemDTO, bool, str | None]]) -> str:
+    if len(entries) == 1:
+        prod, avail, sc = entries[0]
+        return render_price_reply(prod, available=avail, size_code=sc)
+
+    lines: list[str] = []
+    any_available = False
+    for prod, avail, sc in entries:
+        if not avail or prod.is_available is False:
+            lines.append(f"• {prod.name_ar}: غير متوفر حالياً")
+        else:
+            any_available = True
+            lines.append(f"• {prod.name_ar}: {_format_product_price(prod, size_code=sc)}")
+
+    header = "أسعار الأصناف في منيو MOKA ✨"
+    footer = "تحب أضيفلك حاجة منهم في الطلب؟" if any_available else "تحب أرشحلك بدائل متوفرة حالياً؟"
+    return f"{header}\n" + "\n".join(lines) + f"\n{footer}"
 
 
 def render_item_added(
@@ -56,7 +108,13 @@ def render_item_added(
     return f"{base} تحب تزود حاجة تانية ولا نأكد الأوردر؟"
 
 
-def render_upsell_declined(cart: CartSnapshot) -> str:
+def render_upsell_declined(cart: CartSnapshot, turn_count: int = 0) -> str:
+    summary = "، ".join(f"{i.quantity} × {i.name_ar}" for i in cart.items)
+    if summary:
+        return (
+            f"ولا يهمك خالص 😊 طلبك الحالي ({summary}) بإجمالي {cart.subtotal} ج.م (قبل التوصيل). "
+            "تحب نأكد الأوردر دلوقتي ولا في أي تعديل؟"
+        )
     return (
         f"ولا يهمك خالص 😊 طلبك زي ما هو بإجمالي {cart.subtotal} ج.م (قبل التوصيل). "
         "تحب نأكد الأوردر دلوقتي؟"

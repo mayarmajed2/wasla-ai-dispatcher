@@ -53,6 +53,7 @@ from app.models import (
     ChatSession,
     ComplaintTicket,
     FeedbackRequest,
+    InboundMessageBuffer,
     MenuItem,
     NotificationAttempt,
     Order,
@@ -70,10 +71,19 @@ from app.notifications import NotificationService, TelegramBotClient
 from app.scheduler import DELIVERED_STATUSES, DurableJobScheduler
 from app.ws_manager import ws_manager
 
+from ai_service.adapters.interfaces import BackendIntegrationError
 from ai_service.adapters.mock_backend import MockBackendAdapter
+from ai_service.complaints.detector import assess_complaint
 from ai_service.config import WaslaConfig
+from ai_service.dispatcher.debounce import MessageDebouncer
 from ai_service.dispatcher.dispatcher import WaslaAIDispatcher
-from ai_service.schemas.models import AudioInput, BackendConfirmOrderPayload, CashierDirectiveRequest
+from ai_service.schemas.models import (
+    AudioInput,
+    BackendConfirmOrderPayload,
+    CartSnapshot,
+    CashierDirectiveRequest,
+    SessionState,
+)
 from ai_service.understanding.menu_index import MenuIndex
 
 
@@ -208,11 +218,195 @@ def seed_moka_menu_if_empty() -> int:
 
 
 class _DirectDBOrderBridge(MockBackendAdapter):
-    """Bridges WaslaAIDispatcher cart & confirmation directly into the live SQLAlchemy DB."""
+    """Production DB-backed bridge syncing live PostgreSQL/SQLite menu, carts, sessions & orders."""
 
     IS_MOCK = False
 
+    def sync_menu_sync(self) -> None:
+        db = SessionLocal()
+        try:
+            rows = db.scalars(select(MenuItem).order_by(MenuItem.id.asc())).all()
+            if rows:
+                self._unavailable_ids = self.menu_index.apply_db_items(rows)
+        except Exception:
+            pass
+        finally:
+            db.close()
+
+    def _hydrate_cart_from_db(self, phone_number: str) -> None:
+        db = SessionLocal()
+        try:
+            row = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_number))
+            if row is not None and isinstance(row.pending_cart, dict) and row.pending_cart:
+                self._carts[phone_number] = CartSnapshot.model_validate(row.pending_cart)
+        except Exception:
+            pass
+        finally:
+            db.close()
+
+    def _persist_cart_to_db(self, phone_number: str, cart: CartSnapshot) -> None:
+        db = SessionLocal()
+        try:
+            stmt = select(ChatSession).where(ChatSession.phone_number == phone_number)
+            if engine.dialect.name == "postgresql":
+                stmt = stmt.with_for_update()
+            row = db.scalar(stmt)
+            if row is None:
+                row = ChatSession(phone_number=phone_number)
+                db.add(row)
+            row.pending_cart = cart.model_dump(mode="json")
+            db.commit()
+        except Exception:
+            db.rollback()
+        finally:
+            db.close()
+
+    def load_session_state(self, phone_number: str, ttl_seconds: int = 3600) -> SessionState | None:
+        db = SessionLocal()
+        try:
+            row = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_number))
+            if row is None:
+                return None
+
+            conv_state = dict(row.conversation_state or {})
+            raw_v2 = conv_state.get("session_v2")
+            if isinstance(raw_v2, dict):
+                state = SessionState.model_validate(raw_v2)
+            else:
+                cart_obj = CartSnapshot.model_validate(row.pending_cart) if (isinstance(row.pending_cart, dict) and row.pending_cart) else CartSnapshot()
+                state = SessionState(
+                    phone_number=phone_number,
+                    cart=cart_obj,
+                    active_order_id=row.active_order_id,
+                    needs_human_takeover=bool(row.needs_human_takeover),
+                    human_takeover_by=row.human_takeover_by,
+                    latest_directive=row.latest_directive,
+                    last_intent=conv_state.get("last_intent"),
+                )
+
+            # Enforce DB column authority for takeover & active order & cart snapshot
+            if isinstance(row.pending_cart, dict) and row.pending_cart:
+                state = state.model_copy(update={"cart": CartSnapshot.model_validate(row.pending_cart)})
+            state = state.model_copy(
+                update={
+                    "active_order_id": row.active_order_id if row.active_order_id is not None else state.active_order_id,
+                    "needs_human_takeover": bool(row.needs_human_takeover),
+                    "human_takeover_by": row.human_takeover_by,
+                    "latest_directive": row.latest_directive or state.latest_directive,
+                }
+            )
+
+            now = datetime.now(timezone.utc)
+            last_seen = row.last_customer_message_at or state.updated_at
+            if last_seen.tzinfo is None:
+                last_seen = last_seen.replace(tzinfo=timezone.utc)
+            if ttl_seconds > 0 and (now - last_seen) > timedelta(seconds=ttl_seconds) and not state.needs_human_takeover:
+                expired = SessionState(
+                    phone_number=phone_number,
+                    customer_name=state.customer_name,
+                    backup_phone=state.backup_phone,
+                    delivery_address=state.delivery_address,
+                    session_epoch=state.session_epoch + 1,
+                    updated_at=now,
+                )
+                self._carts[phone_number] = CartSnapshot()
+                row.pending_cart = expired.cart.model_dump(mode="json")
+                row.conversation_state = {**conv_state, "session_v2": expired.model_dump(mode="json")}
+                db.commit()
+                return expired
+
+            self._carts[phone_number] = state.cart
+            return state
+        finally:
+            db.close()
+
+    def save_session_state(self, session: SessionState) -> None:
+        trimmed_history = session.history[-30:] if len(session.history) > 30 else session.history
+        to_save = session.model_copy(update={"history": trimmed_history, "updated_at": datetime.now(timezone.utc)})
+        self._carts[session.phone_number] = to_save.cart
+
+        db = SessionLocal()
+        try:
+            stmt = select(ChatSession).where(ChatSession.phone_number == session.phone_number)
+            if engine.dialect.name == "postgresql":
+                stmt = stmt.with_for_update()
+            row = db.scalar(stmt)
+            if row is None:
+                row = ChatSession(phone_number=session.phone_number)
+                db.add(row)
+
+            conv_state = dict(row.conversation_state or {})
+            conv_state["session_v2"] = to_save.model_dump(mode="json")
+            if to_save.last_intent:
+                conv_state["last_intent"] = to_save.last_intent
+
+            row.pending_cart = to_save.cart.model_dump(mode="json")
+            row.active_order_id = to_save.active_order_id
+            row.needs_human_takeover = to_save.needs_human_takeover
+            row.human_takeover_by = to_save.human_takeover_by
+            if to_save.latest_directive is not None:
+                row.latest_directive = to_save.latest_directive
+            row.conversation_state = conv_state
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    def delete_session_state(self, phone_number: str) -> None:
+        self._carts.pop(phone_number, None)
+        db = SessionLocal()
+        try:
+            row = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_number))
+            if row is not None:
+                row.pending_cart = {}
+                row.needs_human_takeover = False
+                row.human_takeover_by = None
+                conv = dict(row.conversation_state or {})
+                conv.pop("session_v2", None)
+                row.conversation_state = conv
+                db.commit()
+        finally:
+            db.close()
+
+    async def modify_cart(self, phone_number: str, *args, **kwargs):
+        self._hydrate_cart_from_db(phone_number)
+        cart = await super().modify_cart(phone_number, *args, **kwargs)
+        self._persist_cart_to_db(phone_number, cart)
+        return cart
+
+    async def remove_cart_item(self, phone_number: str, cart_item_id: str):
+        self._hydrate_cart_from_db(phone_number)
+        cart = await super().remove_cart_item(phone_number, cart_item_id)
+        self._persist_cart_to_db(phone_number, cart)
+        return cart
+
+    async def get_cart_summary(self, phone_number: str):
+        self._hydrate_cart_from_db(phone_number)
+        cart = await super().get_cart_summary(phone_number)
+        self._persist_cart_to_db(phone_number, cart)
+        return cart
+
+    async def clear_cart(self, phone_number: str):
+        cart = await super().clear_cart(phone_number)
+        self._persist_cart_to_db(phone_number, cart)
+        return cart
+
+    async def resolve_delivery(self, phone_number: str, *args, **kwargs):
+        self._hydrate_cart_from_db(phone_number)
+        res = await super().resolve_delivery(phone_number, *args, **kwargs)
+        self._persist_cart_to_db(phone_number, self._carts.get(phone_number, CartSnapshot()))
+        return res
+
+    async def revalidate_cart(self, phone_number: str):
+        self._hydrate_cart_from_db(phone_number)
+        updated, unavailable_names, price_changed = await super().revalidate_cart(phone_number)
+        self._persist_cart_to_db(phone_number, updated)
+        return updated, unavailable_names, price_changed
+
     async def confirm_and_lock_order(self, payload: BackendConfirmOrderPayload) -> dict:
+        self.sync_menu_sync()
         db = SessionLocal()
         try:
             order_payload = ConfirmOrder(
@@ -237,6 +431,9 @@ class _DirectDBOrderBridge(MockBackendAdapter):
                 is_test=payload.is_test,
             )
             return await _create_order_in_db(order_payload, db)
+        except HTTPException as exc:
+            code = "ITEM_OUT_OF_STOCK" if exc.status_code == 409 else "ORDER_VALIDATION_ERROR"
+            raise BackendIntegrationError(code, str(exc.detail), exc.status_code) from exc
         finally:
             db.close()
 
@@ -245,6 +442,7 @@ wasla_config = WaslaConfig(menu_json_path=MENU_JSON_PATH)
 menu_index = MenuIndex(MENU_JSON_PATH)
 db_bridge = _DirectDBOrderBridge(menu_index)
 ai_dispatcher = WaslaAIDispatcher(wasla_config, menu_index, db_bridge)
+inbound_debouncer = MessageDebouncer(window_seconds=wasla_config.message_debounce_seconds)
 meta_client = MetaWhatsAppClient(
     access_token=settings.meta_access_token,
     phone_number_id=settings.meta_phone_number_id,
@@ -314,12 +512,15 @@ async def lifespan(_app: FastAPI):
     _validate_production_security()
     _migrate_sqlite_columns()
     seed_moka_menu_if_empty()
+    db_bridge.sync_menu_sync()
     seed_initial_admin_if_empty()
+    await recover_unflushed_inbound_messages()
     worker_task = asyncio.create_task(feedback_worker())
     try:
         yield
     finally:
         worker_task.cancel()
+        await inbound_debouncer.flush_all()
 
 
 _space_host = os.getenv("SPACE_HOST", "").strip()
@@ -440,6 +641,7 @@ class AvailabilityUpdate(BaseModel):
 
 class PriceUpdate(BaseModel):
     base_price: Decimal = Field(gt=0)
+    sizes: list[dict] | None = None
 
 
 class LoginRequest(BaseModel):
@@ -633,7 +835,7 @@ def health(db: Session = Depends(get_db)):
 
 @app.get("/api/ready")
 def readiness(db: Session = Depends(get_db)):
-    """Production readiness probe reporting live DB health & honest external provider status."""
+    """Production readiness probe reporting live DB health & honest external/local AI status."""
     db_ok = False
     try:
         db.execute(text("SELECT 1"))
@@ -641,6 +843,7 @@ def readiness(db: Session = Depends(get_db)):
     except Exception:
         db_ok = False
 
+    ai_status = ai_dispatcher.get_runtime_status()
     return {
         "ready": db_ok,
         "database_dialect": engine.dialect.name,
@@ -652,9 +855,13 @@ def readiness(db: Session = Depends(get_db)):
             "meta_webhook_hmac_enabled": bool(settings.meta_app_secret),
             "telegram_configured": telegram_client.is_configured,
             "scheduler_cron_configured": bool(settings.scheduler_cron_secret.strip()),
-            "finetuned_lora_checkpoint_exists": ai_dispatcher.finetuned_intent.checkpoint_exists,
-            "finetuned_lora_loaded": ai_dispatcher.finetuned_intent.is_loaded,
+            "finetuned_lora_checkpoint_exists": ai_status["checkpoint_exists"],
+            "finetuned_lora_loaded": ai_status["model_loaded"],
+            "finetuned_lora_version": ai_status["model_version"],
+            "finetuned_lora_inference_available": ai_status["inference_available"],
+            "active_inference_route": ai_status["active_inference_route"],
         },
+        "ai_models": ai_status,
     }
 
 
@@ -869,9 +1076,7 @@ async def toggle_menu_availability(
     log_audit(db, user.username, "toggle_availability", target=str(item.id), details={"is_available": payload.is_available})
     db.commit()
 
-    pid = (item.modifiers_json or {}).get("product_id")
-    if pid:
-        db_bridge.set_item_unavailable(pid, unavailable=not payload.is_available)
+    db_bridge.sync_menu_sync()
 
     await ws_manager.broadcast(
         {
@@ -887,7 +1092,7 @@ async def toggle_menu_availability(
 
 
 @app.patch("/api/menu/{item_id}/price")
-def update_menu_price(
+async def update_menu_price(
     item_id: int,
     payload: PriceUpdate,
     admin: User = Depends(require_admin),
@@ -898,9 +1103,41 @@ def update_menu_price(
         raise HTTPException(status_code=404, detail="Menu item not found")
     old_price = str(item.base_price)
     item.base_price = payload.base_price
+
+    mods = dict(item.modifiers_json or {})
+    if payload.sizes is not None:
+        normalized_sizes = []
+        for sz in payload.sizes:
+            normalized_sizes.append(
+                {
+                    "code": str(sz["code"]),
+                    "name": str(sz.get("name", sz["code"])),
+                    "price": str(Decimal(str(sz["price"])).quantize(Decimal("0.01"))),
+                }
+            )
+        mods["sizes"] = normalized_sizes
+        item.modifiers_json = mods
+    elif isinstance(mods.get("sizes"), list) and mods["sizes"]:
+        updated_sizes = [dict(sz) for sz in mods["sizes"]]
+        updated_sizes[0]["price"] = str(Decimal(str(payload.base_price)).quantize(Decimal("0.01")))
+        mods["sizes"] = updated_sizes
+        item.modifiers_json = mods
+
     log_audit(db, admin.username, "update_price", target=str(item.id), details={"old": old_price, "new": str(payload.base_price)})
     db.commit()
-    return {"id": item.id, "name": item.name, "base_price": str(item.base_price)}
+    db_bridge.sync_menu_sync()
+
+    await ws_manager.broadcast(
+        {
+            "event_id": str(uuid.uuid4()),
+            "event_type": "menu_updated",
+            "item_id": item.id,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "schema_version": 1,
+            "payload": {"name": item.name, "base_price": str(item.base_price), "sizes": mods.get("sizes", [])},
+        }
+    )
+    return {"id": item.id, "name": item.name, "base_price": str(item.base_price), "sizes": mods.get("sizes", [])}
 
 
 async def _persist_ai_interaction(
@@ -922,12 +1159,16 @@ async def _persist_ai_interaction(
     if resp.needs_human_takeover:
         session_row.needs_human_takeover = True
         session_row.human_takeover_at = session_row.human_takeover_at or now
-    session_row.conversation_state = {
-        "last_intent": resp.intent.value,
-        "requires_clarification": resp.requires_clarification,
-        "model_used": resp.model_used,
-        "suppress_ai_reply": resp.suppress_ai_reply,
-    }
+    existing_conv = dict(session_row.conversation_state or {})
+    existing_conv.update(
+        {
+            "last_intent": resp.intent.value,
+            "requires_clarification": resp.requires_clarification,
+            "model_used": resp.model_used,
+            "suppress_ai_reply": resp.suppress_ai_reply,
+        }
+    )
+    session_row.conversation_state = existing_conv
 
     # Record genuine recommendation/upsell analytics
     if resp.upsell_event:
@@ -994,8 +1235,16 @@ async def _persist_ai_interaction(
             job_scheduler.schedule_owner_complaint_retry(db, ticket, delay_seconds=30)
 
         session_row.needs_human_takeover = True
+        session_row.human_takeover_by = session_row.human_takeover_by or "complaint_auto_escalation"
         session_row.human_takeover_at = session_row.human_takeover_at or now
-        ai_dispatcher.set_human_takeover(phone_number, True, actor="complaint_auto_escalation")
+        conv_upd = dict(session_row.conversation_state or {})
+        if isinstance(conv_upd.get("session_v2"), dict):
+            sv2 = dict(conv_upd["session_v2"])
+            sv2["needs_human_takeover"] = True
+            sv2["human_takeover_by"] = session_row.human_takeover_by
+            conv_upd["session_v2"] = sv2
+            session_row.conversation_state = conv_upd
+        ai_dispatcher.set_human_takeover(phone_number, True, actor="complaint_auto_escalation", persist=False)
         db.flush()
         await ws_manager.broadcast(
             {
@@ -1303,6 +1552,94 @@ def verify_whatsapp_webhook(
     raise HTTPException(status_code=403, detail="Webhook verification failed")
 
 
+async def _process_debounced_whatsapp_turn(sender: str, combined_text: str) -> dict:
+    """Execute one aggregated WhatsApp customer turn safely inside a fresh DB session."""
+    db = SessionLocal()
+    try:
+        buffered_rows = db.scalars(
+            select(InboundMessageBuffer)
+            .where(
+                InboundMessageBuffer.phone_number == sender,
+                InboundMessageBuffer.status.in_(("BUFFERED", "PROCESSING")),
+            )
+            .order_by(InboundMessageBuffer.msg_timestamp.asc(), InboundMessageBuffer.id.asc())
+        ).all()
+        for row in buffered_rows:
+            row.status = "PROCESSING"
+        db.commit()
+
+        final_text = combined_text.strip()
+        if buffered_rows:
+            db_combined = "\n".join(r.content.strip() for r in buffered_rows if r.content and r.content.strip())
+            if len(db_combined) >= len(final_text):
+                final_text = db_combined
+
+        existing_sess = db.scalar(select(ChatSession).where(ChatSession.phone_number == sender))
+        if existing_sess is not None:
+            ai_dispatcher.set_human_takeover(
+                sender,
+                bool(existing_sess.needs_human_takeover),
+                actor=existing_sess.human_takeover_by,
+                persist=False,
+            )
+
+        ai_resp = await ai_dispatcher.handle_text(
+            sender,
+            final_text,
+            data_source="whatsapp_webhook",
+            is_test=False,
+        )
+        side = await _persist_ai_interaction(db, sender, final_text, ai_resp)
+        if ai_resp.suppress_ai_reply:
+            delivery = {"sent": False, "mode": "suppressed_human_takeover"}
+        else:
+            delivery = await meta_client.send_text_message(sender, ai_resp.reply_ar)
+
+        now = datetime.now(timezone.utc)
+        for row in buffered_rows:
+            row.status = "PROCESSED"
+            row.processed_at = now
+        db.commit()
+
+        return {
+            "to": sender,
+            "reply_ar": ai_resp.reply_ar,
+            "intent": ai_resp.intent.value,
+            "suppress_ai_reply": ai_resp.suppress_ai_reply,
+            "whatsapp_delivery": delivery,
+            "complaint_escalation": side.get("escalation"),
+        }
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+async def recover_unflushed_inbound_messages() -> int:
+    """Replay any buffered WhatsApp inbound messages orphaned by a worker restart."""
+    db = SessionLocal()
+    try:
+        rows = db.scalars(
+            select(InboundMessageBuffer)
+            .where(InboundMessageBuffer.status.in_(("BUFFERED", "PROCESSING")))
+            .order_by(InboundMessageBuffer.id.asc())
+        ).all()
+        grouped: dict[str, list[str]] = {}
+        for r in rows:
+            grouped.setdefault(r.phone_number, []).append(r.content)
+    finally:
+        db.close()
+
+    recovered = 0
+    for sender, msgs in grouped.items():
+        combined = "\n".join(m.strip() for m in msgs if m and m.strip())
+        if combined:
+            await _process_debounced_whatsapp_turn(sender, combined)
+            recovered += len(msgs)
+    return recovered
+
+
 @app.post("/api/webhook")
 async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
     raw_body = await request.body()
@@ -1319,7 +1656,9 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
     body = json.loads(raw_body.decode("utf-8"))
     processed = 0
     status_updates = 0
-    replies = []
+    text_dispatch_items: list[tuple[str, str, int | None, bool, str]] = []
+    audio_items: list[tuple[str, str]] = []
+
     for entry in body.get("entry", []):
         for change in entry.get("changes", []):
             value = change.get("value", {})
@@ -1360,63 +1699,82 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
 
                 sender = message.get("from", "")
                 msg_type = message.get("type", "")
-                if sender:
-                    existing_sess = db.scalar(select(ChatSession).where(ChatSession.phone_number == sender))
-                    if existing_sess is not None:
-                        ai_dispatcher.set_human_takeover(
-                            sender, bool(existing_sess.needs_human_takeover), actor=existing_sess.human_takeover_by
-                        )
+                raw_ts = message.get("timestamp")
+                try:
+                    ts_int = int(raw_ts) if raw_ts is not None else None
+                except (TypeError, ValueError):
+                    ts_int = None
+
                 if msg_type == "text" and sender:
                     text_body = (message.get("text") or {}).get("body", "").strip()
                     if text_body:
-                        ai_resp = await ai_dispatcher.handle_text(
-                            sender,
-                            text_body,
-                            data_source="whatsapp_webhook",
-                            is_test=False,
+                        db.add(
+                            InboundMessageBuffer(
+                                message_uid=meta_id,
+                                phone_number=sender,
+                                content=text_body,
+                                data_source="whatsapp_webhook",
+                                msg_timestamp=ts_int,
+                                status="BUFFERED",
+                            )
                         )
-                        side = await _persist_ai_interaction(db, sender, text_body, ai_resp)
-                        if ai_resp.suppress_ai_reply:
-                            delivery = {"sent": False, "mode": "suppressed_human_takeover"}
-                        else:
-                            delivery = await meta_client.send_text_message(sender, ai_resp.reply_ar)
-                        replies.append(
-                            {
-                                "to": sender,
-                                "reply_ar": ai_resp.reply_ar,
-                                "intent": ai_resp.intent.value,
-                                "suppress_ai_reply": ai_resp.suppress_ai_reply,
-                                "whatsapp_delivery": delivery,
-                                "complaint_escalation": side.get("escalation"),
-                            }
-                        )
+                        pre_c = assess_complaint(text_body)
+                        urgent = pre_c.is_complaint and pre_c.severity in ("CRITICAL", "HIGH")
+                        text_dispatch_items.append((sender, text_body, ts_int, urgent, meta_id))
                 elif msg_type == "audio" and sender:
                     media_id = (message.get("audio") or {}).get("id", "")
                     if media_id:
-                        try:
-                            audio_bytes, mime_type = await meta_client.download_media(media_id)
-                            ai_resp = await ai_dispatcher.handle_audio(
-                                sender,
-                                AudioInput(audio_bytes=audio_bytes, mime_type=mime_type, filename=f"{media_id}.ogg"),
-                            )
-                            side = await _persist_ai_interaction(db, sender, ai_resp.transcript or "", ai_resp)
-                            if ai_resp.suppress_ai_reply:
-                                delivery = {"sent": False, "mode": "suppressed_human_takeover"}
-                            else:
-                                delivery = await meta_client.send_text_message(sender, ai_resp.reply_ar)
-                            replies.append(
-                                {
-                                    "to": sender,
-                                    "transcript": ai_resp.transcript,
-                                    "reply_ar": ai_resp.reply_ar,
-                                    "intent": ai_resp.intent.value,
-                                    "suppress_ai_reply": ai_resp.suppress_ai_reply,
-                                    "whatsapp_delivery": delivery,
-                                    "complaint_escalation": side.get("escalation"),
-                                }
-                            )
-                        except Exception as exc:
-                            replies.append({"to": sender, "audio_error": str(exc)})
+                        audio_items.append((sender, media_id))
+
+    # Commit deduplication + durable inbound buffer BEFORE awaiting 3s debounce window
+    db.commit()
+
+    replies = []
+    for sender, text_body, ts_int, urgent, _meta_id in text_dispatch_items:
+        batch_reply, is_leader = await inbound_debouncer.enqueue_with_metadata(
+            sender,
+            text_body,
+            _process_debounced_whatsapp_turn,
+            urgent_bypass=urgent,
+            msg_timestamp=ts_int,
+        )
+        if is_leader:
+            replies.append(batch_reply)
+        else:
+            replies.append({"to": sender, "debounced_merged": True, "intent": batch_reply.get("intent")})
+
+    for sender, media_id in audio_items:
+        try:
+            existing_sess = db.scalar(select(ChatSession).where(ChatSession.phone_number == sender))
+            if existing_sess is not None:
+                ai_dispatcher.set_human_takeover(
+                    sender, bool(existing_sess.needs_human_takeover), actor=existing_sess.human_takeover_by
+                )
+            audio_bytes, mime_type = await meta_client.download_media(media_id)
+            ai_resp = await ai_dispatcher.handle_audio(
+                sender,
+                AudioInput(audio_bytes=audio_bytes, mime_type=mime_type, filename=f"{media_id}.ogg"),
+                data_source="whatsapp_webhook",
+                is_test=False,
+            )
+            side = await _persist_ai_interaction(db, sender, ai_resp.transcript or "", ai_resp)
+            if ai_resp.suppress_ai_reply:
+                delivery = {"sent": False, "mode": "suppressed_human_takeover"}
+            else:
+                delivery = await meta_client.send_text_message(sender, ai_resp.reply_ar)
+            replies.append(
+                {
+                    "to": sender,
+                    "transcript": ai_resp.transcript,
+                    "reply_ar": ai_resp.reply_ar,
+                    "intent": ai_resp.intent.value,
+                    "suppress_ai_reply": ai_resp.suppress_ai_reply,
+                    "whatsapp_delivery": delivery,
+                    "complaint_escalation": side.get("escalation"),
+                }
+            )
+        except Exception as exc:
+            replies.append({"to": sender, "audio_error": str(exc)})
     db.commit()
     return {"accepted": True, "processed": processed, "status_updates": status_updates, "replies": replies}
 
@@ -1852,7 +2210,7 @@ async def telegram_customer_webhook(request: Request, db: Session = Depends(get_
 
     text_body = (msg.get("text") or "").strip()
     if text_body.startswith(("/start", "/reset")):
-        ai_dispatcher._sessions.pop(phone_key, None)
+        ai_dispatcher.reset_session(phone_key)
         ai_dispatcher.set_human_takeover(phone_key, False)
         existing_sess = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_key))
         if existing_sess is not None:
@@ -1896,6 +2254,8 @@ async def telegram_customer_webhook(request: Request, db: Session = Depends(get_
             ai_resp = await ai_dispatcher.handle_audio(
                 phone_key,
                 AudioInput(audio_bytes=audio_bytes, mime_type=mime, filename="voice.ogg"),
+                data_source="telegram_bot",
+                is_test=False,
             )
             await _persist_ai_interaction(db, phone_key, ai_resp.transcript or "", ai_resp)
             db.commit()

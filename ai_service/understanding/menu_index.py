@@ -159,6 +159,49 @@ class MenuIndex:
     def get_product(self, product_id: str) -> MenuItemDTO | None:
         return self.products.get(product_id)
 
+    def all_products(self) -> list[MenuItemDTO]:
+        return list(self.products.values())
+
+    def apply_db_items(self, db_rows: list[Any]) -> set[str]:
+        """Synchronize authoritative DB prices, sizes, IDs, and availability flags in-place."""
+        unavailable: set[str] = set()
+        for row in db_rows:
+            mods = getattr(row, "modifiers_json", None) or {}
+            pid = mods.get("product_id")
+            if not pid:
+                pid = self._norm_name_to_id.get(normalize_arabic(getattr(row, "name", "")))
+            if not pid or pid not in self.products:
+                continue
+
+            current = self.products[pid]
+            is_avail = bool(getattr(row, "is_available", True))
+            if not is_avail:
+                unavailable.add(pid)
+
+            db_price = Decimal(str(getattr(row, "base_price", current.base_price or "0")))
+            updated_sizes = list(current.sizes)
+            db_sizes = mods.get("sizes") or []
+            if db_sizes and current.sizes:
+                size_price_map = {
+                    str(sz.get("code", "")).upper(): Decimal(str(sz["price"]))
+                    for sz in db_sizes
+                    if isinstance(sz, dict) and sz.get("price") is not None
+                }
+                updated_sizes = [
+                    sz.model_copy(update={"price": size_price_map.get(sz.code.upper(), sz.price)})
+                    for sz in current.sizes
+                ]
+
+            self.products[pid] = current.model_copy(
+                update={
+                    "backend_item_id": getattr(row, "id", current.backend_item_id),
+                    "base_price": db_price if not current.sizes else current.base_price,
+                    "sizes": updated_sizes,
+                    "is_available": is_avail,
+                }
+            )
+        return unavailable
+
     def get_modifier(self, modifier_id: str) -> MenuModifierDTO | None:
         return self.modifiers.get(modifier_id)
 
@@ -302,10 +345,11 @@ class MenuIndex:
                     price_str = "/".join(f"{s.code}:{s.price}" for s in p.sizes)
                 else:
                     price_str = f"{p.base_price}"
+                avail_tag = " [OUT_OF_STOCK]" if p.is_available is False else ""
                 opt_str = ""
                 if p.options:
                     opt_str = " | req:" + ",".join(f"{o.option_group}({'/'.join(o.choices)})" for o in p.options)
-                lines.append(f"- {p.product_id}: {p.name_ar} ({price_str}){opt_str}")
+                lines.append(f"- {p.product_id}: {p.name_ar} ({price_str}){avail_tag}{opt_str}")
         lines.append("[EXTRAS]")
         for m in self.modifiers.values():
             lines.append(f"- {m.modifier_id}: {m.name_ar} (+{m.price} {self.currency})")

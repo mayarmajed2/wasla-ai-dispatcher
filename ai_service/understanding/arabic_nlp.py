@@ -66,6 +66,15 @@ FRANCO_TO_ARABIC: dict[str, str] = {
     "extra": "اكسترا",
     "sauce": "صوص",
     "no": "بدون",
+    "sushi": "سوشي",
+    "koshary": "كشري",
+    "fish": "سمك",
+    "shrimp": "جمبري",
+    "kabab": "كباب",
+    "kofta": "كفته",
+    "hawawshi": "حواوشي",
+    "mahshi": "محشي",
+    "molokhia": "ملوخيه",
     "3ayez": "",
     "3ayza": "",
     "3awez": "",
@@ -85,7 +94,7 @@ EGYPTIAN_FILLERS = {
     "ابعتلي", "اديني", "جيبلي", "لو", "سمحت", "سمحتي", "بعد", "اذنك",
     "يا", "فندم", "باشا", "كابتن", "من", "فضلك", "بكام", "سعر", "سعره",
     "سعرها", "اسعار", "بكم", "شيل", "احذف", "امسح", "لغي", "الغي",
-    "اقصد", "قصدي", "لا", "خليها", "خليه", "بدلها", "بدله", "ب", "علي",
+    "اقصد", "قصدي", "لا", "خليها", "خليه", "خليهم", "بدلها", "بدله", "غيرها", "ب", "علي",
     "واحد", "واحده", "اتنين", "اثنين", "تنين", "تلاته", "ثلاثه", "اربعه", "خمسه", "سته",
     "كبير", "كبيره", "لارج", "وسط", "ميديم", "سنجل", "دبل", "دابل", "صغير", "صغيره",
     "قطع", "قطعه", "حبه", "كامله", "حشو", "اطراف", "زياده", "اكسترا",
@@ -94,6 +103,9 @@ EGYPTIAN_FILLERS = {
 
 # Multi-word colloquial phrases to strip cleanly before entity extraction
 FILLER_PHRASES = [
+    r"^(?:السلام\s+عليكم|مساء\s+الخير|صباح\s+الخير|اهلا(?:\s+وسهلا)?|ازيك)\s+",
+    r"(?:الاسم|اسمي|العنوان|عنواني|رقم\s*بديل|تليفون\s*بديل)\s*[:\-]?.+$",
+    r"(?:تمام\s+)?اكد\s+(?:الطلب|الاوردر)$",
     r"لو\s+سمحت[ي]?",
     r"بعد\s+اذنك",
     r"من\s+فضلك",
@@ -201,6 +213,23 @@ def strip_fillers(text: str) -> str:
         s = re.sub(pat, " ", s)
     tokens = [t for t in s.split() if t not in EGYPTIAN_FILLERS and not t.isdigit()]
     return " ".join(tokens).strip()
+
+
+def is_gibberish_input(text: str) -> bool:
+    """Detect random keysmash / meaningless noise so we clarify rather than quoting it as a dish."""
+    raw = (text or "").strip()
+    if not raw:
+        return True
+    norm = normalize_arabic(raw)
+    if not norm:
+        return True
+    # Pure ASCII token(s) not recognized by Franco/English menu vocabulary and containing no digits
+    if re.fullmatch(r"[a-z]{2,12}", norm):
+        return True
+    # Pure laughter/noise (e.g. "هههههه", "lol")
+    if re.fullmatch(r"ه+", norm) or norm in {"lol", "lmao", "test"}:
+        return True
+    return False
 
 
 def damerau_levenshtein_similarity(a: str, b: str) -> float:

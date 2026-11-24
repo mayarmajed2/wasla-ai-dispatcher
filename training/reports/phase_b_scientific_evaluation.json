@@ -1,0 +1,2524 @@
+{
+  "generated_at": "2026-11-24T19:21:18Z",
+  "dataset_hygiene": {
+    "train_count": 520,
+    "val_count": 106,
+    "test_unseen_count": 106,
+    "independent_challenge_count": 204,
+    "overlap_train_test": 0,
+    "overlap_val_test": 0,
+    "overlap_train_independent": 1,
+    "overlap_val_independent": 0
+  },
+  "models": {
+    "1_camelbert_base": {
+      "test_unseen_106": {
+        "samples": 106,
+        "intent_accuracy": 0.3962,
+        "macro_precision": 0.0365,
+        "macro_recall": 0.0814,
+        "macro_f1": 0.0504,
+        "weighted_f1": 0.2451,
+        "latency_p50_ms": 78.61,
+        "latency_p95_ms": 128.92,
+        "latency_avg_ms": 85.08,
+        "load_time_ms": 6310.56,
+        "memory_rss_before_mb": 353.88,
+        "memory_rss_after_mb": 900.98,
+        "memory_delta_mb": 547.1,
+        "fallback_frequency_pct": 0.0,
+        "per_class": {
+          "add_to_cart": {
+            "precision": 0.4375,
+            "recall": 0.9767,
+            "f1": 0.6043,
+            "support": 43
+          },
+          "cancel_order": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "complaint": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "confirm_order": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "delivery_inquiry": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "greeting": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "menu_inquiry": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "modify_order": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 10
+          },
+          "price_inquiry": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 12
+          },
+          "remove_item": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 9
+          },
+          "request_human": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "unclear_request": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "add_to_cart",
+            "cancel_order",
+            "complaint",
+            "confirm_order",
+            "delivery_inquiry",
+            "greeting",
+            "menu_inquiry",
+            "modify_order",
+            "price_inquiry",
+            "remove_item",
+            "request_human",
+            "unclear_request"
+          ],
+          "matrix": [
+            [
+              42,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              1
+            ],
+            [
+              4,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              10,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              3
+            ],
+            [
+              9,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              4,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        }
+      },
+      "independent_challenge_204": {
+        "samples": 204,
+        "intent_accuracy": 0.0833,
+        "macro_precision": 0.0149,
+        "macro_recall": 0.0833,
+        "macro_f1": 0.0202,
+        "weighted_f1": 0.0202,
+        "latency_p50_ms": 84.14,
+        "latency_p95_ms": 180.43,
+        "latency_avg_ms": 96.45,
+        "load_time_ms": 6310.56,
+        "memory_rss_before_mb": 353.88,
+        "memory_rss_after_mb": 900.98,
+        "memory_delta_mb": 547.1,
+        "fallback_frequency_pct": 0.0,
+        "per_class": {
+          "add_to_cart": {
+            "precision": 0.0952,
+            "recall": 0.9412,
+            "f1": 0.173,
+            "support": 17
+          },
+          "cancel_order": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 17
+          },
+          "complaint": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 17
+          },
+          "confirm_order": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 17
+          },
+          "delivery_inquiry": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 17
+          },
+          "greeting": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 17
+          },
+          "menu_inquiry": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 17
+          },
+          "modify_order": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 17
+          },
+          "price_inquiry": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 17
+          },
+          "remove_item": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 17
+          },
+          "request_human": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 17
+          },
+          "unclear_request": {
+            "precision": 0.0833,
+            "recall": 0.0588,
+            "f1": 0.069,
+            "support": 17
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "add_to_cart",
+            "cancel_order",
+            "complaint",
+            "confirm_order",
+            "delivery_inquiry",
+            "greeting",
+            "menu_inquiry",
+            "modify_order",
+            "price_inquiry",
+            "remove_item",
+            "request_human",
+            "unclear_request"
+          ],
+          "matrix": [
+            [
+              16,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              16,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              17,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              15,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              1
+            ],
+            [
+              7,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              4,
+              0,
+              6
+            ],
+            [
+              16,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              6,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              9,
+              0,
+              2
+            ],
+            [
+              17,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              15,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              1
+            ],
+            [
+              17,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              11,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              6,
+              0,
+              0
+            ],
+            [
+              15,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              1
+            ]
+          ]
+        }
+      },
+      "notes": "Un-finetuned CAMeLBERT-Mix base encoder with seeded classification head (seed=42)."
+    },
+    "2_camelbert_lora_v1": {
+      "test_unseen_106": {
+        "samples": 106,
+        "intent_accuracy": 0.7925,
+        "macro_precision": 0.5785,
+        "macro_recall": 0.5648,
+        "macro_f1": 0.5382,
+        "weighted_f1": 0.7606,
+        "latency_p50_ms": 88.45,
+        "latency_p95_ms": 148.02,
+        "latency_avg_ms": 95.53,
+        "load_time_ms": 1971.67,
+        "memory_rss_before_mb": 879.93,
+        "memory_rss_after_mb": 945.07,
+        "memory_delta_mb": 65.14,
+        "fallback_frequency_pct": 0.0,
+        "per_class": {
+          "add_to_cart": {
+            "precision": 0.9773,
+            "recall": 1.0,
+            "f1": 0.9885,
+            "support": 43
+          },
+          "cancel_order": {
+            "precision": 0.5,
+            "recall": 0.25,
+            "f1": 0.3333,
+            "support": 4
+          },
+          "complaint": {
+            "precision": 0.5,
+            "recall": 0.75,
+            "f1": 0.6,
+            "support": 4
+          },
+          "confirm_order": {
+            "precision": 0.5,
+            "recall": 0.75,
+            "f1": 0.6,
+            "support": 4
+          },
+          "delivery_inquiry": {
+            "precision": 1.0,
+            "recall": 0.25,
+            "f1": 0.4,
+            "support": 4
+          },
+          "greeting": {
+            "precision": 0.3333,
+            "recall": 0.5,
+            "f1": 0.4,
+            "support": 4
+          },
+          "menu_inquiry": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "modify_order": {
+            "precision": 0.7143,
+            "recall": 1.0,
+            "f1": 0.8333,
+            "support": 10
+          },
+          "price_inquiry": {
+            "precision": 0.75,
+            "recall": 1.0,
+            "f1": 0.8571,
+            "support": 12
+          },
+          "remove_item": {
+            "precision": 1.0,
+            "recall": 0.7778,
+            "f1": 0.875,
+            "support": 9
+          },
+          "request_human": {
+            "precision": 0.6667,
+            "recall": 0.5,
+            "f1": 0.5714,
+            "support": 4
+          },
+          "unclear_request": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "add_to_cart",
+            "cancel_order",
+            "complaint",
+            "confirm_order",
+            "delivery_inquiry",
+            "greeting",
+            "menu_inquiry",
+            "modify_order",
+            "price_inquiry",
+            "remove_item",
+            "request_human",
+            "unclear_request"
+          ],
+          "matrix": [
+            [
+              43,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              1,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              3,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              3,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              1,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              1,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              1,
+              0,
+              1,
+              0,
+              1,
+              1,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              12,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              7,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0
+            ]
+          ]
+        }
+      },
+      "independent_challenge_204": {
+        "samples": 204,
+        "intent_accuracy": 0.3088,
+        "macro_precision": 0.3309,
+        "macro_recall": 0.3088,
+        "macro_f1": 0.2703,
+        "weighted_f1": 0.2703,
+        "latency_p50_ms": 88.97,
+        "latency_p95_ms": 218.46,
+        "latency_avg_ms": 106.27,
+        "load_time_ms": 1971.67,
+        "memory_rss_before_mb": 879.93,
+        "memory_rss_after_mb": 945.07,
+        "memory_delta_mb": 65.14,
+        "fallback_frequency_pct": 0.0,
+        "per_class": {
+          "add_to_cart": {
+            "precision": 0.6667,
+            "recall": 0.8235,
+            "f1": 0.7368,
+            "support": 17
+          },
+          "cancel_order": {
+            "precision": 0.6,
+            "recall": 0.1765,
+            "f1": 0.2727,
+            "support": 17
+          },
+          "complaint": {
+            "precision": 0.3889,
+            "recall": 0.4118,
+            "f1": 0.4,
+            "support": 17
+          },
+          "confirm_order": {
+            "precision": 0.1667,
+            "recall": 0.1176,
+            "f1": 0.1379,
+            "support": 17
+          },
+          "delivery_inquiry": {
+            "precision": 0.1667,
+            "recall": 0.0588,
+            "f1": 0.087,
+            "support": 17
+          },
+          "greeting": {
+            "precision": 0.2222,
+            "recall": 0.1176,
+            "f1": 0.1538,
+            "support": 17
+          },
+          "menu_inquiry": {
+            "precision": 0.3333,
+            "recall": 0.0588,
+            "f1": 0.1,
+            "support": 17
+          },
+          "modify_order": {
+            "precision": 0.2424,
+            "recall": 0.4706,
+            "f1": 0.32,
+            "support": 17
+          },
+          "price_inquiry": {
+            "precision": 0.2222,
+            "recall": 0.9412,
+            "f1": 0.3596,
+            "support": 17
+          },
+          "remove_item": {
+            "precision": 0.5455,
+            "recall": 0.3529,
+            "f1": 0.4286,
+            "support": 17
+          },
+          "request_human": {
+            "precision": 0.25,
+            "recall": 0.1176,
+            "f1": 0.16,
+            "support": 17
+          },
+          "unclear_request": {
+            "precision": 0.1667,
+            "recall": 0.0588,
+            "f1": 0.087,
+            "support": 17
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "add_to_cart",
+            "cancel_order",
+            "complaint",
+            "confirm_order",
+            "delivery_inquiry",
+            "greeting",
+            "menu_inquiry",
+            "modify_order",
+            "price_inquiry",
+            "remove_item",
+            "request_human",
+            "unclear_request"
+          ],
+          "matrix": [
+            [
+              14,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              1,
+              3,
+              2,
+              4,
+              0,
+              2,
+              0,
+              1,
+              0,
+              4,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              7,
+              1,
+              0,
+              0,
+              0,
+              3,
+              4,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              1,
+              2,
+              2,
+              1,
+              1,
+              1,
+              6,
+              1,
+              1,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              16,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              3,
+              0,
+              2,
+              0,
+              5,
+              3,
+              0,
+              1,
+              1
+            ],
+            [
+              0,
+              0,
+              1,
+              0,
+              1,
+              0,
+              1,
+              1,
+              13,
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              1,
+              1,
+              0,
+              0,
+              0,
+              8,
+              3,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              16,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              1,
+              0,
+              0,
+              0,
+              7,
+              1,
+              6,
+              1,
+              0
+            ],
+            [
+              1,
+              1,
+              2,
+              0,
+              0,
+              0,
+              0,
+              4,
+              5,
+              0,
+              2,
+              2
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              1,
+              4,
+              0,
+              2,
+              5,
+              0,
+              2,
+              1
+            ]
+          ]
+        }
+      }
+    },
+    "3_camelbert_lora_v2": {
+      "test_unseen_106": {
+        "samples": 106,
+        "intent_accuracy": 0.8208,
+        "macro_precision": 0.6094,
+        "macro_recall": 0.6609,
+        "macro_f1": 0.6197,
+        "weighted_f1": 0.7978,
+        "latency_p50_ms": 98.03,
+        "latency_p95_ms": 202.38,
+        "latency_avg_ms": 111.24,
+        "load_time_ms": 1317.55,
+        "memory_rss_before_mb": 949.62,
+        "memory_rss_after_mb": 1379.85,
+        "memory_delta_mb": 430.23,
+        "fallback_frequency_pct": 0.0,
+        "per_class": {
+          "add_to_cart": {
+            "precision": 0.9756,
+            "recall": 0.9302,
+            "f1": 0.9524,
+            "support": 43
+          },
+          "cancel_order": {
+            "precision": 0.5,
+            "recall": 0.25,
+            "f1": 0.3333,
+            "support": 4
+          },
+          "complaint": {
+            "precision": 0.6,
+            "recall": 0.75,
+            "f1": 0.6667,
+            "support": 4
+          },
+          "confirm_order": {
+            "precision": 0.5,
+            "recall": 1.0,
+            "f1": 0.6667,
+            "support": 4
+          },
+          "delivery_inquiry": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 4
+          },
+          "greeting": {
+            "precision": 0.5,
+            "recall": 0.5,
+            "f1": 0.5,
+            "support": 4
+          },
+          "menu_inquiry": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          },
+          "modify_order": {
+            "precision": 0.7143,
+            "recall": 1.0,
+            "f1": 0.8333,
+            "support": 10
+          },
+          "price_inquiry": {
+            "precision": 0.9231,
+            "recall": 1.0,
+            "f1": 0.96,
+            "support": 12
+          },
+          "remove_item": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 9
+          },
+          "request_human": {
+            "precision": 0.6,
+            "recall": 0.75,
+            "f1": 0.6667,
+            "support": 4
+          },
+          "unclear_request": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "support": 4
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "add_to_cart",
+            "cancel_order",
+            "complaint",
+            "confirm_order",
+            "delivery_inquiry",
+            "greeting",
+            "menu_inquiry",
+            "modify_order",
+            "price_inquiry",
+            "remove_item",
+            "request_human",
+            "unclear_request"
+          ],
+          "matrix": [
+            [
+              40,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              3,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              4,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              1,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              1,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              12,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              9,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              0,
+              2,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ]
+          ]
+        }
+      },
+      "independent_challenge_204": {
+        "samples": 204,
+        "intent_accuracy": 0.6029,
+        "macro_precision": 0.6046,
+        "macro_recall": 0.6029,
+        "macro_f1": 0.589,
+        "weighted_f1": 0.589,
+        "latency_p50_ms": 92.4,
+        "latency_p95_ms": 199.87,
+        "latency_avg_ms": 102.16,
+        "load_time_ms": 1317.55,
+        "memory_rss_before_mb": 949.62,
+        "memory_rss_after_mb": 1379.85,
+        "memory_delta_mb": 430.23,
+        "fallback_frequency_pct": 0.0,
+        "per_class": {
+          "add_to_cart": {
+            "precision": 0.8333,
+            "recall": 0.5882,
+            "f1": 0.6897,
+            "support": 17
+          },
+          "cancel_order": {
+            "precision": 0.6429,
+            "recall": 0.5294,
+            "f1": 0.5806,
+            "support": 17
+          },
+          "complaint": {
+            "precision": 0.75,
+            "recall": 0.7059,
+            "f1": 0.7273,
+            "support": 17
+          },
+          "confirm_order": {
+            "precision": 0.75,
+            "recall": 0.8824,
+            "f1": 0.8108,
+            "support": 17
+          },
+          "delivery_inquiry": {
+            "precision": 0.5,
+            "recall": 0.9412,
+            "f1": 0.6531,
+            "support": 17
+          },
+          "greeting": {
+            "precision": 0.625,
+            "recall": 0.5882,
+            "f1": 0.6061,
+            "support": 17
+          },
+          "menu_inquiry": {
+            "precision": 0.4286,
+            "recall": 0.1765,
+            "f1": 0.25,
+            "support": 17
+          },
+          "modify_order": {
+            "precision": 0.5238,
+            "recall": 0.6471,
+            "f1": 0.5789,
+            "support": 17
+          },
+          "price_inquiry": {
+            "precision": 0.5455,
+            "recall": 0.7059,
+            "f1": 0.6154,
+            "support": 17
+          },
+          "remove_item": {
+            "precision": 0.8,
+            "recall": 0.7059,
+            "f1": 0.75,
+            "support": 17
+          },
+          "request_human": {
+            "precision": 0.625,
+            "recall": 0.5882,
+            "f1": 0.6061,
+            "support": 17
+          },
+          "unclear_request": {
+            "precision": 0.2308,
+            "recall": 0.1765,
+            "f1": 0.2,
+            "support": 17
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "add_to_cart",
+            "cancel_order",
+            "complaint",
+            "confirm_order",
+            "delivery_inquiry",
+            "greeting",
+            "menu_inquiry",
+            "modify_order",
+            "price_inquiry",
+            "remove_item",
+            "request_human",
+            "unclear_request"
+          ],
+          "matrix": [
+            [
+              10,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              5,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              9,
+              1,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              1,
+              1
+            ],
+            [
+              2,
+              0,
+              12,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              1,
+              0,
+              15,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              16,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              2,
+              10,
+              0,
+              0,
+              0,
+              1,
+              2,
+              2
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              6,
+              0,
+              3,
+              0,
+              7,
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0,
+              11,
+              2,
+              0,
+              0,
+              1
+            ],
+            [
+              0,
+              0,
+              0,
+              0,
+              5,
+              0,
+              0,
+              0,
+              12,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              12,
+              0,
+              1
+            ],
+            [
+              0,
+              1,
+              0,
+              0,
+              2,
+              0,
+              2,
+              0,
+              0,
+              0,
+              10,
+              2
+            ],
+            [
+              0,
+              1,
+              0,
+              2,
+              1,
+              4,
+              2,
+              1,
+              1,
+              0,
+              2,
+              3
+            ]
+          ]
+        }
+      }
+    },
+    "4_gemini_direct_probe": {
+      "samples": 24,
+      "intent_accuracy": 0.8333,
+      "macro_precision": 0.8611,
+      "macro_recall": 0.8333,
+      "macro_f1": 0.8194,
+      "weighted_f1": 0.8194,
+      "latency_p50_ms": 1893.15,
+      "latency_p95_ms": 8857.08,
+      "latency_avg_ms": 3560.3,
+      "load_time_ms": null,
+      "memory_rss_before_mb": null,
+      "memory_rss_after_mb": null,
+      "memory_delta_mb": null,
+      "fallback_frequency_pct": 12.5,
+      "per_class": {
+        "add_to_cart": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 2
+        },
+        "cancel_order": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "complaint": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "confirm_order": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "delivery_inquiry": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "greeting": {
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1": 0.6667,
+          "support": 2
+        },
+        "menu_inquiry": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "modify_order": {
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1": 0.6667,
+          "support": 2
+        },
+        "price_inquiry": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "remove_item": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "request_human": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "unclear_request": {
+          "precision": 0.3333,
+          "recall": 1.0,
+          "f1": 0.5,
+          "support": 2
+        }
+      },
+      "confusion_matrix": {
+        "labels": [
+          "add_to_cart",
+          "cancel_order",
+          "complaint",
+          "confirm_order",
+          "delivery_inquiry",
+          "greeting",
+          "menu_inquiry",
+          "modify_order",
+          "price_inquiry",
+          "remove_item",
+          "request_human",
+          "unclear_request"
+        ],
+        "matrix": [
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2
+          ],
+          [
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            0
+          ],
+          [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2
+          ]
+        ]
+      },
+      "status": "PARTIAL_OR_RATE_LIMITED",
+      "evaluated_subset": "Stratified 24 samples from independent_challenge_200.jsonl",
+      "errors": [
+        "sample_1: primary=TimeoutError fallback=TimeoutError",
+        "sample_10: primary=ValueError fallback=TimeoutError",
+        "sample_14: primary=ValueError fallback=HTTPStatusError"
+      ]
+    },
+    "5_wasla_hybrid_repaired": {
+      "test_unseen_106": {
+        "samples": 106,
+        "intent_accuracy": 0.8302,
+        "macro_precision": 0.9694,
+        "macro_recall": 0.663,
+        "macro_f1": 0.747,
+        "weighted_f1": 0.8127,
+        "latency_p50_ms": 141.51,
+        "latency_p95_ms": 1013.27,
+        "latency_avg_ms": 355.73,
+        "load_time_ms": 1.69,
+        "memory_rss_before_mb": 1393.65,
+        "memory_rss_after_mb": 1393.65,
+        "memory_delta_mb": 0.0,
+        "fallback_frequency_pct": 0.0,
+        "per_class": {
+          "add_to_cart": {
+            "precision": 0.7167,
+            "recall": 1.0,
+            "f1": 0.835,
+            "support": 43
+          },
+          "cancel_order": {
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6667,
+            "support": 4
+          },
+          "complaint": {
+            "precision": 1.0,
+            "recall": 1.0,
+            "f1": 1.0,
+            "support": 4
+          },
+          "confirm_order": {
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6667,
+            "support": 4
+          },
+          "delivery_inquiry": {
+            "precision": 1.0,
+            "recall": 0.75,
+            "f1": 0.8571,
+            "support": 4
+          },
+          "greeting": {
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6667,
+            "support": 4
+          },
+          "menu_inquiry": {
+            "precision": 1.0,
+            "recall": 0.25,
+            "f1": 0.4,
+            "support": 4
+          },
+          "modify_order": {
+            "precision": 1.0,
+            "recall": 0.9,
+            "f1": 0.9474,
+            "support": 10
+          },
+          "price_inquiry": {
+            "precision": 0.9167,
+            "recall": 0.9167,
+            "f1": 0.9167,
+            "support": 12
+          },
+          "remove_item": {
+            "precision": 1.0,
+            "recall": 0.8889,
+            "f1": 0.9412,
+            "support": 9
+          },
+          "request_human": {
+            "precision": 1.0,
+            "recall": 0.5,
+            "f1": 0.6667,
+            "support": 4
+          },
+          "unclear_request": {
+            "precision": 1.0,
+            "recall": 0.25,
+            "f1": 0.4,
+            "support": 4
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "add_to_cart",
+            "cancel_order",
+            "complaint",
+            "confirm_order",
+            "delivery_inquiry",
+            "greeting",
+            "menu_inquiry",
+            "modify_order",
+            "price_inquiry",
+            "remove_item",
+            "request_human",
+            "unclear_request"
+          ],
+          "matrix": [
+            [
+              43,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              0,
+              4,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              1,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              9,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              11,
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              8,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0
+            ],
+            [
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ]
+          ]
+        }
+      },
+      "independent_challenge_204": {
+        "samples": 204,
+        "intent_accuracy": 0.4853,
+        "macro_precision": 0.8414,
+        "macro_recall": 0.4853,
+        "macro_f1": 0.5016,
+        "weighted_f1": 0.5016,
+        "latency_p50_ms": 732.44,
+        "latency_p95_ms": 1500.73,
+        "latency_avg_ms": 776.16,
+        "load_time_ms": 1.69,
+        "memory_rss_before_mb": 1393.65,
+        "memory_rss_after_mb": 1393.65,
+        "memory_delta_mb": 0.0,
+        "fallback_frequency_pct": 0.0,
+        "per_class": {
+          "add_to_cart": {
+            "precision": 0.1524,
+            "recall": 0.9412,
+            "f1": 0.2623,
+            "support": 17
+          },
+          "cancel_order": {
+            "precision": 1.0,
+            "recall": 0.5882,
+            "f1": 0.7407,
+            "support": 17
+          },
+          "complaint": {
+            "precision": 0.6842,
+            "recall": 0.7647,
+            "f1": 0.7222,
+            "support": 17
+          },
+          "confirm_order": {
+            "precision": 1.0,
+            "recall": 0.5294,
+            "f1": 0.6923,
+            "support": 17
+          },
+          "delivery_inquiry": {
+            "precision": 0.8333,
+            "recall": 0.5882,
+            "f1": 0.6897,
+            "support": 17
+          },
+          "greeting": {
+            "precision": 1.0,
+            "recall": 0.1176,
+            "f1": 0.2105,
+            "support": 17
+          },
+          "menu_inquiry": {
+            "precision": 1.0,
+            "recall": 0.1765,
+            "f1": 0.3,
+            "support": 17
+          },
+          "modify_order": {
+            "precision": 0.8182,
+            "recall": 0.5294,
+            "f1": 0.6429,
+            "support": 17
+          },
+          "price_inquiry": {
+            "precision": 0.7333,
+            "recall": 0.6471,
+            "f1": 0.6875,
+            "support": 17
+          },
+          "remove_item": {
+            "precision": 0.875,
+            "recall": 0.8235,
+            "f1": 0.8485,
+            "support": 17
+          },
+          "request_human": {
+            "precision": 1.0,
+            "recall": 0.0588,
+            "f1": 0.1111,
+            "support": 17
+          },
+          "unclear_request": {
+            "precision": 1.0,
+            "recall": 0.0588,
+            "f1": 0.1111,
+            "support": 17
+          }
+        },
+        "confusion_matrix": {
+          "labels": [
+            "add_to_cart",
+            "cancel_order",
+            "complaint",
+            "confirm_order",
+            "delivery_inquiry",
+            "greeting",
+            "menu_inquiry",
+            "modify_order",
+            "price_inquiry",
+            "remove_item",
+            "request_human",
+            "unclear_request"
+          ],
+          "matrix": [
+            [
+              16,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              10,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              2,
+              0,
+              13,
+              0,
+              0,
+              0,
+              0,
+              1,
+              1,
+              0,
+              0,
+              0
+            ],
+            [
+              5,
+              0,
+              1,
+              9,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              1,
+              0,
+              10,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              15,
+              0,
+              0,
+              0,
+              0,
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              10,
+              0,
+              1,
+              0,
+              0,
+              0,
+              3,
+              0,
+              3,
+              0,
+              0,
+              0
+            ],
+            [
+              7,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              9,
+              0,
+              1,
+              0,
+              0
+            ],
+            [
+              6,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              11,
+              0,
+              0,
+              0
+            ],
+            [
+              3,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              14,
+              0,
+              0
+            ],
+            [
+              15,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0
+            ],
+            [
+              15,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1
+            ]
+          ]
+        }
+      },
+      "moka_typo_154": {
+        "samples": 154,
+        "intent_accuracy": 1.0,
+        "exact_product_extraction_acc": 0.9752,
+        "incorrect_product_extraction_rate_pct": 2.48,
+        "nonexistent_product_fp_rate_pct": 0.0,
+        "latency_p50_ms": 99.03,
+        "latency_p95_ms": 681.99
+      }
+    }
+  }
+}

@@ -57,6 +57,18 @@ class WaslaConfig:
         default_factory=lambda: os.getenv("COMPLAINT_ESCALATION_ENABLED", "true").lower() == "true"
     )
     max_audio_file_mb: float = field(default_factory=lambda: float(os.getenv("MAX_AUDIO_FILE_MB", "10.0")))
+    # Fine-tuned CAMeLBERT PEFT LoRA classifier settings
+    lora_enabled: bool = field(default_factory=lambda: os.getenv("WASLA_LORA_ENABLED", "true").lower() == "true")
+    lora_checkpoint_dir: Path = field(
+        default_factory=lambda: Path(
+            os.getenv(
+                "WASLA_LORA_CHECKPOINT_DIR",
+                str(Path(__file__).resolve().parent.parent / "training" / "checkpoints" / "camelbert-wasla-lora-v2"),
+            )
+        )
+    )
+    lora_prefer_gpu: bool = field(default_factory=lambda: os.getenv("WASLA_LORA_PREFER_GPU", "true").lower() == "true")
+
     menu_json_path: Path = field(
         default_factory=lambda: Path(
             os.getenv("MENU_JSON_PATH", str(Path(__file__).resolve().parent.parent / "menu" / "menu.json"))

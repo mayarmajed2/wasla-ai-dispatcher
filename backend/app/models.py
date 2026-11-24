@@ -261,3 +261,18 @@ class AuditLog(Base):
     target: Mapped[str] = mapped_column(String(120), nullable=False, default="")
     details: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class InboundMessageBuffer(Base):
+    __tablename__ = "inbound_message_buffers"
+    __table_args__ = (Index("ix_inbound_buf_phone_status", "phone_number", "status"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    message_uid: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
+    phone_number: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    data_source: Mapped[str] = mapped_column(String(32), nullable=False, default="whatsapp_webhook")
+    msg_timestamp: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    status: Mapped[str] = mapped_column(String(24), nullable=False, default="BUFFERED", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
