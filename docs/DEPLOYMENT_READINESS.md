@@ -26,8 +26,10 @@ The JSON below is an illustrative schema example, not a health snapshot from a l
     "finetuned_lora_checkpoint_exists": true,
     "finetuned_lora_loaded": false,
     "finetuned_lora_version": "camelbert-wasla-lora-v2",
-    "finetuned_lora_inference_available": true,
-    "active_inference_route": "gemini+lora+menu_index"
+    "finetuned_lora_taxonomy_compatible": false,
+    "finetuned_lora_inference_available": false,
+    "finetuned_lora_routing_available": false,
+    "active_inference_route": "gemini+menu_index"
   },
   "ai_models": {
     "enabled": true,
@@ -38,11 +40,13 @@ The JSON below is an illustrative schema example, not a health snapshot from a l
     "model_loaded": false,
     "model_version": "camelbert-wasla-lora-v2",
     "base_model_id": "CAMeL-Lab/bert-base-arabic-camelbert-mix",
+    "taxonomy_compatible": false,
     "device": "cpu",
-    "inference_available": true,
+    "inference_available": false,
+    "routing_available": false,
     "load_time_ms": null,
     "load_error": null,
-    "active_inference_route": "gemini+lora+menu_index",
+    "active_inference_route": "gemini+menu_index",
     "telemetry": {
       "turns_total": 0,
       "lora_calls": 0,
@@ -54,7 +58,7 @@ The JSON below is an illustrative schema example, not a health snapshot from a l
 }
 ```
 
-**Important Guarantee:** `model_loaded` (`finetuned_lora_loaded`) remains `false` at cold boot and turns `true` ONLY after `FineTunedIntentClassifier.load()` genuinely loads weights into RAM/VRAM. Startup stays fast (<2s for Docker `HEALTHCHECK`) even with PyTorch + PEFT installed.
+**Important Guarantee:** `model_loaded` (`finetuned_lora_loaded`) remains `false` at cold boot and turns `true` ONLY after `FineTunedIntentClassifier.load()` genuinely loads weights into RAM/VRAM. `inference_available` follows actual load state; `routing_available` additionally requires exact taxonomy compatibility. The checked-in v1/v2 labels do not match the application taxonomy, so they are not currently eligible for intent routing.
 
 ---
 
@@ -96,6 +100,7 @@ alembic -c backend/alembic.ini upgrade head
 ## 4. External Operational Blockers / Operational Notes
 
 1. **External-provider verification:** This task did not verify live Gemini, Groq, Telegram, WhatsApp/Meta, PostgreSQL, or a full production customer journey. Mock transports and configured flags are not live-integration evidence. Do not represent Telegram or WhatsApp end-to-end ordering as currently verified without a fresh live test.
-2. **Order status lookup:** The app's production `DirectDBOrderBridge` reads the active order only when its `customer_phone` matches the inbound customer's number, and otherwise checks that number's latest order. Unknown or absent status fails closed. The separate `RealBackendAdapter` has no authenticated customer-status endpoint and returns an explicit tracking-unavailable error; it never falls back to mock order records.
-3. **Base Model Weights on Cold Environment:** LoRA adapter weights are bundled in Git, while the base encoder (`CAMeL-Lab/bert-base-arabic-camelbert-mix`) may download lazily to `HF_HOME` on first inference if not cached. If offline or the model cannot load, `FineTunedIntentClassifier` fails safely and dispatches through `OfflineEgyptianNLU`.
-4. **Gemini API Quotas:** The configured primary/fallback/local degradation path is implemented and covered by tests using provider stubs; live quota handling remains unverified until tested with provider credentials.
+2. **Order status lookup:** HTTP customer lookup requires `BACKEND_SERVICE_API_KEY` and exact phone ownership; order IDs supplied by a customer are checked against the same phone. The in-process DB bridge is scoped the same way. These return stored restaurant status only, not courier position or ETA.
+3. **Delivery provider:** No authenticated courier/tracking provider is configured or verified. Delivery quotes use backend fee settings; `DELIVERY_ESTIMATED_MINUTES` remains unset unless the restaurant can supply a verified estimate. No courier events or estimated arrival are synthesized.
+4. **LoRA Runtime:** The checked-in checkpoints are 12-label models incompatible with the current `CustomerIntent` taxonomy. They remain unavailable for routing, regardless of checkpoint files or dependency presence. Linux/deployment inference must pass a real checkpoint load and compatible-taxonomy check before use.
+5. **Gemini and other external services:** Tests use provider stubs. Live Gemini, Groq, Telegram, WhatsApp/Meta, PostgreSQL, or production customer-journey checks remain unverified without authorized credentials and access.

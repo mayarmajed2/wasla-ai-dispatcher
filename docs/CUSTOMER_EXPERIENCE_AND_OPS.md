@@ -2,6 +2,8 @@
 
 > **Operational Honesty Notice:** All core business logic, database tables, Alembic migrations (`0001` → `0002`), durable scheduler, Meta policy guards, Telegram Bot client, complaint escalation engine, and Customer Experience Dashboard are **implemented and verified via automated tests (33/33 tests)**. Live external Telegram delivery, live PostgreSQL execution, and live public HTTPS Meta webhook delivery remain **blocked by external credentials/infrastructure** until `TELEGRAM_BOT_TOKEN`, `CASHIER_TELEGRAM_CHAT_ID`, `RESTAURANT_OWNER_TELEGRAM_CHAT_ID`, `META_APP_SECRET`, and a hosted PostgreSQL/HTTPS endpoint are provided.
 
+> **Historical status:** Its independent-benchmark metrics are invalidated because one exact training/evaluation example was removed. Use `FINAL_RELEASE_VERIFICATION.md` for current status; do not cite old scores until the corrected evaluation is rerun.
+
 ---
 
 ## 1. Natural Egyptian Arabic Sales Personality (`ai_service/dispatcher/persona.py`)
@@ -9,7 +11,7 @@
 - Warm, concise, polite Egyptian Arabic phrasing with occasional subtle emojis (`❤️`, `✨`, `😊`).
 - Grounded strictly in verified MOKA 145-item menu database (`menu/menu.json`) and deterministic `Decimal` totals.
 - Zero invented menu items, discounts, combos, or unverified delivery promises.
-- Uses Gemini (`gemini-3.5-flash-lite` / `gemini-3.8-flash`) for NLU with `OfflineEgyptianNLU` deterministic typo-tolerant fallback; preserves both fine-tuned **CAMeLBERT-Mix PEFT LoRA** checkpoints (`v1` and `v2`, Apache-2.0) and the **TF-IDF + Logistic Regression** intent baseline (`81.37%` Acc / `0.8100` Macro-F1 on the independent 204-example benchmark).
+- Uses Gemini (`gemini-3.5-flash-lite` / `gemini-3.8-flash`) for NLU with `OfflineEgyptianNLU` deterministic typo-tolerant fallback; preserves the Apache-2.0 **CAMeLBERT-Mix PEFT LoRA** checkpoints (`v1` and `v2`) and the **TF-IDF + Logistic Regression** intent baseline for future evaluation.
 
 ---
 

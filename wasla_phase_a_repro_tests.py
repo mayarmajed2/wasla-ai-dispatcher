@@ -106,7 +106,7 @@ async def test_new_dispatcher_instance_restores_previous_cart_session():
 
 
 @pytest.mark.asyncio
-async def test_dispatcher_uses_finetuned_intent_classifier():
+async def test_dispatcher_skips_incompatible_finetuned_intent_classifier():
     idx = make_index()
     dispatcher = WaslaAIDispatcher(
         WaslaConfig(gemini_api_key=""), idx, MockBackendAdapter(idx)
@@ -115,8 +115,10 @@ async def test_dispatcher_uses_finetuned_intent_classifier():
     dispatcher.finetuned_intent.predict = lambda text: (
         calls.append(text) or ("greeting", 0.99, 1.0)
     )
-    await dispatcher.handle_text("01011112224", "السلام عليكم")
-    assert calls, "FineTunedIntentClassifier.predict was never called"
+    parsed, model_used = await dispatcher._run_nlu("السلام عليكم")
+    assert calls == [], "Incompatible classifier must not route application intents"
+    assert parsed["intent"] == "greeting"
+    assert model_used == "offline_rules"
 
 
 def test_gemini_function_declarations_are_in_client_payload():

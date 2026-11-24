@@ -122,7 +122,9 @@ def test_lora_v1_v2_loading_caching_and_ready_honesty(tmp_path):
             body = r.json()
             assert body["providers"]["finetuned_lora_checkpoint_exists"] is True
             assert body["providers"]["finetuned_lora_version"] == "camelbert-wasla-lora-v2"
-            assert body["providers"]["finetuned_lora_inference_available"] is True
+            assert body["providers"]["finetuned_lora_taxonomy_compatible"] is False
+            assert body["providers"]["finetuned_lora_inference_available"] is False
+            assert body["providers"]["finetuned_lora_routing_available"] is False
             assert body["ai_models"]["checkpoint_v1_exists"] is True
             assert body["ai_models"]["checkpoint_v2_exists"] is True
             assert "active_inference_route" in body["ai_models"]

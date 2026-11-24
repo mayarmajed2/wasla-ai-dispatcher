@@ -52,9 +52,9 @@ from ai_service.models.llm_client import GeminiLLMClient  # noqa: E402
 from ai_service.understanding.menu_index import MenuIndex  # noqa: E402
 
 TEST_UNSEEN_PATH = ROOT / "training" / "data" / "test_unseen.jsonl"
-IND_200_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_200.jsonl"
+IND_200_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_203_v2.jsonl"
 TYPO_EVAL_PATH = ROOT / "datasets" / "evaluation" / "moka_typo_eval_150.json"
-OUT_PATH = ROOT / "training" / "reports" / "phase_b_scientific_evaluation.json"
+OUT_PATH = ROOT / "training" / "reports" / "phase_b_scientific_evaluation_v2.json"
 BASE_MODEL = "CAMeL-Lab/bert-base-arabic-camelbert-mix"
 
 
@@ -331,7 +331,9 @@ async def _probe_and_eval_gemini(rows: list[dict[str, Any]], labels: list[str]) 
 
     gemini_metrics = _compute_metrics(y_true, y_pred_gemini, labels, lats_gemini, fallback_count=fallback_count_gemini)
     gemini_metrics["status"] = "PARTIAL_OR_RATE_LIMITED" if errors else "LIVE_EVALUATED"
-    gemini_metrics["evaluated_subset"] = f"Stratified {len(y_true)} samples from independent_challenge_200.jsonl"
+    gemini_metrics["evaluated_subset"] = (
+        f"Stratified {len(y_true)} samples from independent_challenge_203_v2.jsonl"
+    )
     if errors:
         gemini_metrics["errors"] = errors[:5]
     return gemini_metrics
@@ -342,14 +344,20 @@ def main() -> dict[str, Any]:
     ind_200 = _load_jsonl(IND_200_PATH)
     labels = sorted({r["intent"] for r in ind_200})
 
-    train_texts = {r["text"] for r in _load_jsonl(ROOT / "training" / "data" / "train.jsonl")}
-    val_texts = {r["text"] for r in _load_jsonl(ROOT / "training" / "data" / "val.jsonl")}
-    test_texts = {r["text"] for r in test_unseen}
-    ind_texts = {r["text"] for r in ind_200}
+    def normalize(text: str) -> str:
+        return " ".join(text.lower().split())
 
+    train_texts = {normalize(r["text"]) for r in _load_jsonl(ROOT / "training" / "data" / "train.jsonl")}
+    val_texts = {normalize(r["text"]) for r in _load_jsonl(ROOT / "training" / "data" / "val.jsonl")}
+    test_texts = {normalize(r["text"]) for r in test_unseen}
+    ind_texts = {normalize(r["text"]) for r in ind_200}
+    if train_texts & ind_texts or val_texts & ind_texts or test_texts & ind_texts:
+        raise ValueError("Independent challenge set overlaps train, validation, or test data.")
+
+    independent_key = f"independent_challenge_{len(ind_200)}"
     datasets = {
         "test_unseen_106": test_unseen,
-        "independent_challenge_204": ind_200,
+        independent_key: ind_200,
     }
 
     report: dict[str, Any] = {
@@ -381,12 +389,16 @@ def main() -> dict[str, Any]:
 if __name__ == "__main__":
     rep = main()
     for name, block in rep["models"].items():
-        if "independent_challenge_204" in block:
-            m = block["independent_challenge_204"]
+        independent_key = next(
+            (key for key in block if key.startswith("independent_challenge_")),
+            None,
+        )
+        if independent_key is not None:
+            m = block[independent_key]
             t = block.get("test_unseen_106", {})
             print(
                 f"{name:26s} | Unseen106 Acc={t.get('intent_accuracy', 0):.2%} F1={t.get('macro_f1', 0):.4f} "
-                f"| Ind204 Acc={m['intent_accuracy']:.2%} Macro-P={m['macro_precision']:.4f} Macro-R={m['macro_recall']:.4f} "
+                f"| Ind{m['samples']} Acc={m['intent_accuracy']:.2%} Macro-P={m['macro_precision']:.4f} Macro-R={m['macro_recall']:.4f} "
                 f"Macro-F1={m['macro_f1']:.4f} Weighted-F1={m['weighted_f1']:.4f} P50={m['latency_p50_ms']}ms P95={m['latency_p95_ms']}ms "
                 f"| RSS+={m['memory_delta_mb']}MB"
             )

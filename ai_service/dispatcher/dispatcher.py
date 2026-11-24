@@ -40,6 +40,39 @@ from ai_service.understanding.menu_index import MenuIndex, normalize_ar
 
 logger = logging.getLogger("wasla.dispatcher")
 
+_ORDER_ID_DIGITS = str.maketrans(
+    "٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹",
+    "01234567890123456789",
+)
+_ORDER_ID_PATTERN = re.compile(r"(?<![0-9])[+-]?[0-9]+(?![0-9])")
+_MAX_ORDER_ID = 2_147_483_647
+
+
+def _extract_single_order_id(text: str) -> tuple[int | None, str]:
+    candidates = _ORDER_ID_PATTERN.findall(text.translate(_ORDER_ID_DIGITS))
+    if not candidates:
+        return None, "missing"
+    if len(candidates) != 1:
+        return None, "multiple"
+    digits = candidates[0]
+    if len(digits) > 10:
+        return None, "invalid"
+    order_id = int(digits)
+    if order_id < 1 or order_id > _MAX_ORDER_ID:
+        return None, "invalid"
+    return order_id, ""
+
+
+def _is_order_status_reinquiry(text: str) -> bool:
+    normalized = normalize_ar(text)
+    mentions_order = any(term in normalized for term in ("اوردر", "الطلب", "طلبك"))
+    asks_status = any(
+        term in normalized
+        for term in ("تتبع", "حاله", "وصل", "اتحرك", "طلع", "استلم", "فين", "لسه", "رقم", "كام")
+    )
+    return mentions_order and asks_status
+
+
 _UPSELL_DECLINE_PATTERNS = (
     "لا شكرا",
     "لأ شكرا",
@@ -155,7 +188,9 @@ class WaslaAIDispatcher:
         self.directive_interpreter = CashierDirectiveInterpreter(menu_index)
         self._sessions: dict[str, SessionState] = {}
         self._session_locks: dict[str, asyncio.Lock] = {}
-        self._last_active_route: str = "gemini+lora+menu_index" if self.llm_client.is_configured else "lora+egyptian_nlu"
+        self._last_active_route: str = (
+            "gemini+menu_index" if self.llm_client.is_configured else "offline_egyptian_nlu"
+        )
         self._telemetry: dict[str, int] = {
             "turns_total": 0,
             "lora_calls": 0,
@@ -255,6 +290,8 @@ class WaslaAIDispatcher:
         is_test: bool = False,
     ) -> DispatcherResponse:
         transcription = await self.audio_pipeline.process(audio)
+        if not transcription.is_usable:
+            return await self._reject_uncertain_audio(phone_number, data_source, is_test)
         response = await self.handle_text(
             phone_number,
             transcription.transcript,
@@ -263,6 +300,40 @@ class WaslaAIDispatcher:
             is_test=is_test,
         )
         return response.model_copy(update={"transcript": transcription.transcript})
+
+    async def _reject_uncertain_audio(
+        self, phone_number: str, data_source: str, is_test: bool
+    ) -> DispatcherResponse:
+        async with self._get_lock(phone_number):
+            session = self.get_session(phone_number)
+            if session.needs_human_takeover:
+                ctx = TurnExecutionContext(
+                    data_source=data_source,
+                    is_test=is_test,
+                    request_id=uuid.uuid4().hex[:12],
+                )
+                response = await self._handle_text_locked(
+                    phone_number, "", input_type="audio", ctx=ctx
+                )
+                return response.model_copy(update={"transcript": ""})
+
+            self._telemetry["turns_total"] += 1
+            session.history.append(
+                ConversationMessage(role="customer", content="", input_type="audio")
+            )
+            reply = persona.render_unclear_request(turn_count=len(session.history))
+            response = self._finish(
+                session,
+                CustomerIntent.UNCLEAR_REQUEST,
+                0.0,
+                [],
+                True,
+                "unclear_audio",
+                [],
+                reply,
+                "audio_quality_gate",
+            )
+            return response.model_copy(update={"transcript": ""})
 
     async def handle_text(
         self,
@@ -303,6 +374,7 @@ class WaslaAIDispatcher:
 
         # 0. Human Takeover Hard Gate: stop automated AI replies once staff/owner takes over!
         if session.needs_human_takeover:
+            session.pending_order_status_lookup = False
             complaint_check = assess_complaint(clean_text)
             complaint_dict = (
                 {
@@ -354,8 +426,17 @@ class WaslaAIDispatcher:
         # 3. High-recall safety & complaint pre-check (NEVER gated behind high confidence for food safety!)
         pre_complaint = assess_complaint(clean_text)
         if pre_complaint.is_complaint and pre_complaint.severity in ("CRITICAL", "HIGH"):
+            session.pending_order_status_lookup = False
             return await self._handle_complaint(
                 session, clean_text, pre_complaint, tool_calls, "complaint_detector", executed_signatures=executed_signatures
+            )
+
+        if session.pending_order_status_lookup:
+            return await self._handle_pending_order_status_reply(
+                session,
+                clean_text,
+                tool_calls,
+                executed_signatures=executed_signatures,
             )
 
         # 4. Check if responding to a pending upsell recommendation (accept or decline)
@@ -506,7 +587,11 @@ class WaslaAIDispatcher:
 
         if intent == CustomerIntent.ORDER_STATUS:
             return await self._handle_order_status(
-                session, tool_calls, model_used, executed_signatures=executed_signatures
+                session,
+                tool_calls,
+                model_used,
+                order_id=parsed.get("order_id"),
+                executed_signatures=executed_signatures,
             )
 
         if intent == CustomerIntent.GET_CART:
@@ -969,14 +1054,15 @@ class WaslaAIDispatcher:
         category_hint: str | None = None,
         history: list[ConversationMessage] | None = None,
     ) -> tuple[dict[str, Any], str]:
-        # 1. Invoke FineTunedIntentClassifier (CAMeLBERT PEFT LoRA) cleanly in every live turn
+        # 1. Attempt lazy LoRA inference only if its labels match the application intent taxonomy.
         lora_pred: tuple[str, float, float] | None = None
-        try:
-            self._telemetry["lora_calls"] += 1
-            lora_pred = self.finetuned_intent.predict(text)
-        except Exception as exc:
-            logger.warning("FineTunedIntentClassifier inference failed safely (%s); continuing.", exc)
-            lora_pred = None
+        if self.finetuned_intent.enabled and self.finetuned_intent.taxonomy_compatible:
+            try:
+                self._telemetry["lora_calls"] += 1
+                lora_pred = self.finetuned_intent.predict(text)
+            except Exception as exc:
+                logger.warning("FineTunedIntentClassifier inference failed safely (%s); continuing.", exc)
+                lora_pred = None
 
         # 2. Deterministic Egyptian NLU & MenuIndex extraction (source of truth for items/variants/ambiguity)
         det_parsed = self.offline_nlu.parse(text, category_hint=category_hint)
@@ -1788,15 +1874,73 @@ class WaslaAIDispatcher:
         }
         return "؟" in text or "?" in text or bool(question_tokens.intersection(normalized.split()))
 
+    async def _handle_pending_order_status_reply(
+        self,
+        session: SessionState,
+        text: str,
+        tool_calls: list[ToolCallRecord],
+        *,
+        executed_signatures: set[str] | None = None,
+    ) -> DispatcherResponse:
+        order_id, parse_error = _extract_single_order_id(text)
+        if parse_error == "missing" and _is_order_status_reinquiry(text):
+            reply = "علشان أتحقق من حالة الأوردر، ابعتلي رقم أوردر واحد في رسالة."
+            return self._finish(
+                session,
+                CustomerIntent.ORDER_STATUS,
+                0.98,
+                [],
+                True,
+                "order_id_required",
+                tool_calls,
+                reply,
+                "order_tracking_followup",
+                inherit_active_order_id=False,
+            )
+
+        session.pending_order_status_lookup = False
+        if parse_error:
+            if parse_error == "multiple":
+                reply = "وصلني أكتر من رقم. ابعت رقم أوردر واحد بس عشان أتحقق منه."
+                reason = "multiple_order_ids"
+            elif parse_error == "invalid":
+                reply = "رقم الأوردر ده غير صالح. ابدأ طلب التتبع من جديد وابعت رقم واحد صحيح."
+                reason = "invalid_order_id"
+            else:
+                reply = "محتاج رقم أوردر واحد عشان أتحقق. ابدأ طلب التتبع من جديد لو حابب المحاولة."
+                reason = "order_id_missing"
+            return self._finish(
+                session,
+                CustomerIntent.ORDER_STATUS,
+                0.98,
+                [],
+                True,
+                reason,
+                tool_calls,
+                reply,
+                "order_tracking_followup",
+                inherit_active_order_id=False,
+            )
+
+        return await self._handle_order_status(
+            session,
+            tool_calls,
+            "order_tracking_followup",
+            order_id=order_id,
+            executed_signatures=executed_signatures,
+        )
+
     async def _handle_order_status(
         self,
         session: SessionState,
         tool_calls: list[ToolCallRecord],
         model_used: str,
         *,
+        order_id: int | None = None,
         executed_signatures: set[str] | None = None,
     ) -> DispatcherResponse:
-        args = {"order_id": session.active_order_id} if session.active_order_id is not None else {}
+        requested_order_id = order_id if order_id is not None else session.active_order_id
+        args = {"order_id": requested_order_id} if requested_order_id is not None else {}
         rec, result = await self.tools.execute(
             session,
             "get_customer_order_status",
@@ -1818,17 +1962,25 @@ class WaslaAIDispatcher:
                 model_used,
             )
         if result is None:
-            reply = "مش لاقي أوردر مؤكد مرتبط برقمك الحالي. ابعتلي رقم الأوردر عشان أتحقق منه."
+            if order_id is None:
+                session.pending_order_status_lookup = True
+                reply = "مش لاقي أوردر مؤكد مرتبط برقمك الحالي. ابعتلي رقم الأوردر عشان أتحقق منه."
+                clarification_reason = "order_not_found"
+            else:
+                session.pending_order_status_lookup = False
+                reply = "مش لاقي بيانات تتبع مرتبطة برقمك. راجع رقم الأوردر أو كلم الكاشير."
+                clarification_reason = "order_id_not_found"
             return self._finish(
                 session,
                 CustomerIntent.ORDER_STATUS,
                 0.98,
                 [],
                 True,
-                "order_not_found",
+                clarification_reason,
                 tool_calls,
                 reply,
                 model_used,
+                inherit_active_order_id=False,
             )
 
         order_id = result.get("id")
@@ -1930,6 +2082,7 @@ class WaslaAIDispatcher:
         reply: str,
         model_used: str,
         order_id: int | None = None,
+        inherit_active_order_id: bool = True,
         upsell_offer: dict[str, Any] | None = None,
         upsell_event: dict[str, Any] | None = None,
         complaint_assessment: dict[str, Any] | None = None,
@@ -1945,7 +2098,11 @@ class WaslaAIDispatcher:
             clarification_reason=clarification_reason,
             tool_calls=tool_calls,
             cart=session.cart,
-            order_id=order_id or session.active_order_id,
+            order_id=(
+                order_id
+                if order_id is not None
+                else (session.active_order_id if inherit_active_order_id else None)
+            ),
             needs_human_takeover=session.needs_human_takeover,
             upsell_offer=upsell_offer,
             upsell_event=upsell_event,

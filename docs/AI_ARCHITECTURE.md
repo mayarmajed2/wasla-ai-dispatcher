@@ -27,15 +27,15 @@ WaslaAIDispatcher.handle_text(phone, text, data_source, is_test)
   ├── [Gate 3] Pending Upsell / Clarification Resolution (memory of prior turns)
   │
   ▼ [NLU Orchestration: `_run_nlu`]
-  ├── 1) FineTunedIntentClassifier.predict(text)  [CAMeLBERT-Mix PEFT LoRA v2, cached]
+  ├── 1) FineTunedIntentClassifier.predict(text)  [only if loaded and labels match CustomerIntent]
   ├── 2) OfflineEgyptianNLU.parse(text)          [MenuIndex fuzzy/phonetic/multi-variant + corrections]
   ├── 3) If GEMINI_API_KEY configured:
   │      ├── Primary (`gemini-3.5-flash-lite`) with `tools=[{"functionDeclarations": TOOL_DECLARATIONS}]`
   │      └── On error / timeout / 429 / malformed JSON/tool / conf < 0.72 -> Fallback (`gemini-3.8-flash`)
   └── 4) Confidence-Routed Hybrid Arbitration:
          - MenuIndex item matches, ambiguities & self-corrections always authoritative
-         - Non-destructive LoRA intents (`greeting`, `menu_inquiry`, `complaint`, `request_human` >= 0.55;
-           `delivery_inquiry`, `price_inquiry`, `unclear_request` >= 0.72) when no menu match exists
+         - Deterministic critical-intent routes and grounded menu matching remain authoritative
+         - Current v1/v2 12-label checkpoints are not routed: they omit application intents
          - Confirm order blocked if confidence < 0.55 or missing explicit approval
   │
   ▼ [Deterministic Action Layer: `ToolExecutor`]
@@ -56,6 +56,7 @@ WaslaAIDispatcher.handle_text(phone, text, data_source, is_test)
   - `training/checkpoints/camelbert-wasla-lora` (v1: rank 8, alpha 16, target `query`/`value`, preserved for comparison)
 - **Lazy Loading & Thread-Safe Cache:** Startup stays sub-second (`/api/ready` reports `checkpoint_exists: true`, `model_loaded: false` until first inference or explicit `.load()`). Once loaded, `_MODEL_CACHE[(ckpt, base_model, device)]` reuses weights in `<2 ms`.
 - **Hardware Adaptation:** Uses `cuda` if `torch.cuda.is_available()` and `WASLA_LORA_PREFER_GPU=true`, else CPU. Tries `local_files_only=True` before hitting Hugging Face Hub.
+- **Readiness and Routing:** Inference is available only after weights are loaded. The current 12-label checkpoint taxonomy does not match `CustomerIntent`; therefore it is excluded from production routing until a compatible checkpoint is trained and verified.
 
 ### B. Gemini Native Function Calling & Resilient Fallback (`ai_service/models/llm_client.py`)
 - **Tool Declarations in Payload:** `GeminiLLMClient.generate_json()` injects `"tools": [{"functionDeclarations": ...}]` and `"toolConfig": {"functionCallingConfig": {"mode": "AUTO"}}` derived from `ai_service/tools/registry.py`.
@@ -80,5 +81,6 @@ WaslaAIDispatcher.handle_text(phone, text, data_source, is_test)
 - Category menu questions execute `get_active_menu` with the detected category; a category absent from the current catalog is reported as absent rather than parsed as an order.
 - `availability_inquiry`, `report_unavailable`, `reject_product`, and `remove_item` remain separate intents. Availability/report paths query current backend menu or item availability, while rejecting a broad product type never removes an existing cart line.
 - `order_status` dispatches the read-only `get_customer_order_status` tool. `_DirectDBOrderBridge` constrains the lookup to the inbound customer phone and active order ID (or that phone's latest order); customer text and LLM output cannot supply a status or ETA. Only recognized stored states are rendered.
-- The generic `RealBackendAdapter` has no authenticated customer-status endpoint, so it raises a tracking-unavailable error rather than falling back to local mock orders. Live external status providers are not configured or verified by this architecture note.
+- The HTTP `RealBackendAdapter` calls `/api/customer/order-status` only with `BACKEND_SERVICE_API_KEY`; the backend scopes every lookup to the exact customer phone, including explicit order IDs. Without the key it fails closed.
+- No courier provider is configured. Stored restaurant order statuses are not courier events, and the system emits no courier ETA; a delivery estimate is returned only when explicitly configured by the restaurant.
 - A final question guard blocks unresolved question-shaped text from entering add-to-cart handlers; cart-total questions use the read-only `get_cart` path.

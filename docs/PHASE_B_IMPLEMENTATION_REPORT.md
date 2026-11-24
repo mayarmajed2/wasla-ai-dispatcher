@@ -1,5 +1,7 @@
 # Wasla AI — Phase B Implementation Report
 
+> **Historical status:** The independent-benchmark metrics below used a dataset with one exact training/evaluation overlap. That row has been removed; scores in this report are invalid for the corrected dataset. See `FINAL_RELEASE_VERIFICATION.md`.
+
 **Project:** Wasla AI — Commercial Restaurant AI Dispatcher (`MOKA Restaurant & Cafe`, 145 Menu Items)  
 **Repository:** `https://github.com/mayarmajed2/wasla-ai-dispatcher`  
 **Phase Scope:** AI architecture repair, LoRA inference activation, Gemini Function Calling & fallback handling, PostgreSQL-durable state & menu sync, concurrency isolation, durable inbound debouncing, Telegram UX code changes, scientific evaluation, and regression suite hardening — **with zero model retraining**. This report does not imply live provider or end-to-end Telegram validation.
