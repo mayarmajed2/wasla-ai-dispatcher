@@ -201,6 +201,7 @@ class SessionState(BaseModel):
     zone_name: str = "default"
     cart: CartSnapshot = Field(default_factory=CartSnapshot)
     active_order_id: int | None = None
+    pending_order_status_lookup: bool = False
     needs_human_takeover: bool = False
     human_takeover_by: str | None = None
     pending_clarification: dict[str, Any] | None = None
