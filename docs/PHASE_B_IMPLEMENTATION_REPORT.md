@@ -81,5 +81,5 @@
 
 ## 5. GitHub & Deployment Readiness Status
 - **GitHub Repository:** `https://github.com/mayarmajed2/wasla-ai-dispatcher` (branch `main`)
-- **Implementation Commit SHA:** *(updated after Phase B commit)*
+- **Implementation Commit SHA:** `2e45722` (`2e457228a5ef081e90746435b4cb55fd03701497`)
 - **Live Cloud Target:** `https://mayarmajed-wasla-moka-ai.hf.space` (verified via `/api/ready` and GitHub Actions CI + Docker PostgreSQL checks).
