@@ -1852,7 +1852,7 @@ async def telegram_customer_webhook(request: Request, db: Session = Depends(get_
 
     text_body = (msg.get("text") or "").strip()
     if text_body.startswith(("/start", "/reset")):
-        ai_dispatcher.sessions.pop(phone_key, None)
+        ai_dispatcher._sessions.pop(phone_key, None)
         ai_dispatcher.set_human_takeover(phone_key, False)
         existing_sess = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_key))
         if existing_sess is not None:
