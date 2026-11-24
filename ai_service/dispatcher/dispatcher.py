@@ -29,6 +29,7 @@ from ai_service.schemas.models import (
 )
 from ai_service.security.guardrails import detect_prompt_injection, redact_pii
 from ai_service.tools.registry import ToolExecutor
+from ai_service.understanding.arabic_nlp import strip_fillers
 from ai_service.understanding.menu_index import MenuIndex, normalize_ar
 
 logger = logging.getLogger("wasla.dispatcher")
@@ -203,7 +204,7 @@ class WaslaAIDispatcher:
 
         # 6. Run NLU (Gemini if configured, else deterministic typo-tolerant OfflineEgyptianNLU)
         category_hint = (session.pending_clarification or {}).get("category_hint")
-        parsed, model_used = await self._run_nlu(clean_text, category_hint=category_hint)
+        parsed, model_used = await self._run_nlu(clean_text, category_hint=category_hint, history=session.history)
         raw_intent_str = str(parsed.get("intent", CustomerIntent.UNCLEAR_REQUEST.value)).strip().lower()
         intent_alias_map = {
             "place_order": "add_to_cart",
@@ -302,16 +303,50 @@ class WaslaAIDispatcher:
             session.pending_upsell = None
             return await self._handle_confirm_order(session, tool_calls, model_used)
 
+        nat_reply = str(parsed.get("natural_reply_ar") or "").strip()
+        last_bot_msg = next((m.content for m in reversed(session.history) if m.role == "assistant"), "")
+        safe_nat_reply = (
+            nat_reply
+            if (len(nat_reply) >= 8 and not re.search(r"\d", nat_reply) and nat_reply != last_bot_msg)
+            else ""
+        )
+
         if intent in (CustomerIntent.ADD_TO_CART, CustomerIntent.MODIFY_ORDER) and raw_items:
             return await self._handle_add_items(
-                session, intent, confidence, raw_items, tool_calls, model_used, match_meta=match_meta
+                session,
+                intent,
+                confidence,
+                raw_items,
+                tool_calls,
+                model_used,
+                match_meta=match_meta,
+                natural_reply_ar=safe_nat_reply,
             )
 
         # Fallback: if customer just provided details while awaiting confirmation
         if session.cart.items and (session.customer_name or session.delivery_address or session.backup_phone):
             return await self._handle_confirm_order(session, tool_calls, model_used, explicit_confirm=False)
 
-        reply = "ممكن توضحلي اسم الصنف اللي تحبه أكتر؟ 😊 عندنا في MOKA كريب، بيتزا، برجر، باستا، وجبات، ومشروبات وحلويات."
+        # Detect off-menu dish requests (e.g. "عايزة سوشي", "سوشي بقولك") even if LLM returned unclear_request
+        cleaned_mention = strip_fillers(clean_text)
+        if cleaned_mention and 1 <= len(cleaned_mention.split()) <= 3:
+            check_res = self.menu_index.resolve_mention_with_confidence(cleaned_mention)
+            if not check_res.candidates:
+                unknown_item = ExtractedOrderItem(product_id=None, raw_mention=cleaned_mention, quantity=1)
+                reply = safe_nat_reply or persona.render_unknown_product(cleaned_mention, turn_count=len(session.history))
+                return self._finish(
+                    session,
+                    CustomerIntent.ADD_TO_CART,
+                    confidence,
+                    [unknown_item],
+                    True,
+                    "unknown_product",
+                    tool_calls,
+                    reply,
+                    model_used,
+                )
+
+        reply = safe_nat_reply or persona.render_unclear_request(turn_count=len(session.history))
         return self._finish(
             session, CustomerIntent.UNCLEAR_REQUEST, confidence, [], True, "unclear_item", tool_calls, reply, model_used
         )
@@ -472,20 +507,38 @@ class WaslaAIDispatcher:
         session.pending_upsell = None
         return None
 
-    async def _run_nlu(self, text: str, category_hint: str | None = None) -> tuple[dict[str, Any], str]:
+    async def _run_nlu(
+        self,
+        text: str,
+        category_hint: str | None = None,
+        history: list[ConversationMessage] | None = None,
+    ) -> tuple[dict[str, Any], str]:
         if self.llm_client.is_configured:
             allowed_intents = ", ".join(i.value for i in CustomerIntent)
             system_prompt = (
-                "You are Wasla AI NLU for MOKA Egyptian restaurant. Return ONLY valid JSON with keys: "
+                "You are Wasla AI, a warm, natural Egyptian Arabic restaurant employee at MOKA. "
+                "Return ONLY valid JSON with keys: "
                 f"intent (MUST be one of: {allowed_intents}), confidence (0..1), "
                 "items (list of {product_id, raw_mention, quantity, size_code, modifier_ids, selected_options, notes}), "
-                "requires_clarification, clarification_reason. Never invent product_ids or prices.\n"
+                "requires_clarification, clarification_reason, natural_reply_ar.\n"
+                "STRICT RULES:\n"
+                "1. Never invent product_ids, menu items, prices, or discounts.\n"
+                "2. If the customer asks for ANY dish/drink NOT in MOKA's catalog below (e.g. سوشي, كشري, سمك, محشي), "
+                "set intent='add_to_cart' (or 'price_inquiry'), include {product_id: null, raw_mention: '<dish name in Arabic>', quantity: 1} in items, "
+                "set clarification_reason='unknown_product', AND write a natural, warm, polite Egyptian Arabic `natural_reply_ar` "
+                "explicitly telling them we don't have that dish at MOKA and suggesting relevant MOKA categories (بيتزا، كريب، برجر، باستا، مشروبات، حلويات) with ZERO numbers.\n"
+                "3. Never repeat a previous assistant reply verbatim; vary phrasing naturally like a real Egyptian cashier.\n"
                 + self.menu_index.build_compact_prompt_catalog()
             )
+            recent_ctx = ""
+            if history:
+                recent_lines = [f"{m.role}: {m.content}" for m in history[-4:]]
+                recent_ctx = "Recent conversation:\n" + "\n".join(recent_lines) + "\n\nCurrent customer message: "
+            user_payload = recent_ctx + text
             try:
-                data, model = await self.llm_client.generate_json(system_prompt, text, use_fallback_model=False)
+                data, model = await self.llm_client.generate_json(system_prompt, user_payload, use_fallback_model=False)
                 if float(data.get("confidence", 0)) < 0.72:
-                    data, model = await self.llm_client.generate_json(system_prompt, text, use_fallback_model=True)
+                    data, model = await self.llm_client.generate_json(system_prompt, user_payload, use_fallback_model=True)
                 return data, model
             except Exception as exc:
                 logger.warning("Live Gemini call failed (%s); falling back to OfflineEgyptianNLU.", exc)
@@ -499,6 +552,13 @@ class WaslaAIDispatcher:
         model_used: str,
     ) -> DispatcherResponse:
         if not items or not items[0].product_id:
+            if items and items[0].raw_mention:
+                res = self.menu_index.resolve_mention_with_confidence(items[0].raw_mention)
+                if not res.candidates:
+                    reply = persona.render_unknown_product(items[0].raw_mention, turn_count=len(session.history))
+                    return self._finish(
+                        session, CustomerIntent.PRICE_INQUIRY, 0.88, items, True, "unknown_product", tool_calls, reply, model_used
+                    )
             reply = "تحب تعرف سعر أنهي صنف بالظبط من منيو MOKA؟ 😊"
             return self._finish(
                 session, CustomerIntent.PRICE_INQUIRY, 0.85, items, True, "missing_product", tool_calls, reply, model_used
@@ -540,6 +600,7 @@ class WaslaAIDispatcher:
         tool_calls: list[ToolCallRecord],
         model_used: str,
         match_meta: list[dict[str, Any]] | None = None,
+        natural_reply_ar: str = "",
     ) -> DispatcherResponse:
         added_names: list[str] = []
         meta_list = match_meta or []
@@ -562,7 +623,7 @@ class WaslaAIDispatcher:
                     return self._finish(
                         session, intent, confidence, items, True, "ambiguous_product", tool_calls, reply, model_used
                     )
-                reply = persona.render_unknown_product(item.raw_mention)
+                reply = natural_reply_ar or persona.render_unknown_product(item.raw_mention, turn_count=len(session.history))
                 return self._finish(
                     session, intent, confidence, items, True, "unknown_product", tool_calls, reply, model_used
                 )

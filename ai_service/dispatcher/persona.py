@@ -91,11 +91,27 @@ def render_ambiguous_product(raw_mention: str, options: list[str], is_medium: bo
     return f"عندنا أكتر من نوع لـ '{raw_mention}': {opts} — تحب أنهي واحد فيهم؟"
 
 
-def render_unknown_product(raw_mention: str) -> str:
-    return (
-        f"للأسف '{raw_mention}' مش موجود في منيو MOKA حالياً. "
-        "تحب أرشحلك حاجة قريبة من البيتزا أو الكريب أو البرجر؟"
-    )
+_UNKNOWN_PRODUCT_VARIANTS = [
+    "للأسف '{item}' مش موجود في منيو MOKA حالياً 😊 تحب أرشحلك حاجة من البيتزا أو الكريب أو البرجر؟",
+    "معلش والله، معندناش '{item}' في MOKA ❤️ إحنا متميزين في البيتزا، الكريب، البرجر، والباستا — تحب تشوف حاجة منهم؟",
+    "'{item}' مش متوفر عندنا في المنيو 😊 ممكن نختار حاجة تانية من الكريب أو الساندوتشات أو المشروبات؟",
+]
+
+_UNCLEAR_VARIANTS = [
+    "ممكن توضحلي تحب تطلب إيه بالظبط؟ 😊 عندنا في MOKA بيتزا، كريب، برجر، باستا، وجبات، ومشروبات وحلويات.",
+    "تحت أمرك ❤️ قولي بس نفسك في إيه من المنيو (بيتزا، كريب، برجر، مشروبات أو حلو) وأنا أظبطلك أحلى طلب!",
+    "معاك يا فندم 😊 تحب أعرضلك أقسام المنيو ولا في صنف معين على بالك؟",
+]
+
+
+def render_unknown_product(raw_mention: str, turn_count: int = 0) -> str:
+    clean = (raw_mention or "").strip()
+    tpl = _UNKNOWN_PRODUCT_VARIANTS[turn_count % len(_UNKNOWN_PRODUCT_VARIANTS)]
+    return tpl.format(item=clean)
+
+
+def render_unclear_request(turn_count: int = 0) -> str:
+    return _UNCLEAR_VARIANTS[turn_count % len(_UNCLEAR_VARIANTS)]
 
 
 def render_human_handoff() -> str:
