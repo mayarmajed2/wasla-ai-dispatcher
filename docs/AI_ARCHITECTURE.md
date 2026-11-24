@@ -75,3 +75,10 @@ WaslaAIDispatcher.handle_text(phone, text, data_source, is_test)
 - Removed `seen_ids` product-dropping in `OfflineEgyptianNLU._extract_items()`, allowing identical products with distinct sizes (`وسط` + `كبير`) or distinct extras (`موتزريلا` + `هالبينو`), elliptical continuations, fragmented multi-line notes, and self-corrections (`"لأ، خليها كبيرة"`).
 - `is_gibberish_input()` redirects unmapped keysmash tokens (e.g., `"uhdd"`) to polite `unclear_request` instead of echoing them as missing dishes.
 - `InboundMessageBuffer` (`0004_phase_b_durable_ai_state`) durably commits incoming Meta WhatsApp text messages prior to awaiting `MessageDebouncer.enqueue_with_metadata()`, bypassing delay (`0ms`) for urgent CRITICAL/HIGH complaints and replaying orphaned `BUFFERED` messages via `recover_unflushed_inbound_messages()` on startup.
+
+### F. Category, availability, and order-status questions
+- Category menu questions execute `get_active_menu` with the detected category; a category absent from the current catalog is reported as absent rather than parsed as an order.
+- `availability_inquiry`, `report_unavailable`, `reject_product`, and `remove_item` remain separate intents. Availability/report paths query current backend menu or item availability, while rejecting a broad product type never removes an existing cart line.
+- `order_status` dispatches the read-only `get_customer_order_status` tool. `_DirectDBOrderBridge` constrains the lookup to the inbound customer phone and active order ID (or that phone's latest order); customer text and LLM output cannot supply a status or ETA. Only recognized stored states are rendered.
+- The generic `RealBackendAdapter` has no authenticated customer-status endpoint, so it raises a tracking-unavailable error rather than falling back to local mock orders. Live external status providers are not configured or verified by this architecture note.
+- A final question guard blocks unresolved question-shaped text from entering add-to-cart handlers; cart-total questions use the read-only `get_cart` path.

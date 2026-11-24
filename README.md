@@ -6,7 +6,7 @@
 
 ## Core Capabilities
 
-- **Production Hybrid AI Architecture (`ai_service/`):** Confidence-gated hybrid orchestration combining **CAMeLBERT-Mix PEFT LoRA v2** (`FineTunedIntentClassifier` with lazy thread-safe caching & CPU/GPU support), **Gemini Native Function Calling** (`tools` / `functionDeclarations` with automatic primary -> fallback resilience and validated single-turn `ToolExecutor` deduplication), and deterministic **Egyptian Arabic NLU + 145-Item MenuIndex** (handling multi-variant same-product lines, self-corrections, multi-product & availability-aware price queries, gibberish filtering, and rejection-aware recommendations).
+- **Hybrid AI Runtime (`ai_service/`):** Confidence-gated orchestration combines **CAMeLBERT-Mix PEFT LoRA v2**, optional Gemini Function Calling, and deterministic Egyptian Arabic NLU. Category questions use category-filtered live menu data; availability questions, product rejection, cart removal, and customer-reported stock issues have distinct intents. Order-status questions call a backend lookup bound to the customer's phone and return only a recognized stored status; no ETA is generated.
 - **Fine-Tuned Egyptian Arabic Intent Models (`training/`):** Preserves `CAMeL-Lab/bert-base-arabic-camelbert-mix` (**Apache-2.0**) PEFT LoRA v1 & v2 (`camelbert-wasla-lora-v2`: **82.08%** held-out unseen test accuracy / **60.29%** balanced 12-intent independent benchmark accuracy; Hybrid dispatcher: **83.02%** unseen accuracy and **100.00%** intent / **0.0%** nonexistent FP on the 154-case MOKA typo suite).
 - **Durable PostgreSQL State, Live Menu Sync & Inbound Debouncing (`backend/`):** 14-field PostgreSQL/SQLite `ChatSession` rehydration across restarts & workers (`SELECT ... FOR UPDATE`), `SESSION_TTL_SECONDS` cleanup, per-customer `asyncio.Lock` + immutable `TurnExecutionContext`, idempotent confirmation keys, DB-backed 3-second `InboundMessageBuffer` crash recovery (`0004_phase_b_durable_ai_state`) with 0ms urgent complaint bypass, and instant `MenuIndex` synchronization after dashboard price/availability edits.
 - **Deterministic Business Safety & Audio Pipeline:** Exact `Decimal` pricing (`backend/app/cart_calculator.py`), `confirmed_by_customer=True`, HMAC-SHA256 webhook verification, Option C Hybrid `audio/ogg` transcription (Gemini + Groq Whisper Large v3 Turbo), full order lifecycle states (`PENDING_CONFIRMATION` → `DELIVERED`), Telegram cashier group & owner urgent escalation (`@wwaslabot`), and scheduled post-delivery reviews.
@@ -25,7 +25,7 @@ wasla-ai-dispatcher/
 │   ├── models/                     # FineTunedIntentClassifier (_MODEL_CACHE) + GeminiLLMClient (Function Calling)
 │   ├── schemas/                    # Strict Pydantic v2 DTOs & SessionState / TurnExecutionContext
 │   ├── security/                   # PII log redaction, prompt-injection guardrails, audio validation
-│   ├── tools/                      # 8 Function Calling tools & deduplicated ToolExecutor
+│   ├── tools/                      # 9 Function Calling tools & deduplicated ToolExecutor
 │   └── understanding/              # Live DB-synced 145-item MenuIndex & Egyptian Arabic dialect/gibberish NLU
 ├── backend/                        # FastAPI + SQLAlchemy + Alembic (0001..0005) + WebSockets Backend
 │   ├── app/                        # main.py (/api/ready, webhook debouncer, DB bridge), models.py, cart_calculator.py
@@ -51,11 +51,11 @@ wasla-ai-dispatcher/
 pip install -r requirements.txt
 ```
 
-*(Note on Windows Smart App Control with Python 3.14: install pure-Python SQLAlchemy if Cython `.pyd` extensions are blocked: `DISABLE_SQLALCHEMY_CEXT=1 pip install --no-binary sqlalchemy "sqlalchemy>=2.0.40,<2.1"`.)*
+*(Windows Smart App Control may block native wheels even after a clean dependency install. This host blocks `pydantic_core` during clean-environment test collection and `regex._regex` during LoRA loading; use an allowed Linux runtime for those checks. A pure-Python SQLAlchemy install does not resolve these unrelated extensions.)*
 
 ### 2. Configure Environment & Run Database Migrations
 
-Copy `.env.example` to `.env` (never commit `.env`), run Alembic `0001 -> 0004`, and start Uvicorn:
+Copy `.env.example` to `.env` (never commit `.env`), apply all migrations through the current Alembic head (`0005_order_idempotency`), and start Uvicorn:
 
 ```bash
 cp .env.example .env
@@ -72,7 +72,7 @@ pytest -v wasla_phase_a_repro_tests.py tests/ backend/test_cart_calculator.py
 python training/scripts/evaluate_phase_b_scientific.py
 ```
 
-*(Measured 24 November 2026 local baseline: **59 passed / 2 failed** for the established 61-test command on this Windows host. Both failures are the real-LoRA loading checks: Windows Smart App Control blocks the `regex` native DLL import. The separate deterministic critical-surface suite adds **10 passing regressions**.)*
+The test and provider results for the current task are recorded in [the final engineering report](FINAL_ENGINEERING_REPORT.md) and [regression report](docs/REGRESSION_TEST_REPORT.md). Provider stubs and mocked HTTP tests verify fallback behavior only; they are not live Gemini, Telegram, or production integrations.
 
 ---
 

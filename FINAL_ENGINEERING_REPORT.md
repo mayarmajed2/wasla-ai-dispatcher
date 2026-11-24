@@ -1,60 +1,34 @@
 # Final Engineering Report
 
 **Repository:** `mayarmajed2/wasla-ai-dispatcher`
-**Branch:** `mayarmajed2-qa-docs-release`
-**Report Date:** 24 November 2026
+**Branch:** `mayarmajed2-remaining-fallback-fixes` (based on `main`)
+**Report date:** 24 November 2026
 
-## Delivery Summary
+## Delivered
 
-This work completes QA, documentation, and release preparation for the current Wasla AI implementation. It adds a deterministic critical-surface regression suite and aligns README/reporting with measured local results.
+- Category questions such as `عندكو عصير ايه؟` and `عندكو باستا ايه؟` are classified as menu inquiries and execute category-filtered menu lookups. Missing categories are reported as absent from the current menu rather than treated as products to order.
+- Added read-only `order_status` intent and `get_customer_order_status` backend tool. The production DB bridge selects the session's active order only when the stored customer phone matches; without an active ID, it selects that phone's latest order. No match asks for an order number; missing or unrecognized status is reported as unavailable. Responses use a fixed map of recognized DB statuses and never invent an ETA.
+- Availability inquiries, customer reports of missing stock, product rejection, and cart removal are separate paths. Availability and reports query live menu/availability data; rejecting a broad product category does not remove a cart line. Existing explicit negation for a specific item already in the cart still removes that matching line.
+- Added a cart-summary intent and a safety gate that prevents unresolved customer questions from becoming cart additions. The non-authenticated `RealBackendAdapter` has no customer-safe status endpoint and fails closed rather than returning mock order data.
+- No migration was needed: the lookup uses existing `orders.customer_phone`, `orders.status`, and `chat_sessions.active_order_id`; the current migration head remains `0005_order_idempotency`.
 
-## Implemented and Verified Locally
+## Verification
 
-- FastAPI, SQLAlchemy, and Alembic application structure
-- Hybrid LoRA/deterministic NLU/Gemini dispatcher
-- Per-phone lock and immutable turn context
-- 14+ field persisted session/cart state
-- Deterministic `Decimal` cart arithmetic
-- Explicit confirmation and order idempotency
-- Human takeover and complaint escalation
-- Meta HMAC/deduplication and debouncer behavior
-- Telegram private-chat webhook and notification behavior
-- Cashier dashboard and WebSocket integration
-- Focused critical intent, cart, session, and takeover regressions
+| Check | Result |
+|---|---|
+| Complete suite: `py -m pytest -q wasla_phase_a_repro_tests.py tests\\ backend\\test_cart_calculator.py --tb=short` | **87 passed, 2 skipped, 0 failed** in 117.02s |
+| Final targeted regression/dialogue/database selection | **28 passed** in 24.47s |
+| LoRA checkpoint/inference-focused run | **12 passed, 2 skipped**; both inference tests skipped because Windows Smart App Control blocks `regex._regex` |
+| Clean Python 3.14 venv dependency install (`pip install -r requirements.txt`) | **Succeeded** |
+| Test collection in that clean venv | **Blocked**: importing `pydantic_core._pydantic_core` fails because Windows Smart App Control blocks the native extension |
+| Linux inference runtime check | WSL is not installed; no Docker executable was available |
+| Migration verification | Existing SQLite Alembic migration-chain coverage passed in the full suite; no schema migration was added |
 
-## Measured QA
+Real LoRA inference was **not verified**. On the installed Windows Python 3.14.5 runtime, `transformers` import fails at `regex._regex` with `DLL load failed ... An Application Control policy has blocked this file`; the clean venv is similarly blocked at `pydantic_core._pydantic_core`. The two real-checkpoint tests therefore skip rather than pass. No compatible Linux runtime was available in this environment.
 
-The established repository suite was run on 24 November 2026:
+## External Integration Limits
 
-```text
-py -m pytest -q wasla_phase_a_repro_tests.py tests/ backend/test_cart_calculator.py
-59 passed, 2 failed
-```
+No live Gemini/Groq provider call, Telegram or WhatsApp end-to-end customer flow, production PostgreSQL lookup, or live delivery-provider tracking was executed. Provider-matrix coverage uses test doubles and does not constitute live integration evidence. The SQLite database-bridge regression verifies phone scoping and active-order selection only in a local test database. This report does not claim production readiness.
 
-Both failures are real-LoRA model loading tests. The host reports: `DLL load failed while importing _regex: An Application Control policy has blocked this file.` This is an environment-level Windows policy blocker, not a passing assertion and not evidence of successful live model loading on this host.
-
-The new deterministic suite was run separately:
-
-```text
-py -m pytest -q tests/regression/test_critical_dispatcher_regressions.py
-10 passed
-```
-
-The new suite covers greeting/menu/price/gibberish intents, add/remove/cancel cart lifecycle, explicit confirmation and replay, upsell accept/reject memory, complaint/human takeover, cross-customer isolation, TTL epoch reset, prompt-injection guard behavior, and cart preservation.
-
-## Not Claimed
-
-- No live Gemini or Groq provider call was executed.
-- No live Telegram, WhatsApp, Meta, PostgreSQL, or external paid service was verified.
-- No live order or live customer-message integration claim is made.
-- No production metric, latency, uptime, conversion, or revenue claim is made.
-
-## Release Readiness
-
-The implementation is suitable for local and mocked verification, with external integration credentials still required for live deployment. Production release should remain blocked until:
-
-1. the Windows Smart App Control/native dependency issue is resolved or the host is moved to an allowed environment;
-2. real LoRA loading succeeds on the target runtime;
-3. Gemini/Groq credentials and provider calls are tested;
-4. PostgreSQL migrations, backup/restore, and live webhook delivery are verified;
-5. Telegram/WhatsApp targets and secrets are configured from deployment secrets.
+**Implementation commit:** `e3e4a52dffd931ffef45633d64a731bcef53983c`
+**Push/PR:** None.

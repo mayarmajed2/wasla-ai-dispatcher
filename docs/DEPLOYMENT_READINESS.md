@@ -9,6 +9,8 @@
 
 `/api/ready` verifies live PostgreSQL/SQL connectivity (`SELECT 1`) and exposes honest, non-inflated runtime AI & provider telemetry without exposing secrets:
 
+The JSON below is an illustrative schema example, not a health snapshot from a live deployment. A provider's `configured` flag means credentials/settings are present; it does not prove that the provider is reachable or that an end-to-end customer flow has succeeded.
+
 ```json
 {
   "ready": true,
@@ -93,6 +95,7 @@ alembic -c backend/alembic.ini upgrade head
 
 ## 4. External Operational Blockers / Operational Notes
 
-1. **Meta WhatsApp Outbound Delivery (`error_code 141006`):** Inbound Meta webhooks, HMAC-SHA256 verification, and 24h window handling are live-verified. Outbound Meta Graph API delivery on WABA `1673967121056762` requires attaching an international Visa/Mastercard billing method in Meta Business Suite (Meeza cards do not satisfy Meta international payment verification). Zero-cost customer text & voice ordering remains active live via Telegram (`@wwaslabot`).
-2. **Base Model Weights on Cold Environment:** The LoRA adapter weights are bundled in Git (`training/checkpoints/`), while the base encoder (`CAMeL-Lab/bert-base-arabic-camelbert-mix`, ~436 MB) downloads lazily to `HF_HOME` on first LoRA inference when not already cached locally. If offline or HF Hub is unreachable, `FineTunedIntentClassifier` fails safely and routes to `OfflineEgyptianNLU`.
-3. **Gemini API Quotas:** Live Gemini Function Calling is active when `GEMINI_API_KEY` is configured and gracefully falls back across `ai_fallback_model` -> Local Hybrid under HTTP `429` or provider outages.
+1. **External-provider verification:** This task did not verify live Gemini, Groq, Telegram, WhatsApp/Meta, PostgreSQL, or a full production customer journey. Mock transports and configured flags are not live-integration evidence. Do not represent Telegram or WhatsApp end-to-end ordering as currently verified without a fresh live test.
+2. **Order status lookup:** The app's production `DirectDBOrderBridge` reads the active order only when its `customer_phone` matches the inbound customer's number, and otherwise checks that number's latest order. Unknown or absent status fails closed. The separate `RealBackendAdapter` has no authenticated customer-status endpoint and returns an explicit tracking-unavailable error; it never falls back to mock order records.
+3. **Base Model Weights on Cold Environment:** LoRA adapter weights are bundled in Git, while the base encoder (`CAMeL-Lab/bert-base-arabic-camelbert-mix`) may download lazily to `HF_HOME` on first inference if not cached. If offline or the model cannot load, `FineTunedIntentClassifier` fails safely and dispatches through `OfflineEgyptianNLU`.
+4. **Gemini API Quotas:** The configured primary/fallback/local degradation path is implemented and covered by tests using provider stubs; live quota handling remains unverified until tested with provider credentials.
