@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -35,6 +36,37 @@ def test_ambiguous_short_names_require_clarification():
     exact, candidates = idx.resolve_mention("نوتيلا")
     assert exact is None
     assert len(candidates) >= 4
+
+
+def test_menu_category_matching_prices_and_live_inventory_overrides():
+    idx = MenuIndex(MENU_PATH)
+    arabic_pizzas = idx.list_by_category("بيتزا")
+    english_pizzas = idx.list_by_category("pizza")
+    assert {item.product_id for item in arabic_pizzas} == {item.product_id for item in english_pizzas}
+    assert any(item.category_id == "cat_pizza_cheese" for item in arabic_pizzas)
+
+    margarita = idx.resolve_mention_with_confidence("بيتزا مارجريتا").product
+    assert margarita is not None
+    assert idx.resolve_unit_price(margarita, "M") == (Decimal("125"), None)
+
+    product = next(item for item in idx.all_products() if item.base_price is not None and not item.sizes)
+    unavailable = idx.apply_db_items(
+        [
+            SimpleNamespace(
+                id=9001,
+                name=product.name_ar,
+                base_price=Decimal("777.25"),
+                is_available=False,
+                modifiers_json={"product_id": product.product_id},
+            )
+        ]
+    )
+    updated = idx.get_product(product.product_id)
+    assert product.product_id in unavailable
+    assert updated is not None
+    assert updated.backend_item_id == 9001
+    assert updated.base_price == Decimal("777.25")
+    assert updated.is_available is False
 
 
 def test_pii_redaction_masks_egyptian_phones_and_emails():

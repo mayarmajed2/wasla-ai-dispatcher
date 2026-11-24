@@ -32,6 +32,31 @@ _CACHE_LOCK = threading.Lock()
 _MODEL_CACHE: dict[tuple[str, str, str], dict[str, Any]] = {}
 
 
+def _load_label_mapping(path: Path) -> tuple[dict[str, int], dict[int, str]]:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    label2id_raw = raw.get("label2id")
+    id2label_raw = raw.get("id2label")
+    if not isinstance(label2id_raw, dict) or not isinstance(id2label_raw, dict) or not label2id_raw:
+        raise ValueError(f"Invalid LoRA label mapping in {path}")
+
+    if any(not isinstance(label, str) or type(index) is not int for label, index in label2id_raw.items()):
+        raise ValueError(f"Invalid label2id entries in {path}")
+    try:
+        id2label = {int(index): label for index, label in id2label_raw.items()}
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Invalid id2label indices in {path}") from exc
+
+    label2id = dict(label2id_raw)
+    expected_id2label = {index: label for label, index in label2id.items()}
+    if (
+        set(label2id.values()) != set(range(len(label2id)))
+        or id2label != expected_id2label
+        or len(id2label) != len(id2label_raw)
+    ):
+        raise ValueError(f"label2id and id2label are inconsistent in {path}")
+    return label2id, id2label
+
+
 def _detect_target_device(prefer_gpu: bool = True) -> str:
     if not prefer_gpu:
         return "cpu"
@@ -146,13 +171,11 @@ class FineTunedIntentClassifier:
 
             t0 = time.perf_counter()
             try:
+                label2id, id2label = _load_label_mapping(self.checkpoint_dir / "label_map.json")
+
                 import torch
                 from peft import PeftModel
                 from transformers import AutoModelForSequenceClassification, AutoTokenizer
-
-                label_map = json.loads((self.checkpoint_dir / "label_map.json").read_text(encoding="utf-8"))
-                label2id = label_map["label2id"]
-                id2label = {int(k): v for k, v in label_map["id2label"].items()}
 
                 tokenizer = AutoTokenizer.from_pretrained(self.checkpoint_dir)
                 try:

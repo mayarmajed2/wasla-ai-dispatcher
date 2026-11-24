@@ -159,3 +159,47 @@ def test_multi_turn_nonexistent_item_rejected_without_corrupting_cart():
         assert Decimal(str(r2.cart.subtotal)) == original_subtotal
 
     asyncio.run(_run())
+
+
+def test_negated_item_removes_only_the_matching_cart_line():
+    async def _run():
+        dispatcher, _ = _make_dispatcher()
+        phone = "01099000006"
+
+        first = await dispatcher.handle_text(phone, "عايزة كريب كوردن بلو")
+        second = await dispatcher.handle_text(phone, "عايزة كريب كوردن بلو")
+        assert first.cart is not None and second.cart is not None
+        assert len(second.cart.items) == 2
+
+        removed = await dispatcher.handle_text(phone, "مش عايزة كريب كوردن بلو")
+        assert removed.intent.value == "remove_item"
+        assert removed.cart is not None and len(removed.cart.items) == 1
+        assert removed.cart.items[0].cart_item_id == first.cart.items[0].cart_item_id
+
+    asyncio.run(_run())
+
+
+def test_correction_keeps_existing_item_until_replacement_is_valid():
+    async def _run():
+        dispatcher, _ = _make_dispatcher()
+        phone = "01099000007"
+
+        original = await dispatcher.handle_text(phone, "عايزة كريب كوردن بلو")
+        assert original.cart is not None and len(original.cart.items) == 1
+        original_cart_item_id = original.cart.items[0].cart_item_id
+
+        needs_size = await dispatcher.handle_text(phone, "قصدي بيتزا مارجريتا")
+        assert needs_size.requires_clarification is True
+        assert needs_size.clarification_reason == "MISSING_OR_INVALID_SIZE"
+        assert needs_size.cart is not None and len(needs_size.cart.items) == 1
+        assert needs_size.cart.items[0].cart_item_id == original_cart_item_id
+
+        replaced = await dispatcher.handle_text(phone, "وسط")
+        assert replaced.requires_clarification is False
+        assert replaced.cart is not None and len(replaced.cart.items) == 1
+        assert replaced.cart.items[0].product_id == dispatcher.menu_index.resolve_mention_with_confidence(
+            "بيتزا مارجريتا"
+        ).product.product_id
+        assert replaced.cart.subtotal == Decimal("125.00")
+
+    asyncio.run(_run())

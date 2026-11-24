@@ -32,8 +32,8 @@ ARABIC_NUMBERS = {
     "سته": 6, "ستة": 6,
 }
 
-# Prefixes indicating a customer self-correction (e.g., "لأ اقصد مارجريتا", "لأ، خليها كبيرة")
-CORRECTION_PREFIXES = ("لا ", "لأ ", "لا،", "لأ،", "اقصد", "قصدي", "خليها", "خليه", "خليهم", "بدلها", "بدله", "غيرها")
+# Explicit correction cues; a plain "لا" is not enough to replace an existing cart item.
+CORRECTION_PREFIXES = ("اقصد", "قصدي", "خليها", "خليه", "خليهم", "بدلها", "بدله", "غيرها")
 
 
 def _strip_unsupported_schema_fields(node: Any) -> Any:
@@ -271,7 +271,22 @@ class OfflineEgyptianNLU:
             return {"intent": intent.value, "confidence": 0.92, "items": [], "requires_clarification": False}
 
         # 2. Cancel order
-        if any(k in norm for k in ["الغي الطلب", "الغي الاوردر", "الغاء الطلب", "كنسل", "الغي كل", "مش عايز حاجه"]):
+        if any(
+            k in norm
+            for k in [
+                "الغي الطلب",
+                "الغي الاوردر",
+                "الغاء الطلب",
+                "كنسل",
+                "الغي كل",
+                "مش عايز حاجه",
+                "مش عايز اطلب",
+                "مش هطلب",
+                "بلاش الاوردر",
+                "بلاش الطلب",
+                "امسح كل حاجه",
+            ]
+        ):
             return {"intent": CustomerIntent.CANCEL_ORDER.value, "confidence": 0.93, "items": [], "requires_clarification": False}
 
         # 3. Confirm order (also preserve any items mentioned in the same burst before confirming)
@@ -300,8 +315,34 @@ class OfflineEgyptianNLU:
                 "match_meta": meta,
             }
 
-        # 6. Remove item
-        if any(k in norm for k in ["شيل", "احذف", "امسح"]):
+        # 6. Explicitly negated item mentions must never be treated as new additions.
+        refusal = re.match(
+            r"^(?:لا[،, ]+)?(?:مش(?:\s+(?:عايزه?|محتاجه?))?|بلاش|ما\s+تحطش|ماتحطش|متضيفش|ما\s+تضيفش|ما\s+تطلبش)\s+(.+)$",
+            norm,
+        )
+        if refusal:
+            item_text = re.split(
+                r"\s+(?:خلاص|شيله|شيلها|شيلهم|طلعه|طلعيه|امسحه|احذفه|من\s+الطلب|من\s+السله|اللي\s+ضفته).*$",
+                refusal.group(1),
+                maxsplit=1,
+            )[0].strip()
+            items, meta = self._extract_items(item_text or refusal.group(1), category_hint=category_hint)
+            if not items and item_text:
+                items = [
+                    ExtractedOrderItem(product_id=None, raw_mention=item_text, quantity=1).model_dump()
+                ]
+                meta = [{"tier": "low", "confidence": 0.0, "candidates": []}]
+            if items:
+                return {
+                    "intent": CustomerIntent.REMOVE_ITEM.value,
+                    "confidence": 0.90,
+                    "items": items,
+                    "requires_clarification": False,
+                    "match_meta": meta,
+                }
+
+        # 7. Remove item
+        if any(k in norm for k in ["شيل", "احذف", "امسح", "طلعه", "طلعيه", "بلاش"]):
             items, meta = self._extract_items(text, category_hint=category_hint)
             return {
                 "intent": CustomerIntent.REMOVE_ITEM.value,
@@ -311,19 +352,19 @@ class OfflineEgyptianNLU:
                 "match_meta": meta,
             }
 
-        # 7. Greeting only
+        # 8. Greeting only
         if norm in {"السلام عليكم", "مساء الخير", "صباح الخير", "اهلا", "ازيك", "الو", "هاي", "hello", "hi"}:
             return {"intent": CustomerIntent.GREETING.value, "confidence": 0.96, "items": [], "requires_clarification": False}
 
-        # 8. Menu inquiry
+        # 9. Menu inquiry
         if any(k in norm for k in ["المنيو", "عندكم ايه", "ابعت المنيو", "القائمه"]):
             return {"intent": CustomerIntent.MENU_INQUIRY.value, "confidence": 0.92, "items": [], "requires_clarification": False}
 
-        # 9. Customer self-correction or Order extraction
+        # 10. Customer self-correction or Order extraction
         raw_trimmed = (text or "").strip().lower()
         is_correction = any(norm.startswith(p.strip()) for p in CORRECTION_PREFIXES) or any(
             raw_trimmed.startswith(p) for p in CORRECTION_PREFIXES
-        )
+        ) or bool(re.match(r"^لا[،, ]+(?:اقصد|قصدي|خلي|بدل|غير)", norm))
         items, meta = self._extract_items(text, category_hint=category_hint)
         if items:
             best_conf = max((m.get("confidence", 0.8) for m in meta), default=0.85)
@@ -392,7 +433,7 @@ class OfflineEgyptianNLU:
         raw_lines = [ln.strip() for ln in re.split(r"[\r\n]+", text or "") if ln.strip()]
         final_parts: list[str] = []
         attach_re = re.compile(
-            r"\s+و(?=(?:واحد|واحده|اتنين|اثنين|تلاته|اربعه|بيتزا|كريب|برجر|باستا|وجبه|بطاطس|وافل|بان|قشطوطه|طاجن|ميلك|ايس|هوت|قهوه|سندوتش|\d+))"
+            r"\s+و(?=(?:واحد|واحده|اتنين|اثنين|تلاته|اربعه|بيتزا|كريب|برجر|باستا|وجبه|بطاطس|وافل|بان|قشطوطه|طاجن|ميلك|ايس|هوت|قهوه|سندوتش|طبق|\d+))"
         )
         for line in raw_lines:
             norm = normalize_arabic(line)
