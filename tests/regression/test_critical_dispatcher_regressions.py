@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import json
 from pathlib import Path
 import os
 import sys
@@ -54,6 +55,74 @@ def test_critical_intent_classification_regression(message, expected_intent):
         assert response.requires_clarification is True
     else:
         assert response.intent == expected_intent
+
+
+def test_incompatible_lora_cannot_override_deterministic_order_actions():
+    async def run():
+        menu = MenuIndex(MENU_PATH)
+        backend = MockBackendAdapter(menu)
+        classifier = FineTunedIntentClassifier(enabled=True)
+        called = False
+
+        def incorrect_prediction(_text):
+            nonlocal called
+            called = True
+            return "confirm_order", 0.99, 1.0
+
+        classifier.predict = incorrect_prediction
+        dispatcher = WaslaAIDispatcher(
+            WaslaConfig(gemini_api_key="", lora_enabled=True),
+            menu,
+            backend,
+            finetuned_intent=classifier,
+        )
+
+        response = await dispatcher.handle_text("01070000018", "الغى الطلب")
+
+        assert response.intent == CustomerIntent.CANCEL_ORDER
+        assert called is False
+        assert backend._orders == {}
+
+    asyncio.run(run())
+
+
+def test_compatible_lora_checkpoint_remains_eligible_for_lazy_loading(tmp_path):
+    async def run():
+        checkpoint = tmp_path / "compatible"
+        checkpoint.mkdir()
+        label2id = {intent.value: index for index, intent in enumerate(CustomerIntent)}
+        id2label = {str(index): label for label, index in label2id.items()}
+        (checkpoint / "label_map.json").write_text(
+            json.dumps({"label2id": label2id, "id2label": id2label}),
+            encoding="utf-8",
+        )
+        (checkpoint / "adapter_config.json").write_text("{}", encoding="utf-8")
+        (checkpoint / "adapter_model.safetensors").write_bytes(b"test")
+
+        menu = MenuIndex(MENU_PATH)
+        classifier = FineTunedIntentClassifier(checkpoint_dir=checkpoint)
+        called = False
+
+        def fake_predict(_text):
+            nonlocal called
+            called = True
+            return "greeting", 0.9, 1.0
+
+        classifier.predict = fake_predict
+        dispatcher = WaslaAIDispatcher(
+            WaslaConfig(gemini_api_key="", lora_enabled=True),
+            menu,
+            MockBackendAdapter(menu),
+            finetuned_intent=classifier,
+        )
+
+        await dispatcher._run_nlu("السلام عليكم")
+
+        assert called is True
+        assert classifier.taxonomy_compatible is True
+        assert classifier.routing_available is False
+
+    asyncio.run(run())
 
 
 def test_add_remove_cancel_cart_lifecycle_is_deterministic():
@@ -281,6 +350,51 @@ def test_order_tracking_uses_only_the_customers_recorded_status_and_fails_closed
         assert "مش متاحة" in unavailable.reply_ar
         assert "OUT_FOR_DELIVERY" not in unavailable.reply_ar
         assert "دقيقة" not in unavailable.reply_ar
+
+    asyncio.run(run())
+
+
+def test_order_id_followup_survives_session_reload_and_explicit_id_is_owner_scoped():
+    async def run():
+        dispatcher, backend = _dispatcher()
+        phone = "01070000015"
+
+        await dispatcher.handle_text(phone, "عايز بيتزا مارجريتا وسط")
+        await dispatcher.handle_text(
+            phone,
+            "اسمي محمد وعنواني المعادي ورقم بديل 01012345678",
+        )
+        confirmed = await dispatcher.handle_text(phone, "اكد الطلب")
+        assert confirmed.order_id is not None
+
+        restarted = WaslaAIDispatcher(
+            WaslaConfig(gemini_api_key="", lora_enabled=False),
+            dispatcher.menu_index,
+            backend,
+        )
+        followup = await restarted.handle_text(phone, "رقم الأوردر كام؟")
+        assert followup.intent == CustomerIntent.ORDER_STATUS
+        assert followup.order_id == confirmed.order_id
+        assert f"#{confirmed.order_id}" in followup.reply_ar
+
+        other = await backend.confirm_and_lock_order(
+            BackendConfirmOrderPayload(
+                customer_name="عميل آخر",
+                customer_phone="01070000016",
+                backup_phone="01170000016",
+                delivery_address="الدقي شارع التحرير",
+                items=[BackendCartItemPayload(item_id=1, quantity=1)],
+                idempotency_key="foreign-order-id",
+                confirmed_by_customer=True,
+            )
+        )
+        denied = await restarted.handle_text(
+            phone,
+            f"الأوردر رقم {other['id']} وصل لفين؟",
+        )
+        assert denied.intent == CustomerIntent.ORDER_STATUS
+        assert denied.order_id is None
+        assert denied.clarification_reason == "order_not_found"
 
     asyncio.run(run())
 

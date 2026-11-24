@@ -1,6 +1,6 @@
 # Wasla AI — Independent Model Evaluation & Audio Benchmark Report
 
-> **Strict Scientific Integrity:** Every metric below was produced by actual local execution or live API inference on this machine. No values are projected, estimated, or fabricated.
+> **Validity notice (2026-11-25):** The recorded benchmark included one exact overlap between training data and the independent challenge set. That row has been removed; all scores below describe the prior 204-row dataset and are invalid for the corrected 203-row dataset. Rerun `training/scripts/evaluate_5way.py` and the leakage audit before citing any score.
 
 ---
 

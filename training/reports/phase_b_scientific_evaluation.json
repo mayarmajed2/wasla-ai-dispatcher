@@ -1,5 +1,8 @@
 {
   "generated_at": "2026-11-24T19:21:18Z",
+  "evaluation_status": "INVALIDATED",
+  "invalid_reason": "The original independent challenge benchmark included one exact overlap with training data. That row was removed; rerun this evaluation on the corrected dataset before using any performance values.",
+  "corrected_independent_challenge_count": 203,
   "dataset_hygiene": {
     "train_count": 520,
     "val_count": 106,

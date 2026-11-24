@@ -12,12 +12,12 @@
     },
     {
       "pair": "train_v1 vs independent_challenge_200 (separate author)",
-      "eval_size": 204,
-      "exact_overlap": 1,
-      "near_duplicate_ge_0_85": 3,
-      "high_template_sim_ge_0_70": 11,
-      "mean_max_cosine_sim": 0.4183,
-      "p95_max_cosine_sim": 0.7032
+      "eval_size": 203,
+      "exact_overlap": 0,
+      "near_duplicate_ge_0_85": 2,
+      "high_template_sim_ge_0_70": 10,
+      "mean_max_cosine_sim": 0.4154,
+      "p95_max_cosine_sim": 0.6966
     },
     {
       "pair": "train_v1 vs moka_typo_eval_150 (separate typo suite)",

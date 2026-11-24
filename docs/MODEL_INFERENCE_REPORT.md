@@ -2,7 +2,9 @@
 
 **Report Timestamp:** `2026-11-24T19:21:18Z` (`training/reports/phase_b_scientific_evaluation.json`)  
 **Evaluation Script:** `training/scripts/evaluate_phase_b_scientific.py`  
-**No Retraining Performed:** Both preserved PEFT LoRA checkpoints (`v1` and `v2`) were evaluated as-shipped after integrating live `FineTunedIntentClassifier.predict()` into `WaslaAIDispatcher`.
+**Historical evaluation:** Both preserved PEFT LoRA checkpoints (`v1` and `v2`) were evaluated as-shipped. The current dispatcher excludes these checkpoints from routing because their 12-label taxonomy is incompatible with the application intent schema.
+
+> **Validity notice (2026-11-25):** The historical independent challenge set contained one exact training-text overlap. That row has since been removed. Scores in this historical report were measured on the prior dataset and are not valid for the corrected 203-row benchmark; a fresh evaluation is required. The current 12-label checkpoints also do not match the application taxonomy and are excluded from production routing.
 
 ---
 

@@ -342,14 +342,20 @@ def main() -> dict[str, Any]:
     ind_200 = _load_jsonl(IND_200_PATH)
     labels = sorted({r["intent"] for r in ind_200})
 
-    train_texts = {r["text"] for r in _load_jsonl(ROOT / "training" / "data" / "train.jsonl")}
-    val_texts = {r["text"] for r in _load_jsonl(ROOT / "training" / "data" / "val.jsonl")}
-    test_texts = {r["text"] for r in test_unseen}
-    ind_texts = {r["text"] for r in ind_200}
+    def normalize(text: str) -> str:
+        return " ".join(text.lower().split())
 
+    train_texts = {normalize(r["text"]) for r in _load_jsonl(ROOT / "training" / "data" / "train.jsonl")}
+    val_texts = {normalize(r["text"]) for r in _load_jsonl(ROOT / "training" / "data" / "val.jsonl")}
+    test_texts = {normalize(r["text"]) for r in test_unseen}
+    ind_texts = {normalize(r["text"]) for r in ind_200}
+    if train_texts & ind_texts or val_texts & ind_texts or test_texts & ind_texts:
+        raise ValueError("Independent challenge set overlaps train, validation, or test data.")
+
+    independent_key = f"independent_challenge_{len(ind_200)}"
     datasets = {
         "test_unseen_106": test_unseen,
-        "independent_challenge_204": ind_200,
+        independent_key: ind_200,
     }
 
     report: dict[str, Any] = {
@@ -381,12 +387,16 @@ def main() -> dict[str, Any]:
 if __name__ == "__main__":
     rep = main()
     for name, block in rep["models"].items():
-        if "independent_challenge_204" in block:
-            m = block["independent_challenge_204"]
+        independent_key = next(
+            (key for key in block if key.startswith("independent_challenge_")),
+            None,
+        )
+        if independent_key is not None:
+            m = block[independent_key]
             t = block.get("test_unseen_106", {})
             print(
                 f"{name:26s} | Unseen106 Acc={t.get('intent_accuracy', 0):.2%} F1={t.get('macro_f1', 0):.4f} "
-                f"| Ind204 Acc={m['intent_accuracy']:.2%} Macro-P={m['macro_precision']:.4f} Macro-R={m['macro_recall']:.4f} "
+                f"| Ind{m['samples']} Acc={m['intent_accuracy']:.2%} Macro-P={m['macro_precision']:.4f} Macro-R={m['macro_recall']:.4f} "
                 f"Macro-F1={m['macro_f1']:.4f} Weighted-F1={m['weighted_f1']:.4f} P50={m['latency_p50_ms']}ms P95={m['latency_p95_ms']}ms "
                 f"| RSS+={m['memory_delta_mb']}MB"
             )

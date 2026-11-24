@@ -4,7 +4,7 @@ Supports:
 - Mode 'direct' (Option A): Sends validated WhatsApp audio/ogg directly to Gemini 3.5/3.8 Flash.
 - Mode 'stt'    (Option B): Transcribes audio via Groq Whisper Large v3 Turbo (or OpenAI gpt-transcribe).
 - Mode 'hybrid' (Option C - Recommended): Direct Gemini Audio primary with automatic Whisper fallback
-  when confidence < threshold or when direct multimodal processing fails.
+  when the primary result is empty, has a provider-supplied low confidence, or processing fails.
 """
 
 from __future__ import annotations
@@ -41,11 +41,15 @@ class HybridAudioPipeline:
             return await self._transcribe_gemini_direct(audio)
 
         # Default: Option C (Hybrid)
+        primary_error: Exception | None = None
         try:
             primary = await self._transcribe_gemini_direct(audio)
-            if primary.confidence >= self.confidence_threshold and primary.transcript.strip():
+            if primary.transcript.strip() and (
+                primary.confidence is None or primary.confidence >= self.confidence_threshold
+            ):
                 return primary
-        except Exception:
+        except Exception as exc:
+            primary_error = exc
             primary = None
 
         if self.config.groq_api_key or self.config.openai_api_key:
@@ -54,6 +58,8 @@ class HybridAudioPipeline:
 
         if primary is not None:
             return primary
+        if primary_error is not None:
+            raise RuntimeError("Gemini audio processing failed and no STT fallback provider is configured.") from primary_error
         raise RuntimeError("No active audio provider configured. Set GEMINI_API_KEY or GROQ_API_KEY in .env.")
 
     async def _transcribe_gemini_direct(self, audio: AudioInput) -> AudioTranscriptionResult:
@@ -93,10 +99,8 @@ class HybridAudioPipeline:
             .strip()
         )
         latency_ms = (time.perf_counter() - started) * 1000.0
-        confidence = 0.90 if len(transcript) >= 3 else 0.40
         return AudioTranscriptionResult(
             transcript=transcript,
-            confidence=confidence,
             provider=f"gemini:{self.config.ai_primary_model}",
             latency_ms=round(latency_ms, 2),
             used_fallback=False,
@@ -132,7 +136,6 @@ class HybridAudioPipeline:
         latency_ms = (time.perf_counter() - started) * 1000.0
         return AudioTranscriptionResult(
             transcript=transcript,
-            confidence=0.88 if transcript else 0.30,
             provider=provider,
             latency_ms=round(latency_ms, 2),
             used_fallback=False,

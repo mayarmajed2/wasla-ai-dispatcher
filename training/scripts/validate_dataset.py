@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = ROOT / "training" / "data"
 MENU_PATH = ROOT / "menu" / "menu.json"
 EVAL_150_PATH = ROOT / "datasets" / "evaluation" / "moka_typo_eval_150.json"
+INDEPENDENT_EVAL_PATH = ROOT / "datasets" / "evaluation" / "independent_challenge_200.jsonl"
 
 PHONE_RE = re.compile(r"\b01[0125]\d{8}\b")
 
@@ -25,22 +26,28 @@ def validate() -> dict:
     train = _load_jsonl(DATA_DIR / "train.jsonl")
     val = _load_jsonl(DATA_DIR / "val.jsonl")
     test = _load_jsonl(DATA_DIR / "test_unseen.jsonl")
+    independent_eval = _load_jsonl(INDEPENDENT_EVAL_PATH)
     eval_150 = json.loads(EVAL_150_PATH.read_text(encoding="utf-8"))
 
     train_texts = {" ".join(r["text"].lower().split()) for r in train}
     val_texts = {" ".join(r["text"].lower().split()) for r in val}
     test_texts = {" ".join(r["text"].lower().split()) for r in test}
+    independent_eval_texts = {" ".join(r["text"].lower().split()) for r in independent_eval}
     eval_150_texts = {" ".join(r["utterance"].lower().split()) for r in eval_150}
 
     assert len(train_texts) == len(train), "Duplicate rows found in train.jsonl"
     assert len(val_texts) == len(val), "Duplicate rows found in val.jsonl"
     assert len(test_texts) == len(test), "Duplicate rows found in test_unseen.jsonl"
+    assert len(independent_eval_texts) == len(independent_eval), "Duplicate rows found in independent challenge set"
 
     # Zero leakage assertions
     assert not (train_texts & val_texts), "Data leakage between train and val!"
     assert not (train_texts & test_texts), "Data leakage between train and test_unseen!"
     assert not (val_texts & test_texts), "Data leakage between val and test_unseen!"
     assert not (train_texts & eval_150_texts), "Data leakage between train and moka_typo_eval_150!"
+    assert not (train_texts & independent_eval_texts), "Data leakage between train and independent challenge set!"
+    assert not (val_texts & independent_eval_texts), "Data leakage between validation and independent challenge set!"
+    assert not (test_texts & independent_eval_texts), "Data leakage between test and independent challenge set!"
 
     # Validate menu IDs & zero PII
     for split_name, rows in [("train", train), ("val", val), ("test_unseen", test)]:
@@ -58,6 +65,10 @@ def validate() -> dict:
         "leakage_train_val": 0,
         "leakage_train_test": 0,
         "leakage_train_eval150": 0,
+        "independent_challenge_samples": len(independent_eval),
+        "leakage_train_independent_challenge": 0,
+        "leakage_val_independent_challenge": 0,
+        "leakage_test_independent_challenge": 0,
         "invalid_product_ids": 0,
         "pii_leaks": 0,
     }

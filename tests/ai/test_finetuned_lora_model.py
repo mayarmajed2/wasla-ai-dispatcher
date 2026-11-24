@@ -29,6 +29,18 @@ def test_real_checkpoint_label_maps_are_bijective_and_match_adapter_class_count(
         assert (checkpoint_dir / "adapter_config.json").is_file()
 
 
+def test_readiness_does_not_claim_unloaded_or_taxonomy_incompatible_lora_is_routable():
+    clf = FineTunedIntentClassifier()
+
+    status = clf.get_status()
+
+    assert status["checkpoint_exists"] is True
+    assert status["model_loaded"] is False
+    assert status["inference_available"] is False
+    assert status["taxonomy_compatible"] is False
+    assert status["routing_available"] is False
+
+
 def test_real_finetuned_lora_checkpoint_loads_and_predicts():
     clf = FineTunedIntentClassifier()
     assert clf.checkpoint_exists is True, "Real trained LoRA checkpoint must exist at training/checkpoints/camelbert-wasla-lora"

@@ -45,6 +45,10 @@ def _load_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
 
 
+def _norm_text(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
 def _metrics_block(y_true: list[str], y_pred: list[str], labels: list[str], latencies: list[float]) -> dict:
     rep = classification_report(y_true, y_pred, labels=labels, output_dict=True, zero_division=0)
     per_class = {
@@ -123,6 +127,21 @@ async def _eval_wasla_rule_nlu(rows: list[dict], labels: list[str]) -> tuple[dic
 def main() -> dict:
     train_rows = _load_jsonl(TRAIN_PATH)
     ind_rows = _load_jsonl(IND_200_PATH)
+    independent_texts = {_norm_text(row["text"]) for row in ind_rows}
+    split_paths = {
+        "train": TRAIN_PATH,
+        "validation": ROOT / "training" / "data" / "val.jsonl",
+        "test": ROOT / "training" / "data" / "test_unseen.jsonl",
+    }
+    overlaps = {
+        name: independent_texts & {_norm_text(row["text"]) for row in _load_jsonl(path)}
+        for name, path in split_paths.items()
+    }
+    if any(overlaps.values()):
+        raise ValueError(
+            "Independent evaluation overlaps existing dataset split(s): "
+            + ", ".join(f"{name}={len(rows)}" for name, rows in overlaps.items() if rows)
+        )
     labels = sorted({r["intent"] for r in ind_rows})
     y_true = [r["intent"] for r in ind_rows]
 
@@ -166,6 +185,11 @@ def main() -> dict:
     report = {
         "benchmark": "datasets/evaluation/independent_challenge_200.jsonl",
         "samples": len(ind_rows),
+        "dataset_independence": {
+            "exact_train_eval_overlap": 0,
+            "exact_validation_eval_overlap": 0,
+            "exact_test_eval_overlap": 0,
+        },
         "model_a_tfidf_logreg_baseline": res_a,
         "model_b_camelbert_lora_v1": res_b,
         "model_c_camelbert_lora_v2": res_c,

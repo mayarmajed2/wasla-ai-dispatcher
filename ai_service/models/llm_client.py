@@ -291,10 +291,24 @@ class OfflineEgyptianNLU:
 
         # 2b. Tracking is a read-only order lookup, never a delivery-fee question.
         has_order_subject = any(term in norm for term in ("الاوردر", "اوردر", "الطلب", "طلب"))
-        if has_order_subject and any(
-            term in norm for term in ("اتحرك", "طلع", "وصل", "لفين", "فين", "حالته", "تتبع")
+        asks_order_number = any(
+            phrase in norm
+            for phrase in ("رقم الاوردر", "رقم اوردر", "رقم الطلب", "رقم طلب", "نمره الاوردر", "نمره الطلب")
+        )
+        order_id_match = re.search(r"(?:الاوردر|اوردر|الطلب|طلب)\s*(?:رقم\s*)?#?\s*(\d+)", norm)
+        if has_order_subject and (
+            asks_order_number
+            or any(term in norm for term in ("اتحرك", "طلع", "وصل", "لفين", "فين", "حالته", "تتبع"))
         ):
-            return {"intent": CustomerIntent.ORDER_STATUS.value, "confidence": 0.98, "items": [], "requires_clarification": False}
+            result = {
+                "intent": CustomerIntent.ORDER_STATUS.value,
+                "confidence": 0.98,
+                "items": [],
+                "requires_clarification": False,
+            }
+            if order_id_match:
+                result["order_id"] = int(order_id_match.group(1))
+            return result
 
         if any(term in norm for term in ("المجموع كام", "الاجمالي كام", "اجمالي الطلب كام", "حسابي كام")):
             return {"intent": CustomerIntent.GET_CART.value, "confidence": 0.95, "items": [], "requires_clarification": False}

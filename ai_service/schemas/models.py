@@ -179,7 +179,7 @@ class AudioInput(BaseModel):
 
 class AudioTranscriptionResult(BaseModel):
     transcript: str
-    confidence: float = Field(ge=0.0, le=1.0)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
     provider: str
     latency_ms: float = Field(ge=0.0)
     used_fallback: bool = False

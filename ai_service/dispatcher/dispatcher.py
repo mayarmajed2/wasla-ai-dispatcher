@@ -155,7 +155,9 @@ class WaslaAIDispatcher:
         self.directive_interpreter = CashierDirectiveInterpreter(menu_index)
         self._sessions: dict[str, SessionState] = {}
         self._session_locks: dict[str, asyncio.Lock] = {}
-        self._last_active_route: str = "gemini+lora+menu_index" if self.llm_client.is_configured else "lora+egyptian_nlu"
+        self._last_active_route: str = (
+            "gemini+menu_index" if self.llm_client.is_configured else "offline_egyptian_nlu"
+        )
         self._telemetry: dict[str, int] = {
             "turns_total": 0,
             "lora_calls": 0,
@@ -506,7 +508,11 @@ class WaslaAIDispatcher:
 
         if intent == CustomerIntent.ORDER_STATUS:
             return await self._handle_order_status(
-                session, tool_calls, model_used, executed_signatures=executed_signatures
+                session,
+                tool_calls,
+                model_used,
+                order_id=parsed.get("order_id"),
+                executed_signatures=executed_signatures,
             )
 
         if intent == CustomerIntent.GET_CART:
@@ -969,14 +975,15 @@ class WaslaAIDispatcher:
         category_hint: str | None = None,
         history: list[ConversationMessage] | None = None,
     ) -> tuple[dict[str, Any], str]:
-        # 1. Invoke FineTunedIntentClassifier (CAMeLBERT PEFT LoRA) cleanly in every live turn
+        # 1. Attempt lazy LoRA inference only if its labels match the application intent taxonomy.
         lora_pred: tuple[str, float, float] | None = None
-        try:
-            self._telemetry["lora_calls"] += 1
-            lora_pred = self.finetuned_intent.predict(text)
-        except Exception as exc:
-            logger.warning("FineTunedIntentClassifier inference failed safely (%s); continuing.", exc)
-            lora_pred = None
+        if self.finetuned_intent.enabled and self.finetuned_intent.taxonomy_compatible:
+            try:
+                self._telemetry["lora_calls"] += 1
+                lora_pred = self.finetuned_intent.predict(text)
+            except Exception as exc:
+                logger.warning("FineTunedIntentClassifier inference failed safely (%s); continuing.", exc)
+                lora_pred = None
 
         # 2. Deterministic Egyptian NLU & MenuIndex extraction (source of truth for items/variants/ambiguity)
         det_parsed = self.offline_nlu.parse(text, category_hint=category_hint)
@@ -1794,9 +1801,11 @@ class WaslaAIDispatcher:
         tool_calls: list[ToolCallRecord],
         model_used: str,
         *,
+        order_id: int | None = None,
         executed_signatures: set[str] | None = None,
     ) -> DispatcherResponse:
-        args = {"order_id": session.active_order_id} if session.active_order_id is not None else {}
+        requested_order_id = order_id if order_id is not None else session.active_order_id
+        args = {"order_id": requested_order_id} if requested_order_id is not None else {}
         rec, result = await self.tools.execute(
             session,
             "get_customer_order_status",
@@ -1829,6 +1838,7 @@ class WaslaAIDispatcher:
                 tool_calls,
                 reply,
                 model_used,
+                inherit_active_order_id=False,
             )
 
         order_id = result.get("id")
@@ -1930,6 +1940,7 @@ class WaslaAIDispatcher:
         reply: str,
         model_used: str,
         order_id: int | None = None,
+        inherit_active_order_id: bool = True,
         upsell_offer: dict[str, Any] | None = None,
         upsell_event: dict[str, Any] | None = None,
         complaint_assessment: dict[str, Any] | None = None,
@@ -1945,7 +1956,11 @@ class WaslaAIDispatcher:
             clarification_reason=clarification_reason,
             tool_calls=tool_calls,
             cart=session.cart,
-            order_id=order_id or session.active_order_id,
+            order_id=(
+                order_id
+                if order_id is not None
+                else (session.active_order_id if inherit_active_order_id else None)
+            ),
             needs_human_takeover=session.needs_human_takeover,
             upsell_offer=upsell_offer,
             upsell_event=upsell_event,

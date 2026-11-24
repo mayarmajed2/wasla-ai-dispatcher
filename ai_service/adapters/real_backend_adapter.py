@@ -1,8 +1,10 @@
-"""Real HTTP Adapter for the Existing FastAPI Restaurant Backend.
+"""Real HTTP Adapter for the FastAPI Restaurant Backend.
 
-Directly integrates with `existing_system/RESTURANT AI/app/main.py` endpoints:
+Uses these backend endpoints:
 - GET  /api/menu
+- GET  /api/delivery/quote
 - POST /api/orders
+- POST /api/customer/order-status (service-key authenticated and phone scoped)
 - POST /api/orders/{order_id}/modification
 - POST /api/orders/{order_id}/instruct
 """
@@ -10,7 +12,9 @@ Directly integrates with `existing_system/RESTURANT AI/app/main.py` endpoints:
 from __future__ import annotations
 
 from decimal import Decimal
+import os
 from typing import Any
+from urllib.parse import urlencode
 
 import httpx
 
@@ -36,18 +40,30 @@ class RealBackendAdapter(MockBackendAdapter):
         base_url: str = "http://localhost:8000",
         timeout: float = 10.0,
         client: httpx.AsyncClient | None = None,
+        service_api_key: str | None = None,
     ):
         super().__init__(menu_index)
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self._external_client = client
+        self.service_api_key = (
+            service_api_key if service_api_key is not None else os.getenv("BACKEND_SERVICE_API_KEY", "")
+        )
 
-    async def _request(self, method: str, path: str, json_body: dict[str, Any] | None = None) -> Any:
+    async def _request(
+        self,
+        method: str,
+        path: str,
+        json_body: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> Any:
         if self._external_client is not None:
-            resp = await self._external_client.request(method, f"{self.base_url}{path}", json=json_body)
+            resp = await self._external_client.request(
+                method, f"{self.base_url}{path}", json=json_body, headers=headers
+            )
         else:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.request(method, f"{self.base_url}{path}", json=json_body)
+                resp = await client.request(method, f"{self.base_url}{path}", json=json_body, headers=headers)
 
         if resp.status_code >= 400:
             detail = resp.text
@@ -84,19 +100,33 @@ class RealBackendAdapter(MockBackendAdapter):
         zone_name: str,
         coordinates: dict[str, float] | None = None,
     ) -> DeliveryResolution:
-        # Matches real Backend rule in app/main.py line 227:
-        # delivery_fee = "20.00" if payload.zone_name != "free_zone" else "0.00"
         zone_key = zone_name.strip() or "default"
-        fee = Decimal("0.00") if zone_key == "free_zone" else Decimal("20.00")
+        quote = await self._request("GET", f"/api/delivery/quote?{urlencode({'zone_name': zone_key})}")
+        if (
+            not isinstance(quote, dict)
+            or type(quote.get("deliverable")) is not bool
+            or not isinstance(quote.get("zone_name"), str)
+        ):
+            raise BackendIntegrationError("INVALID_BACKEND_RESPONSE", "Delivery quote response is invalid.", 502)
+        try:
+            fee = Decimal(str(quote["delivery_fee"]))
+        except (KeyError, ArithmeticError, ValueError) as exc:
+            raise BackendIntegrationError("INVALID_BACKEND_RESPONSE", "Delivery fee response is invalid.", 502) from exc
+        if not fee.is_finite() or fee < 0:
+            raise BackendIntegrationError("INVALID_BACKEND_RESPONSE", "Delivery fee response is invalid.", 502)
+        estimated_minutes = quote.get("estimated_minutes")
+        if estimated_minutes is not None and (type(estimated_minutes) is not int or estimated_minutes < 1):
+            raise BackendIntegrationError("INVALID_BACKEND_RESPONSE", "Delivery estimate response is invalid.", 502)
         cart = self._carts.get(phone_number, CartSnapshot())
-        updated = self._recalculate(cart.model_copy(update={"delivery_fee": fee, "zone_name": zone_key}))
+        quoted_zone = quote["zone_name"]
+        updated = self._recalculate(cart.model_copy(update={"delivery_fee": fee, "zone_name": quoted_zone}))
         self._carts[phone_number] = updated
         return DeliveryResolution(
-            deliverable=True,
-            zone_name=zone_key,
+            deliverable=bool(quote["deliverable"]),
+            zone_name=quoted_zone,
             delivery_fee=fee,
-            estimated_minutes=40,
-            message=f"رسوم التوصيل لمنطقة {zone_key}: {fee} ج.م.",
+            estimated_minutes=estimated_minutes,
+            message=f"رسوم التوصيل لمنطقة {quoted_zone}: {fee} ج.م.",
         )
 
     async def confirm_and_lock_order(self, payload: BackendConfirmOrderPayload) -> dict[str, Any]:
@@ -105,11 +135,31 @@ class RealBackendAdapter(MockBackendAdapter):
     async def get_customer_order_status(
         self, phone_number: str, order_id: int | None = None
     ) -> dict[str, Any] | None:
-        raise BackendIntegrationError(
-            "ORDER_TRACKING_UNAVAILABLE",
-            "This adapter has no authenticated customer-order status endpoint.",
-            503,
+        if not self.service_api_key:
+            raise BackendIntegrationError(
+                "ORDER_TRACKING_UNAVAILABLE",
+                "Backend customer-order tracking requires BACKEND_SERVICE_API_KEY.",
+                503,
+            )
+        result = await self._request(
+            "POST",
+            "/api/customer/order-status",
+            json_body={"customer_phone": phone_number, "order_id": order_id},
+            headers={"X-Backend-Service-Key": self.service_api_key},
         )
+        if not isinstance(result, dict):
+            raise BackendIntegrationError("INVALID_BACKEND_RESPONSE", "Order status response is invalid.", 502)
+        result_order_id = result.get("id")
+        result_status = result.get("status")
+        if result_order_id is None and result_status is None:
+            return None
+        if (
+            type(result_order_id) is not int
+            or result_order_id < 1
+            or (result_status is not None and not isinstance(result_status, str))
+        ):
+            raise BackendIntegrationError("INVALID_BACKEND_RESPONSE", "Order status response is invalid.", 502)
+        return {"id": result_order_id, "status": result_status}
 
     async def notify_order_modification(self, order_id: int, message: str) -> dict[str, Any]:
         return await self._request("POST", f"/api/orders/{order_id}/modification", json_body={"message": message})
