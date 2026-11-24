@@ -430,22 +430,16 @@ class WaslaAIDispatcher:
         if confidence < 0.55 and intent == CustomerIntent.CONFIRM_ORDER:
             intent = CustomerIntent.UNCLEAR_REQUEST
 
-        # Customer self-correction with explicit replacement item(s)
-        if parsed.get("is_correction") and raw_items and raw_items[0].product_id and session.cart.items:
-            last_id = session.cart.items[-1].cart_item_id
-            rem_rec, _ = await self.tools.execute(
-                session, "remove_cart_item", {"cart_item_id": last_id}, executed_signatures=executed_signatures
-            )
-            tool_calls.append(rem_rec)
-
         # Elliptical self-correction (e.g., "لأ، خليها كبيرة" without repeating item name)
-        if parsed.get("is_correction") and parsed.get("correction_patch") and not raw_items and session.cart.items:
+        if (
+            parsed.get("is_correction")
+            and parsed.get("correction_patch")
+            and not raw_items
+            and session.cart.items
+            and not session.order_confirmed
+        ):
             patch = parsed["correction_patch"]
             last_line = session.cart.items[-1]
-            rem_rec, _ = await self.tools.execute(
-                session, "remove_cart_item", {"cart_item_id": last_line.cart_item_id}, executed_signatures=executed_signatures
-            )
-            tool_calls.append(rem_rec)
             corrected_item = ExtractedOrderItem(
                 product_id=last_line.product_id,
                 raw_mention=last_line.name_ar,
@@ -462,6 +456,7 @@ class WaslaAIDispatcher:
                 [corrected_item],
                 tool_calls,
                 model_used,
+                replace_cart_item_id=last_line.cart_item_id,
                 executed_signatures=executed_signatures,
             )
 
@@ -571,6 +566,11 @@ class WaslaAIDispatcher:
                 model_used,
                 match_meta=match_meta,
                 natural_reply_ar=safe_nat_reply,
+                replace_cart_item_id=(
+                    session.cart.items[-1].cart_item_id
+                    if parsed.get("is_correction") and session.cart.items and not session.order_confirmed
+                    else None
+                ),
                 executed_signatures=executed_signatures,
             )
 
@@ -709,6 +709,16 @@ class WaslaAIDispatcher:
         norm = normalize_ar(text)
         offered_items = pending.get("items", [])
         offered_ids = [i["product_id"] for i in offered_items]
+        explicit_item_match = self.menu_index.resolve_mention_with_confidence(text)
+        if (
+            explicit_item_match.product
+            and explicit_item_match.product.product_id not in offered_ids
+        ) or (
+            explicit_item_match.candidates
+            and not any(candidate.product_id in offered_ids for candidate in explicit_item_match.candidates)
+        ):
+            session.pending_upsell = None
+            return None
 
         if any(normalize_ar(p) in norm for p in _UPSELL_DECLINE_PATTERNS) or norm in ("لا", "لأ", "لا لا", "شكرا", "بس"):
             if any(w in norm for w in ("اكد", "الغ", "كنسل")):
@@ -822,23 +832,78 @@ class WaslaAIDispatcher:
         llm_data: dict[str, Any],
         det_parsed: dict[str, Any],
         lora_pred: tuple[str, float, float] | None,
+        text: str = "",
     ) -> dict[str, Any]:
         """Ground LLM output safely in deterministic MenuIndex extraction & LoRA cross-check."""
         merged = dict(llm_data)
-        llm_items = [self._sanitize_item_dict(x, fallback_mention=det_parsed.get("items", [{}])[0].get("raw_mention", "") if det_parsed.get("items") else "") for x in (llm_data.get("items") or []) if isinstance(x, dict)]
         det_items = det_parsed.get("items") or []
+        det_has_candidates = any(
+            isinstance(meta, dict) and meta.get("candidates")
+            for meta in (det_parsed.get("match_meta") or [])
+        )
+        det_has_grounded_items = any(
+            isinstance(item, dict) and item.get("product_id")
+            for item in det_items
+        )
 
-        # Preserve full multi-variant / multi-item deterministic extraction when LLM drops variants
-        det_valid = [i for i in det_items if i.get("product_id")]
-        llm_valid = [i for i in llm_items if i.get("product_id")]
-        if len(det_valid) > len(llm_valid):
-            merged["items"] = det_items
-            merged["match_meta"] = det_parsed.get("match_meta", [])
-        elif not llm_items and det_items:
+        # Deterministic entities are authoritative; only admit model entities that resolve to the same menu item.
+        if det_items and (det_has_grounded_items or det_has_candidates):
             merged["items"] = det_items
             merged["match_meta"] = det_parsed.get("match_meta", [])
         else:
-            merged["items"] = llm_items
+            grounded_items: list[dict[str, Any]] = []
+            normalized_text = normalize_ar(text)
+            text_match = self.menu_index.resolve_mention_with_confidence(text) if text else None
+            for item in llm_data.get("items") or []:
+                if not isinstance(item, dict):
+                    continue
+                sanitized = self._sanitize_item_dict(item, fallback_mention=text)
+                pid = sanitized.get("product_id")
+                mention = sanitized.get("raw_mention", "").strip()
+                if pid and mention == str(pid):
+                    mention = text
+                match = self.menu_index.resolve_mention_with_confidence(mention) if mention else None
+                mention_in_text = bool(mention and normalize_ar(mention) in normalized_text)
+                if pid:
+                    product = self.menu_index.get_product(pid)
+                    mention_matches = bool(
+                        mention_in_text and match and match.product and match.product.product_id == pid
+                    )
+                    full_text_matches = bool(text_match and text_match.product and text_match.product.product_id == pid)
+                    canonical_name_in_text = bool(
+                        product
+                        and normalized_text
+                        and (normalize_ar(product.name_ar) in normalized_text or normalize_ar(product.name_en) in normalized_text)
+                    )
+                    if not (mention_matches or full_text_matches or canonical_name_in_text):
+                        continue
+                elif not mention_in_text:
+                    continue
+                elif match and match.tier == "high" and match.product:
+                    sanitized["product_id"] = match.product.product_id
+                grounded_items.append(sanitized)
+            merged["items"] = grounded_items or det_items
+            if det_items and not grounded_items:
+                merged["match_meta"] = det_parsed.get("match_meta", [])
+            elif "match_meta" in det_parsed:
+                merged["match_meta"] = det_parsed.get("match_meta", [])
+
+        det_intent = str(det_parsed.get("intent", CustomerIntent.UNCLEAR_REQUEST.value))
+        det_confidence = float(det_parsed.get("confidence", 0.0))
+        det_action_is_grounded = (
+            det_intent in (CustomerIntent.ADD_TO_CART.value, CustomerIntent.MODIFY_ORDER.value)
+            and (det_has_grounded_items or det_has_candidates)
+        )
+        if det_intent != CustomerIntent.UNCLEAR_REQUEST.value and (
+            det_confidence >= 0.88
+            or det_action_is_grounded
+            or (det_intent == CustomerIntent.REMOVE_ITEM.value and det_items)
+        ):
+            merged["intent"] = det_intent
+            merged["confidence"] = det_confidence
+            if det_parsed.get("requires_clarification"):
+                merged["requires_clarification"] = True
+                merged["clarification_reason"] = det_parsed.get("clarification_reason")
 
         if det_parsed.get("is_correction"):
             merged["is_correction"] = True
@@ -902,16 +967,16 @@ class WaslaAIDispatcher:
                         f"Primary Gemini returned low confidence ({data.get('confidence') if isinstance(data, dict) else 'non-dict'})"
                     )
                 self._last_active_route = f"{model}+lora+menu_index" if lora_pred else f"{model}+menu_index"
-                return self._merge_nlu_with_deterministic(data, det_parsed, lora_pred), model
+                return self._merge_nlu_with_deterministic(data, det_parsed, lora_pred, text), model
             except Exception as primary_exc:
                 logger.warning("Primary Gemini call failed (%s); invoking fallback model.", primary_exc)
                 try:
                     self._telemetry["gemini_fallback_calls"] += 1
                     data, model = await self.llm_client.generate_json(system_prompt, user_payload, use_fallback_model=True)
-                    if not isinstance(data, dict):
-                        raise ValueError("Fallback Gemini returned non-dict JSON")
+                    if not isinstance(data, dict) or float(data.get("confidence", 0)) < 0.55:
+                        raise ValueError("Fallback Gemini returned invalid or low-confidence JSON")
                     self._last_active_route = f"{model}(fallback)+lora+menu_index" if lora_pred else f"{model}(fallback)+menu_index"
-                    return self._merge_nlu_with_deterministic(data, det_parsed, lora_pred), model
+                    return self._merge_nlu_with_deterministic(data, det_parsed, lora_pred, text), model
                 except Exception as fallback_exc:
                     logger.warning("Fallback Gemini call failed (%s); falling back to Local Hybrid.", fallback_exc)
 
@@ -1066,6 +1131,7 @@ class WaslaAIDispatcher:
         model_used: str,
         match_meta: list[dict[str, Any]] | None = None,
         natural_reply_ar: str = "",
+        replace_cart_item_id: str | None = None,
         executed_signatures: set[str] | None = None,
     ) -> DispatcherResponse:
         # If previous order was already confirmed and customer starts ordering again, begin a clean cart epoch
@@ -1101,6 +1167,7 @@ class WaslaAIDispatcher:
                         "item": item.model_dump(),
                         "candidates": [c.product_id for c in candidates[:5]],
                         "category_hint": cat_hint,
+                        "replace_cart_item_id": replace_cart_item_id,
                     }
                     reply = persona.render_ambiguous_product(
                         item.raw_mention, [c.name_ar for c in candidates[:5]], is_medium=(res.tier == "medium")
@@ -1129,13 +1196,38 @@ class WaslaAIDispatcher:
             tool_calls.append(rec)
             if isinstance(res, BackendIntegrationError):
                 if res.code in ("MISSING_OR_INVALID_SIZE", "MISSING_REQUIRED_OPTION"):
-                    session.pending_clarification = {"type": res.code, "item": item.model_dump()}
+                    session.pending_clarification = {
+                        "type": res.code,
+                        "item": item.model_dump(),
+                        "replace_cart_item_id": replace_cart_item_id,
+                    }
                     return self._finish(session, intent, confidence, items, True, res.code, tool_calls, res.message, model_used)
                 return self._finish(session, intent, confidence, items, True, res.code, tool_calls, res.message, model_used)
             prod = self.menu_index.get_product(item.product_id)
             if prod:
                 size_suffix = f" ({item.size_code})" if item.size_code else ""
                 added_names.append(f"{item.quantity} × {prod.name_ar}{size_suffix}")
+
+        if replace_cart_item_id:
+            rec, result = await self.tools.execute(
+                session,
+                "remove_cart_item",
+                {"cart_item_id": replace_cart_item_id},
+                executed_signatures=executed_signatures,
+            )
+            tool_calls.append(rec)
+            if isinstance(result, BackendIntegrationError):
+                return self._finish(
+                    session,
+                    intent,
+                    confidence,
+                    items,
+                    True,
+                    result.code,
+                    tool_calls,
+                    result.message,
+                    model_used,
+                )
 
         summary_rec, cart = await self.tools.execute(
             session, "get_cart_summary", {}, executed_signatures=executed_signatures
@@ -1190,33 +1282,68 @@ class WaslaAIDispatcher:
             return self._finish(
                 session, CustomerIntent.REMOVE_ITEM, 0.9, items, False, None, tool_calls, "السلة فاضية حالياً يا فندم.", model_used
             )
-        target_line = session.cart.items[-1]
-        if items and items[0].product_id:
-            candidates = [
-                line for line in session.cart.items
-                if line.product_id == items[0].product_id
-            ]
-            if items[0].size_code:
-                candidates = [line for line in candidates if line.size_code == items[0].size_code]
-            if items[0].modifier_ids:
-                requested_modifiers = set(items[0].modifier_ids)
-                candidates = [
-                    line for line in candidates
-                    if {m.get("modifier_id") for m in line.modifiers} == requested_modifiers
+        if not items:
+            target_line = session.cart.items[-1]
+        else:
+            item = items[0]
+            candidate_ids: set[str] = set()
+            if item.product_id:
+                candidate_ids.add(item.product_id)
+            elif item.raw_mention:
+                match = self.menu_index.resolve_mention_with_confidence(item.raw_mention)
+                if match.product:
+                    candidate_ids.add(match.product.product_id)
+                candidate_ids.update(candidate.product_id for candidate in match.candidates)
+
+            matching_lines = [line for line in session.cart.items if line.product_id in candidate_ids]
+            if item.size_code:
+                matching_lines = [line for line in matching_lines if line.size_code == item.size_code]
+            if item.modifier_ids:
+                requested_modifiers = set(item.modifier_ids)
+                matching_lines = [
+                    line
+                    for line in matching_lines
+                    if {modifier.get("modifier_id") for modifier in line.modifiers} == requested_modifiers
                 ]
-            if not candidates:
+            if not matching_lines:
+                reply = f"مش لاقي ({item.raw_mention}) في السلة حالياً. تحب أشيل صنف تاني؟"
                 return self._finish(
                     session,
                     CustomerIntent.REMOVE_ITEM,
                     0.9,
                     items,
                     True,
-                    "CART_ITEM_NOT_FOUND",
+                    "item_not_in_cart",
                     tool_calls,
-                    "مش لاقي الصنف بالمقاس أو الإضافات دي في السلة، ممكن توضحلي تقصد إيه؟",
+                    reply,
                     model_used,
                 )
-            target_line = candidates[-1]
+
+            matching_product_ids = {line.product_id for line in matching_lines}
+            if len(matching_product_ids) > 1:
+                session.pending_clarification = {
+                    "type": "ambiguous_remove_item",
+                    "item": item.model_dump(),
+                    "candidate_product_ids": sorted(matching_product_ids),
+                }
+                candidate_names = [
+                    product.name_ar
+                    for product_id in sorted(matching_product_ids)
+                    if (product := self.menu_index.get_product(product_id)) is not None
+                ]
+                reply = persona.render_ambiguous_product(item.raw_mention, candidate_names, is_medium=False)
+                return self._finish(
+                    session,
+                    CustomerIntent.REMOVE_ITEM,
+                    0.9,
+                    items,
+                    True,
+                    "ambiguous_remove_item",
+                    tool_calls,
+                    reply,
+                    model_used,
+                )
+            target_line = matching_lines[-1]
         rec, res = await self.tools.execute(
             session,
             "remove_cart_item",
@@ -1397,6 +1524,70 @@ class WaslaAIDispatcher:
         item = ExtractedOrderItem(**pending["item"])
         norm = normalize_ar(text)
 
+        if ptype == "ambiguous_remove_item":
+            candidate_ids = set(pending.get("candidate_product_ids") or [])
+            match = self.menu_index.resolve_mention_with_confidence(text)
+            if match.product and match.product.product_id in candidate_ids:
+                matching_lines = [
+                    line for line in session.cart.items if line.product_id == match.product.product_id
+                ]
+                if matching_lines:
+                    session.pending_clarification = None
+                    selected_item = item.model_copy(
+                        update={
+                            "product_id": match.product.product_id,
+                            "raw_mention": match.product.name_ar,
+                        }
+                    )
+                    rec, result = await self.tools.execute(
+                        session,
+                        "remove_cart_item",
+                        {"cart_item_id": matching_lines[-1].cart_item_id},
+                        executed_signatures=executed_signatures,
+                    )
+                    tool_calls.append(rec)
+                    if isinstance(result, BackendIntegrationError):
+                        return self._finish(
+                            session,
+                            CustomerIntent.REMOVE_ITEM,
+                            0.9,
+                            [selected_item],
+                            True,
+                            result.code,
+                            tool_calls,
+                            result.message,
+                            "clarification_resolver",
+                        )
+                    return self._finish(
+                        session,
+                        CustomerIntent.REMOVE_ITEM,
+                        0.92,
+                        [selected_item],
+                        False,
+                        None,
+                        tool_calls,
+                        persona.render_item_removed(session.cart),
+                        "clarification_resolver",
+                    )
+
+            candidate_names = [
+                product.name_ar
+                for product_id in sorted(candidate_ids)
+                if (product := self.menu_index.get_product(product_id)) is not None
+            ]
+            reply = persona.render_ambiguous_product(item.raw_mention, candidate_names, is_medium=False)
+            return self._finish(
+                session,
+                CustomerIntent.REMOVE_ITEM,
+                0.9,
+                [item],
+                True,
+                "ambiguous_remove_item",
+                tool_calls,
+                reply,
+                "clarification_resolver",
+            )
+
         if ptype == "MISSING_OR_INVALID_SIZE":
             size = self.offline_nlu._extract_size(norm)
             if size:
@@ -1409,6 +1600,7 @@ class WaslaAIDispatcher:
                     [item],
                     tool_calls,
                     "clarification_resolver",
+                    replace_cart_item_id=pending.get("replace_cart_item_id"),
                     executed_signatures=executed_signatures,
                 )
 
@@ -1429,6 +1621,7 @@ class WaslaAIDispatcher:
                     [item],
                     tool_calls,
                     "clarification_resolver",
+                    replace_cart_item_id=pending.get("replace_cart_item_id"),
                     executed_signatures=executed_signatures,
                 )
 
@@ -1454,6 +1647,7 @@ class WaslaAIDispatcher:
                     [item],
                     tool_calls,
                     "clarification_resolver",
+                    replace_cart_item_id=pending.get("replace_cart_item_id"),
                     executed_signatures=executed_signatures,
                 )
 
@@ -1469,6 +1663,7 @@ class WaslaAIDispatcher:
                         [item],
                         tool_calls,
                         "clarification_resolver",
+                        replace_cart_item_id=pending.get("replace_cart_item_id"),
                         executed_signatures=executed_signatures,
                     )
         return None

@@ -8,6 +8,7 @@ from pathlib import Path
 from ai_service.adapters.mock_backend import MockBackendAdapter
 from ai_service.config import WaslaConfig
 from ai_service.dispatcher.dispatcher import WaslaAIDispatcher
+from ai_service.models.finetuned_intent import FineTunedIntentClassifier
 from ai_service.schemas.models import CashierDirectiveRequest
 from ai_service.understanding.menu_index import MenuIndex
 
@@ -99,3 +100,79 @@ def test_cashier_directives_safety_rules():
     assert d_sub.validated is True
     assert d_sub.suggested_alternative_product_id == "item_006"
     assert d_sub.requires_cashier_approval is True
+
+
+def test_deterministic_menu_match_overrides_conflicting_model_intent_and_item():
+    dispatcher = _make_dispatcher()
+    text = "عايز بيتزا مارجريتا وسط"
+    deterministic = dispatcher.offline_nlu.parse(text)
+    expected_product_id = deterministic["items"][0]["product_id"]
+    wrong_product_id = next(
+        product.product_id
+        for product in dispatcher.menu_index.all_products()
+        if product.product_id != expected_product_id
+    )
+
+    merged = dispatcher._merge_nlu_with_deterministic(
+        {
+            "intent": "cancel_order",
+            "confidence": 0.99,
+            "items": [{"product_id": wrong_product_id, "raw_mention": "برجر"}],
+        },
+        deterministic,
+        None,
+        text,
+    )
+
+    assert merged["intent"] == "add_to_cart"
+    assert [item["product_id"] for item in merged["items"]] == [expected_product_id]
+
+    unknown_text = "tell me a joke"
+    unknown_deterministic = dispatcher.offline_nlu.parse(unknown_text)
+    hallucinated = dispatcher._merge_nlu_with_deterministic(
+        {
+            "intent": "add_to_cart",
+            "confidence": 0.99,
+            "items": [{"product_id": expected_product_id, "raw_mention": "بيتزا مارجريتا"}],
+        },
+        unknown_deterministic,
+        None,
+        unknown_text,
+    )
+    assert not any(item.get("product_id") for item in hallucinated["items"])
+
+
+def test_franco_negation_is_not_interpreted_as_a_new_order():
+    dispatcher = _make_dispatcher()
+    parsed = dispatcher.offline_nlu.parse("msh 3ayez pizza margherita")
+
+    assert parsed["intent"] == "remove_item"
+    assert parsed["items"][0]["product_id"] == dispatcher.menu_index.resolve_mention_with_confidence(
+        "بيتزا مارجريتا"
+    ).product.product_id
+
+
+def test_low_confidence_fallback_model_routes_to_local_nlu():
+    class LowConfidenceFallback:
+        is_configured = True
+
+        async def generate_json(self, system_prompt, user_prompt, use_fallback_model=False):
+            if not use_fallback_model:
+                raise RuntimeError("primary unavailable")
+            return {"intent": "confirm_order", "confidence": 0.2, "items": []}, "fallback"
+
+    async def _run():
+        idx = MenuIndex(MENU_PATH)
+        dispatcher = WaslaAIDispatcher(
+            WaslaConfig(gemini_api_key=""),
+            idx,
+            MockBackendAdapter(idx),
+            llm_client=LowConfidenceFallback(),
+            finetuned_intent=FineTunedIntentClassifier(enabled=False),
+        )
+        parsed, route = await dispatcher._run_nlu("random utterance")
+        assert parsed["intent"] != "confirm_order"
+        assert route == "offline_egyptian_nlu"
+        assert dispatcher.get_runtime_status()["telemetry"]["gemini_fallback_calls"] == 1
+
+    asyncio.run(_run())
