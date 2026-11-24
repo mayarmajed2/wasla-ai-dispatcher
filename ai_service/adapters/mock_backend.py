@@ -241,7 +241,7 @@ class MockBackendAdapter:
 
     async def remove_cart_item(self, phone_number: str, cart_item_id: str) -> CartSnapshot:
         cart = self._carts.get(phone_number, CartSnapshot())
-        remaining = [i for i in cart.items if i.cart_item_id != cart_item_id and i.product_id != cart_item_id]
+        remaining = [i for i in cart.items if i.cart_item_id != cart_item_id]
         if len(remaining) == len(cart.items):
             raise BackendIntegrationError("CART_ITEM_NOT_FOUND", "الصنف غير موجود في السلة.", 404)
         updated = self._recalculate(cart.model_copy(update={"items": remaining}))

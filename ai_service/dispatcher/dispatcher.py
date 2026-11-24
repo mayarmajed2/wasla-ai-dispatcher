@@ -6,6 +6,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
+import json
 import logging
 import re
 from typing import Any
@@ -1189,9 +1190,38 @@ class WaslaAIDispatcher:
             return self._finish(
                 session, CustomerIntent.REMOVE_ITEM, 0.9, items, False, None, tool_calls, "السلة فاضية حالياً يا فندم.", model_used
             )
-        target_pid = items[0].product_id if items and items[0].product_id else session.cart.items[-1].product_id
+        target_line = session.cart.items[-1]
+        if items and items[0].product_id:
+            candidates = [
+                line for line in session.cart.items
+                if line.product_id == items[0].product_id
+            ]
+            if items[0].size_code:
+                candidates = [line for line in candidates if line.size_code == items[0].size_code]
+            if items[0].modifier_ids:
+                requested_modifiers = set(items[0].modifier_ids)
+                candidates = [
+                    line for line in candidates
+                    if {m.get("modifier_id") for m in line.modifiers} == requested_modifiers
+                ]
+            if not candidates:
+                return self._finish(
+                    session,
+                    CustomerIntent.REMOVE_ITEM,
+                    0.9,
+                    items,
+                    True,
+                    "CART_ITEM_NOT_FOUND",
+                    tool_calls,
+                    "مش لاقي الصنف بالمقاس أو الإضافات دي في السلة، ممكن توضحلي تقصد إيه؟",
+                    model_used,
+                )
+            target_line = candidates[-1]
         rec, res = await self.tools.execute(
-            session, "remove_cart_item", {"cart_item_id": target_pid}, executed_signatures=executed_signatures
+            session,
+            "remove_cart_item",
+            {"cart_item_id": target_line.cart_item_id},
+            executed_signatures=executed_signatures,
         )
         tool_calls.append(rec)
         if isinstance(res, BackendIntegrationError):
@@ -1224,9 +1254,20 @@ class WaslaAIDispatcher:
             )
 
         # Prevent duplicate order creation if this exact cart epoch was already confirmed
-        cart_sig = "|".join(
-            f"{i.product_id}:{i.quantity}:{i.size_code}:{','.join(m.get('name', '') for m in i.modifiers)}:{i.notes}"
-            for i in session.cart.items
+        cart_sig = json.dumps(
+            [
+                {
+                    "product_id": item.product_id,
+                    "quantity": item.quantity,
+                    "size_code": item.size_code,
+                    "modifier_ids": sorted(m.get("modifier_id", "") for m in item.modifiers),
+                    "selected_options": item.selected_options,
+                    "notes": item.notes,
+                }
+                for item in session.cart.items
+            ],
+            ensure_ascii=False,
+            sort_keys=True,
         )
         expected_idem = hashlib.sha256(
             f"{session.phone_number}:{session.session_epoch}:{cart_sig}".encode("utf-8")

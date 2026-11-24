@@ -251,9 +251,20 @@ class ToolExecutor:
                 if len(customer_name) < 2 or len(backup_phone) < 8 or len(delivery_address) < 5:
                     raise BackendIntegrationError("MISSING_ORDER_DETAILS", "يرجى استكمال الاسم والعنوان ورقم الموبايل البديل.", 400)
 
-                cart_sig = "|".join(
-                    f"{i.product_id}:{i.quantity}:{i.size_code}:{','.join(m.get('name', '') for m in i.modifiers)}:{i.notes}"
-                    for i in session.cart.items
+                cart_sig = json.dumps(
+                    [
+                        {
+                            "product_id": item.product_id,
+                            "quantity": item.quantity,
+                            "size_code": item.size_code,
+                            "modifier_ids": sorted(m.get("modifier_id", "") for m in item.modifiers),
+                            "selected_options": item.selected_options,
+                            "notes": item.notes,
+                        }
+                        for item in session.cart.items
+                    ],
+                    ensure_ascii=False,
+                    sort_keys=True,
                 )
                 idem_key = hashlib.sha256(
                     f"{session.phone_number}:{session.session_epoch}:{cart_sig}".encode("utf-8")
@@ -270,7 +281,8 @@ class ToolExecutor:
                             item_id=i.backend_item_id or 1,
                             quantity=i.quantity,
                             size_code=i.size_code,
-                            modifiers=[{"name": m["name"], "price": str(m["price"])} for m in i.modifiers],
+                            modifiers=[{"modifier_id": m["modifier_id"]} for m in i.modifiers],
+                            selected_options=i.selected_options,
                             notes=i.notes,
                         )
                         for i in session.cart.items

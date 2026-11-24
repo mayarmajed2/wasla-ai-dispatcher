@@ -27,9 +27,9 @@ wasla-ai-dispatcher/
 │   ├── security/                   # PII log redaction, prompt-injection guardrails, audio validation
 │   ├── tools/                      # 8 Function Calling tools & deduplicated ToolExecutor
 │   └── understanding/              # Live DB-synced 145-item MenuIndex & Egyptian Arabic dialect/gibberish NLU
-├── backend/                        # FastAPI + SQLAlchemy + Alembic (0001..0004) + WebSockets Backend
+├── backend/                        # FastAPI + SQLAlchemy + Alembic (0001..0005) + WebSockets Backend
 │   ├── app/                        # main.py (/api/ready, webhook debouncer, DB bridge), models.py, cart_calculator.py
-│   └── migrations/versions/        # 0001..0004 (including InboundMessageBuffer for durable debouncing)
+│   └── migrations/versions/        # 0001..0005 (durable debouncing and unique order idempotency)
 ├── dashboard/                      # Commercial Arabic RTL Cashier Console
 ├── menu/                           # Canonical MOKA Menu (145 products, 23 categories, 7 extras)
 ├── training/                       # PEFT LoRA v1 & v2 checkpoints, data splits, scientific eval & reports

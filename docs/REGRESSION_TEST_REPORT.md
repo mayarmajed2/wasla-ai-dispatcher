@@ -28,7 +28,7 @@ Zero assertions in `wasla_phase_a_repro_tests.py` or any pre-existing test file 
 
 ---
 
-## 3. Full Test Suite Inventory (61 / 61 Passed)
+## 3. Historical Phase B Test Suite Run (61 / 61 Passed)
 
 - **`wasla_phase_a_repro_tests.py` (7 passed):** All 7 verbatim Phase A reproductions.
 - **`tests/integration/test_phase_b_architecture_hardening.py` (11 passed):**
@@ -42,7 +42,7 @@ Zero assertions in `wasla_phase_a_repro_tests.py` or any pre-existing test file 
   - `test_live_price_edit_sync_to_ai_and_db_order_total_plus_availability`: Admin edits `item_005` price to `111.50` -> AI inquiry returns `111.50` -> cart & webhook confirm produce exact DB `total_amount == 131.50` matching customer cart; toggling unavailable blocks inquiry/confirm across re-sync.
   - `test_multi_product_price_inquiry_mixed_availability`: Queries available + out-of-stock products in one sentence and reports both accurately.
   - `test_inbound_webhook_debouncer_urgent_bypass_and_crash_recovery`: Aggregates 3 rapid WhatsApp webhooks for Customer 1 into 1 AI turn & 1 reply (`220.00`), keeps Customer 2 separate (`125.00`), executes `CRITICAL` food-safety complaint immediately bypassing 3s window, and replays orphaned `InboundMessageBuffer` row on startup recovery.
-  - `test_alembic_0001_to_0004_migrations_and_downgrade`: Upgrades `0001 -> 0004`, verifies `inbound_message_buffers`, downgrades to `base`, and re-upgrades cleanly.
+  - `test_alembic_0001_to_0005_migrations_backfill_and_downgrade`: Upgrades through `0005`, verifies inbound buffering, backfills an existing order idempotency key, checks the unique index, then downgrades and re-upgrades cleanly.
 - **Original Pre-Existing Suites (43 passed):**
   - `tests/ai/test_dispatcher_and_eval.py` (3 passed)
   - `tests/ai/test_finetuned_lora_model.py` (2 passed)
@@ -55,3 +55,12 @@ Zero assertions in `wasla_phase_a_repro_tests.py` or any pre-existing test file 
   - `tests/integration/test_scheduler_concurrency_and_security.py` (10 passed)
   - `tests/unit/test_menu_and_security.py` (5 passed)
   - `backend/test_cart_calculator.py` (2 passed)
+
+## 4. Cart, Order, and Telegram Persistence Regressions
+
+`tests/integration/test_order_webhook_reliability.py` covers database-backed cart restoration and removal by exact cart-line identity; order creation using DB-stored size and modifier prices, required option validation, and idempotent retry; atomic Telegram update claims under concurrent delivery; and malformed webhook JSON returning HTTP 400.
+
+Latest verification after these changes:
+
+- Focused backend regressions, migration backfill, and cart math: **6 passed** in `8.44s`.
+- Full command `py -m pytest -q tests/ backend/test_cart_calculator.py`: **55 passed, 2 failed** in `122.74s`. Both failures are the existing LoRA checkpoint-load tests; Windows Application Control blocks the installed `regex` native extension (`_regex`), preventing the model from loading. No backend reliability test failed.

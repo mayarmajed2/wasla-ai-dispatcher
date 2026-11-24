@@ -28,6 +28,7 @@ def calculate_cart(items: list[dict], delivery_fee: Decimal = Decimal("0")) -> d
             "quantity": quantity,
             "unit_price": str(unit_price),
             "modifiers": item.get("modifiers", []),
+            "selected_options": item.get("selected_options", {}),
             "notes": item.get("notes", ""),
             "line_total": str(line_total),
         })

@@ -56,7 +56,7 @@
 
 ---
 
-## 2. Database Schema & Migrations (Alembic `0001` -> `0004`)
+## 2. Database Schema & Migrations (Alembic `0001` -> `0005`)
 
 | Revision ID | File | Purpose |
 | :--- | :--- | :--- |
@@ -64,6 +64,7 @@
 | `0002_sales_cx_notifications` | `backend/migrations/versions/0002_sales_cx_notifications_scheduler.py` | Scheduler jobs, notifications, complaint tickets, recommendation analytics, settings |
 | `0003_scheduler_leases` | `backend/migrations/versions/0003_scheduler_leases_and_indexes.py` | Multi-worker scheduler lease columns & `must_change_password` |
 | `0004_phase_b_durable_ai_state` | `backend/migrations/versions/0004_phase_b_durable_ai_state.py` | Durable `inbound_message_buffers` table for crash-safe WhatsApp debouncing |
+| `0005_order_idempotency` | `backend/migrations/versions/0005_order_idempotency.py` | Backfills legacy order keys and adds a unique database constraint for order idempotency |
 
 Command to apply migrations cleanly:
 
@@ -86,6 +87,7 @@ alembic -c backend/alembic.ini upgrade head
   - Automatically stages `deploy/hf_app.py`, `deploy/hf_requirements.txt`, `ai_service/`, `backend/`, `dashboard/`, `menu/`, `scripts/`, and `training/checkpoints/` on push to `main` when `HF_TOKEN` and `HF_SPACE_ID` secrets are configured.
 - **Production Safety Gates (`backend/app/main.py`):**
   - When `APP_ENV=production`: forbids default `AUTH_SECRET_KEY`, forbids default `BOOTSTRAP_ADMIN_PASSWORD`, forbids SQLite `DATABASE_URL`, and returns `404` on `/api/ai/chat`.
+  - Production startup also requires `META_APP_SECRET`, so WhatsApp webhook requests cannot be accepted without HMAC verification.
 
 ---
 

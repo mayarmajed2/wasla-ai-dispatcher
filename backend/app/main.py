@@ -15,6 +15,7 @@ import asyncio
 import hashlib
 import hmac
 import json
+import logging
 import os
 import sys
 import uuid
@@ -29,6 +30,7 @@ from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import select, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 # Ensure workspace root is importable for ai_service
@@ -89,6 +91,7 @@ from ai_service.understanding.menu_index import MenuIndex
 
 DASHBOARD_DIR = ROOT_DIR / "dashboard"
 MENU_JSON_PATH = ROOT_DIR / "menu" / "menu.json"
+logger = logging.getLogger(__name__)
 
 Base.metadata.create_all(bind=engine)
 
@@ -104,6 +107,7 @@ def _migrate_sqlite_columns() -> None:
         order_additions = [
             ("backup_phone", "VARCHAR(32) NOT NULL DEFAULT ''"),
             ("confirmed_by_customer", "BOOLEAN NOT NULL DEFAULT 0"),
+            ("idempotency_key", "VARCHAR(128)"),
             ("data_source", "VARCHAR(32) NOT NULL DEFAULT 'api'"),
             ("is_test", "BOOLEAN NOT NULL DEFAULT 0"),
             ("order_type", "VARCHAR(32) NOT NULL DEFAULT 'Delivery'"),
@@ -121,6 +125,9 @@ def _migrate_sqlite_columns() -> None:
         for col_name, col_def in order_additions:
             if col_name not in columns:
                 connection.execute(text(f"ALTER TABLE orders ADD COLUMN {col_name} {col_def}"))
+        connection.execute(
+            text("CREATE UNIQUE INDEX IF NOT EXISTS ux_orders_idempotency_key ON orders (idempotency_key)")
+        )
 
         session_cols = {
             row[1]
@@ -188,7 +195,11 @@ def seed_moka_menu_if_empty() -> int:
             if base_price is None and p.get("sizes"):
                 base_price = p["sizes"][0]["price"]
             extras = [
-                {"name": modifiers_map[mid]["name_ar"], "price": str(modifiers_map[mid]["price"])}
+                {
+                    "modifier_id": mid,
+                    "name": modifiers_map[mid]["name_ar"],
+                    "price": str(modifiers_map[mid]["price"]),
+                }
                 for mid in p.get("modifiers", [])
                 if mid in modifiers_map
             ]
@@ -228,8 +239,6 @@ class _DirectDBOrderBridge(MockBackendAdapter):
             rows = db.scalars(select(MenuItem).order_by(MenuItem.id.asc())).all()
             if rows:
                 self._unavailable_ids = self.menu_index.apply_db_items(rows)
-        except Exception:
-            pass
         finally:
             db.close()
 
@@ -237,10 +246,10 @@ class _DirectDBOrderBridge(MockBackendAdapter):
         db = SessionLocal()
         try:
             row = db.scalar(select(ChatSession).where(ChatSession.phone_number == phone_number))
-            if row is not None and isinstance(row.pending_cart, dict) and row.pending_cart:
+            if row is None or not isinstance(row.pending_cart, dict) or not row.pending_cart:
+                self._carts[phone_number] = CartSnapshot()
+            else:
                 self._carts[phone_number] = CartSnapshot.model_validate(row.pending_cart)
-        except Exception:
-            pass
         finally:
             db.close()
 
@@ -258,6 +267,7 @@ class _DirectDBOrderBridge(MockBackendAdapter):
             db.commit()
         except Exception:
             db.rollback()
+            raise
         finally:
             db.close()
 
@@ -421,6 +431,7 @@ class _DirectDBOrderBridge(MockBackendAdapter):
                         quantity=i.quantity,
                         size_code=i.size_code,
                         modifiers=i.modifiers,
+                        selected_options=i.selected_options,
                         notes=i.notes,
                     )
                     for i in payload.items
@@ -484,6 +495,8 @@ def _validate_production_security() -> None:
         raise RuntimeError("SECURITY FATAL: Change BOOTSTRAP_ADMIN_PASSWORD before running in production.")
     if settings.database_url.startswith("sqlite"):
         raise RuntimeError("PRODUCTION FATAL: SQLite is forbidden in production. Configure PostgreSQL DATABASE_URL.")
+    if not settings.meta_app_secret:
+        raise RuntimeError("SECURITY FATAL: Set META_APP_SECRET to authenticate production WhatsApp webhooks.")
 
 
 def seed_initial_admin_if_empty() -> None:
@@ -579,9 +592,10 @@ if (DASHBOARD_DIR / "assets").exists():
 
 class CartItem(BaseModel):
     item_id: int
-    quantity: int = Field(ge=1)
+    quantity: int = Field(ge=1, le=50)
     size_code: str | None = None
     modifiers: list[dict] = Field(default_factory=list)
+    selected_options: dict[str, str] = Field(default_factory=dict)
     notes: str = ""
 
 
@@ -592,7 +606,7 @@ class ConfirmOrder(BaseModel):
     delivery_address: str = Field(min_length=5)
     zone_name: str = "default"
     items: list[CartItem] = Field(min_length=1)
-    idempotency_key: str
+    idempotency_key: str = Field(min_length=4, max_length=128)
     confirmed_by_customer: bool
     data_source: str = "api"
     is_test: bool = False
@@ -639,9 +653,15 @@ class AvailabilityUpdate(BaseModel):
     is_available: bool
 
 
+class MenuSizePriceUpdate(BaseModel):
+    code: str = Field(min_length=1, max_length=16)
+    name: str | None = Field(default=None, max_length=80)
+    price: Decimal = Field(gt=0)
+
+
 class PriceUpdate(BaseModel):
     base_price: Decimal = Field(gt=0)
-    sizes: list[dict] | None = None
+    sizes: list[MenuSizePriceUpdate] | None = None
 
 
 class LoginRequest(BaseModel):
@@ -708,12 +728,9 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
             detail="The customer must confirm the complete order before dispatch",
         )
 
-    events = db.scalars(select(OrderEvent).where(OrderEvent.event_type == "idempotency_key")).all()
-    for event in events:
-        if event.payload.get("key") == payload.idempotency_key:
-            existing = db.get(Order, event.order_id)
-            if existing:
-                return {"id": existing.id, "status": existing.status, "duplicate": True}
+    existing = db.scalar(select(Order).where(Order.idempotency_key == payload.idempotency_key))
+    if existing is not None:
+        return {"id": existing.id, "status": existing.status, "duplicate": True}
 
     resolved_items = []
     for cart_item in payload.items:
@@ -722,19 +739,76 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
             raise HTTPException(status_code=409, detail=f"Item {cart_item.item_id} is unavailable")
         unit_price = str(menu_item.base_price)
         item_name = menu_item.name
-        if cart_item.size_code and isinstance(menu_item.modifiers_json, dict):
-            for sz in menu_item.modifiers_json.get("sizes", []):
-                if str(sz.get("code", "")).upper() == cart_item.size_code.upper():
-                    unit_price = str(sz["price"])
-                    item_name = f"{menu_item.name} ({sz['code']})"
-                    break
+        menu_config = menu_item.modifiers_json if isinstance(menu_item.modifiers_json, dict) else {}
+        sizes = menu_config.get("sizes", [])
+        if cart_item.size_code:
+            size = next(
+                (sz for sz in sizes if str(sz.get("code", "")).upper() == cart_item.size_code.upper()),
+                None,
+            )
+            if size is None:
+                raise HTTPException(status_code=400, detail=f"Invalid size for item {cart_item.item_id}")
+            unit_price = str(size["price"])
+            item_name = f"{menu_item.name} ({size['code']})"
+
+        product_id = menu_config.get("product_id")
+        product = db_bridge.menu_index.get_product(str(product_id)) if product_id else None
+        allowed_modifier_ids = set(product.modifiers) if product else set()
+        resolved_modifiers = []
+        seen_modifier_ids = set()
+        for selection in cart_item.modifiers:
+            modifier_id = str(selection.get("modifier_id", "")).strip()
+            modifier = db_bridge.menu_index.get_modifier(modifier_id)
+            if (
+                not modifier_id
+                or modifier is None
+                or modifier_id not in allowed_modifier_ids
+                or modifier_id in seen_modifier_ids
+            ):
+                raise HTTPException(status_code=400, detail=f"Invalid modifier for item {cart_item.item_id}")
+            seen_modifier_ids.add(modifier_id)
+            stored_extra = next(
+                (
+                    extra
+                    for extra in menu_config.get("extras", [])
+                    if extra.get("modifier_id") == modifier_id
+                    or (not extra.get("modifier_id") and extra.get("name") == modifier.name_ar)
+                ),
+                None,
+            )
+            if stored_extra is None:
+                raise HTTPException(status_code=400, detail=f"Modifier unavailable for item {cart_item.item_id}")
+            resolved_modifiers.append(
+                {
+                    "modifier_id": modifier_id,
+                    "name": str(stored_extra["name"]),
+                    "price": str(Decimal(str(stored_extra["price"]))),
+                }
+            )
+
+        option_groups = {
+            str(option.get("option_group")): option
+            for option in menu_config.get("options", [])
+            if isinstance(option, dict) and option.get("option_group")
+        }
+        selected_options = cart_item.selected_options
+        if any(group not in option_groups for group in selected_options):
+            raise HTTPException(status_code=400, detail=f"Invalid option for item {cart_item.item_id}")
+        for group, option in option_groups.items():
+            selected = selected_options.get(group)
+            if option.get("required", True) and not selected:
+                raise HTTPException(status_code=400, detail=f"Missing required option for item {cart_item.item_id}")
+            if selected and selected not in option.get("choices", []):
+                raise HTTPException(status_code=400, detail=f"Invalid option for item {cart_item.item_id}")
+
         resolved_items.append(
             {
                 "item_id": menu_item.id,
                 "name": item_name,
                 "base_price": unit_price,
                 "quantity": cart_item.quantity,
-                "modifiers": cart_item.modifiers,
+                "modifiers": resolved_modifiers,
+                "selected_options": selected_options,
                 "notes": cart_item.notes,
             }
         )
@@ -745,6 +819,7 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
     order = Order(
         customer_name=payload.customer_name,
         customer_phone=payload.customer_phone,
+        idempotency_key=payload.idempotency_key,
         backup_phone=payload.backup_phone,
         confirmed_by_customer=True,
         delivery_address=payload.delivery_address,
@@ -758,7 +833,14 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
         confirmed_at=now,
     )
     db.add(order)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        existing = db.scalar(select(Order).where(Order.idempotency_key == payload.idempotency_key))
+        if existing is None:
+            raise
+        return {"id": existing.id, "status": existing.status, "duplicate": True}
     db.add_all(
         [
             OrderStatusHistory(
@@ -781,11 +863,14 @@ async def _create_order_in_db(payload: ConfirmOrder, db: Session) -> dict:
     # Schedule 90-minute fallback arrival check durably in DB
     job_scheduler.schedule_post_confirmation_arrival_check(db, order, confirmed_at=now)
 
-    # Immediately notify Cashier Group (Telegram zero-cost); never lose order if notification fails
-    cashier_notify = await notification_service.notify_cashier_new_order(db, order)
-    if cashier_notify.get("status") == "FAILED":
-        job_scheduler.schedule_cashier_retry(db, order, delay_seconds=30)
+    # Persist the order and a notification fallback before making any external delivery attempt.
+    retry_job = job_scheduler.schedule_cashier_retry(db, order, delay_seconds=30)
+    db.commit()
 
+    cashier_notify = await notification_service.notify_cashier_new_order(db, order)
+    if cashier_notify.get("status") != "FAILED":
+        retry_job.status = "COMPLETED"
+        retry_job.completed_at = datetime.now(timezone.utc)
     db.commit()
     await ws_manager.broadcast(
         {
@@ -1110,9 +1195,9 @@ async def update_menu_price(
         for sz in payload.sizes:
             normalized_sizes.append(
                 {
-                    "code": str(sz["code"]),
-                    "name": str(sz.get("name", sz["code"])),
-                    "price": str(Decimal(str(sz["price"])).quantize(Decimal("0.01"))),
+                    "code": sz.code,
+                    "name": sz.name or sz.code,
+                    "price": str(sz.price.quantize(Decimal("0.01"))),
                 }
             )
         mods["sizes"] = normalized_sizes
@@ -1552,6 +1637,51 @@ def verify_whatsapp_webhook(
     raise HTTPException(status_code=403, detail="Webhook verification failed")
 
 
+def _insert_processed_message(db: Session, message_id: str) -> bool:
+    """Atomically claim an inbound provider update by its unique database key."""
+    values = {
+        "meta_message_id": message_id,
+        "processed_at": datetime.now(timezone.utc),
+    }
+    dialect = db.get_bind().dialect.name
+    if dialect == "sqlite":
+        from sqlalchemy.dialects.sqlite import insert
+
+        statement = insert(ProcessedMessage).values(**values).on_conflict_do_nothing(
+            index_elements=[ProcessedMessage.meta_message_id]
+        )
+        return db.execute(statement).rowcount == 1
+    if dialect == "postgresql":
+        from sqlalchemy.dialects.postgresql import insert
+
+        statement = insert(ProcessedMessage).values(**values).on_conflict_do_nothing(
+            index_elements=[ProcessedMessage.meta_message_id]
+        )
+        return db.execute(statement).rowcount == 1
+
+    if db.scalar(select(ProcessedMessage.id).where(ProcessedMessage.meta_message_id == message_id)):
+        return False
+    db.add(ProcessedMessage(**values))
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        if db.scalar(select(ProcessedMessage.id).where(ProcessedMessage.meta_message_id == message_id)):
+            return False
+        raise
+    return True
+
+
+def _parse_webhook_json(raw_body: bytes) -> dict:
+    try:
+        body = json.loads(raw_body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid JSON webhook body") from exc
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Webhook body must be a JSON object")
+    return body
+
+
 async def _process_debounced_whatsapp_turn(sender: str, combined_text: str) -> dict:
     """Execute one aggregated WhatsApp customer turn safely inside a fresh DB session."""
     db = SessionLocal()
@@ -1653,24 +1783,38 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
         if not hmac.compare_digest(sig_header, expected):
             raise HTTPException(status_code=401, detail="Invalid Meta webhook signature")
 
-    body = json.loads(raw_body.decode("utf-8"))
+    body = _parse_webhook_json(raw_body)
+    entries = body.get("entry", [])
+    if not isinstance(entries, list):
+        raise HTTPException(status_code=400, detail="Invalid WhatsApp webhook entry list")
     processed = 0
     status_updates = 0
     text_dispatch_items: list[tuple[str, str, int | None, bool, str]] = []
     audio_items: list[tuple[str, str]] = []
 
-    for entry in body.get("entry", []):
+    for entry in entries:
+        if not isinstance(entry, dict) or not isinstance(entry.get("changes", []), list):
+            raise HTTPException(status_code=400, detail="Invalid WhatsApp webhook entry")
         for change in entry.get("changes", []):
+            if not isinstance(change, dict):
+                raise HTTPException(status_code=400, detail="Invalid WhatsApp webhook change")
             value = change.get("value", {})
-            for st in value.get("statuses", []):
+            if not isinstance(value, dict):
+                raise HTTPException(status_code=400, detail="Invalid WhatsApp webhook value")
+            statuses = value.get("statuses", [])
+            messages = value.get("messages", [])
+            if not isinstance(statuses, list) or not isinstance(messages, list):
+                raise HTTPException(status_code=400, detail="Invalid WhatsApp webhook messages")
+            for st in statuses:
+                if not isinstance(st, dict):
+                    raise HTTPException(status_code=400, detail="Invalid WhatsApp webhook status")
                 st_id = st.get("id")
                 st_val = st.get("status", "")
                 if not st_id or not st_val:
                     continue
                 dedup_key = f"status:{st_id}:{st_val}"
-                if db.scalar(select(ProcessedMessage).where(ProcessedMessage.meta_message_id == dedup_key)) is not None:
+                if not _insert_processed_message(db, dedup_key):
                     continue
-                db.add(ProcessedMessage(meta_message_id=dedup_key))
                 db.add(
                     Outbox(
                         event_id=str(uuid.uuid4()),
@@ -1685,16 +1829,14 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
                 )
                 status_updates += 1
 
-            for message in value.get("messages", []):
+            for message in messages:
+                if not isinstance(message, dict):
+                    raise HTTPException(status_code=400, detail="Invalid WhatsApp webhook message")
                 meta_id = message.get("id")
                 if not meta_id:
                     continue
-                existing = db.scalar(
-                    select(ProcessedMessage).where(ProcessedMessage.meta_message_id == meta_id)
-                )
-                if existing is not None:
+                if not _insert_processed_message(db, meta_id):
                     continue
-                db.add(ProcessedMessage(meta_message_id=meta_id))
                 processed += 1
 
                 sender = message.get("from", "")
@@ -1773,8 +1915,9 @@ async def whatsapp_webhook(request: Request, db: Session = Depends(get_db)):
                     "complaint_escalation": side.get("escalation"),
                 }
             )
-        except Exception as exc:
-            replies.append({"to": sender, "audio_error": str(exc)})
+        except Exception:
+            logger.exception("Failed to process inbound WhatsApp audio")
+            replies.append({"to": sender, "audio_error": "Unable to process audio message"})
     db.commit()
     return {"accepted": True, "processed": processed, "status_updates": status_updates, "replies": replies}
 
@@ -2188,13 +2331,15 @@ async def telegram_customer_webhook(request: Request, db: Session = Depends(get_
     if not provided_sec or not hmac.compare_digest(provided_sec, _telegram_webhook_secret()):
         raise HTTPException(status_code=401, detail="Invalid Telegram webhook secret")
 
-    body = await request.json()
+    body = _parse_webhook_json(await request.body())
     update_id = body.get("update_id")
-    if update_id is not None:
-        dedup_key = f"tg_upd:{update_id}"
-        if db.scalar(select(ProcessedMessage).where(ProcessedMessage.meta_message_id == dedup_key)) is not None:
-            return {"ok": True, "duplicate": True}
-        db.add(ProcessedMessage(meta_message_id=dedup_key))
+    if isinstance(update_id, bool) or not isinstance(update_id, int):
+        raise HTTPException(status_code=400, detail="Telegram update_id is required")
+    dedup_key = f"tg_upd:{update_id}"
+    if not _insert_processed_message(db, dedup_key):
+        db.rollback()
+        return {"ok": True, "duplicate": True}
+    db.commit()
 
     msg = body.get("message") or {}
     chat = msg.get("chat") or {}
@@ -2262,10 +2407,11 @@ async def telegram_customer_webhook(request: Request, db: Session = Depends(get_
             if not ai_resp.suppress_ai_reply and ai_resp.reply_ar:
                 await telegram_client.send_message(chat_id_str, ai_resp.reply_ar)
             return {"ok": True, "intent": ai_resp.intent.value, "transcript": ai_resp.transcript}
-        except Exception as exc:
+        except Exception:
+            logger.exception("Failed to process inbound Telegram audio update %s", update_id)
             db.commit()
             await telegram_client.send_message(chat_id_str, "معلش الصوت مكنش واضح، ممكن تبعته تاني أو تكتب طلبك؟ 😊")
-            return {"ok": False, "audio_error": str(exc)}
+            return {"ok": False, "audio_error": "Unable to process audio message"}
 
     db.commit()
     return {"ok": True}

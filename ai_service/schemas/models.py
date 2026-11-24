@@ -147,6 +147,7 @@ class BackendCartItemPayload(BaseModel):
     quantity: int = Field(ge=1)
     size_code: str | None = None
     modifiers: list[dict[str, str]] = Field(default_factory=list)
+    selected_options: dict[str, str] = Field(default_factory=dict)
     notes: str = ""
 
 

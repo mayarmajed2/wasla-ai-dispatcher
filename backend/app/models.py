@@ -62,6 +62,7 @@ class Order(Base):
     __tablename__ = "orders"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     customer_name: Mapped[str] = mapped_column(String(160), nullable=False)
     customer_phone: Mapped[str] = mapped_column(String(32), nullable=False)
     backup_phone: Mapped[str] = mapped_column(String(32), nullable=False, default="")

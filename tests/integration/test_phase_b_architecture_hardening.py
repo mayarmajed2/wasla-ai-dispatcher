@@ -10,7 +10,7 @@ Covers every Phase A confirmed finding & Phase B requirement:
 7. Live dashboard menu price & availability synchronization + exact Decimal customer/DB total parity
 8. Multi-product price inquiries with availability enforcement
 9. 3s inbound WhatsApp MessageDebouncer aggregation, urgent complaint bypass & restart crash recovery
-10. Alembic migration chain 0001 -> 0004 upgrade/downgrade/upgrade
+10. Alembic migration chain 0001 -> 0005 upgrade/downgrade/upgrade
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from alembic import command as alembic_command
 from alembic.config import Config as AlembicConfig
 import httpx
 import pytest
-from sqlalchemy import create_engine, inspect, select
+from sqlalchemy import create_engine, inspect, select, text
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 BACKEND_DIR = ROOT / "backend"
@@ -540,8 +540,8 @@ def test_inbound_webhook_debouncer_urgent_bypass_and_crash_recovery(tmp_path):
     asyncio.run(_run())
 
 
-def test_alembic_0001_to_0004_migrations_and_downgrade(tmp_path):
-    mig_db = tmp_path / "alembic_0004.db"
+def test_alembic_0001_to_0005_migrations_backfill_and_downgrade(tmp_path):
+    mig_db = tmp_path / "alembic_0005.db"
     db_url = f"sqlite:///{mig_db.as_posix()}"
     os.environ["DATABASE_URL"] = db_url
     for mod in ["app.config", "app.database"]:
@@ -552,11 +552,40 @@ def test_alembic_0001_to_0004_migrations_and_downgrade(tmp_path):
     cfg.set_main_option("script_location", str(BACKEND_DIR / "migrations"))
     cfg.set_main_option("sqlalchemy.url", db_url)
 
+    alembic_command.upgrade(cfg, "0004_phase_b_durable_ai_state")
+    eng = create_engine(db_url)
+    with eng.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO orders "
+                "(id, customer_name, customer_phone, backup_phone, confirmed_by_customer, "
+                "delivery_address, subtotal, delivery_fee, total_amount, status, items_snapshot, "
+                "data_source, is_test, created_at, updated_at, order_type, refunded) "
+                "VALUES (8101, 'Legacy', '01000000000', '', 1, 'Legacy address', "
+                "'10.00', '0.00', '10.00', 'SUBMITTED', '[]', 'api', 0, "
+                "'2026-11-24 00:00:00', '2026-11-24 00:00:00', 'Delivery', 0)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO order_events (order_id, event_type, payload, created_at) "
+                "VALUES (8101, 'idempotency_key', '{\"key\":\"legacy-idem-key\"}', "
+                "'2026-11-24 00:00:00')"
+            )
+        )
+    eng.dispose()
+
     alembic_command.upgrade(cfg, "head")
     eng = create_engine(db_url)
-    tables = set(inspect(eng).get_table_names())
+    inspector = inspect(eng)
+    tables = set(inspector.get_table_names())
+    order_indexes = {idx["name"]: idx for idx in inspector.get_indexes("orders")}
+    with eng.connect() as connection:
+        migrated_key = connection.scalar(text("SELECT idempotency_key FROM orders WHERE id = 8101"))
     eng.dispose()
     assert "inbound_message_buffers" in tables
+    assert bool(order_indexes["ux_orders_idempotency_key"]["unique"])
+    assert migrated_key == "legacy-idem-key"
 
     alembic_command.downgrade(cfg, "base")
     alembic_command.upgrade(cfg, "head")
