@@ -1,13 +1,24 @@
-name: Deploy to Hugging Face Spaces (Zero-Cost Gradio SDK)
+name: Deploy Wasla AI to Hugging Face Staging Space
 
 on:
-  push:
-    branches: ["main"]
   workflow_dispatch:
+    inputs:
+      confirm_staging:
+        description: "Confirm HF_STAGING_SPACE_ID targets a staging Space, not production"
+        required: true
+        type: boolean
+        default: false
 
 jobs:
   deploy-hf-space:
     runs-on: ubuntu-latest
+    environment: env
+    permissions:
+      contents: read
+    env:
+      HF_TOKEN: ${{ secrets.HF_STAGING_TOKEN }}
+      HF_SPACE_ID: ${{ vars.HF_STAGING_SPACE_ID }}
+      CONFIRM_STAGING: ${{ inputs.confirm_staging }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -17,15 +28,29 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Stage & upload clean runtime bundle to Hugging Face Space
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_SPACE_ID: ${{ secrets.HF_SPACE_ID }}
+      - name: Validate staging target configuration
         run: |
-          if [ -z "$HF_TOKEN" ] || [ -z "$HF_SPACE_ID" ]; then
-            echo "Skipping HF Space deploy: set GitHub Secrets HF_TOKEN and HF_SPACE_ID (e.g. username/wasla-moka-ai) to enable."
-            exit 0
+          set -euo pipefail
+          if [ "$CONFIRM_STAGING" != "true" ]; then
+            echo "::error::Confirm that HF_STAGING_SPACE_ID targets staging before deploying."
+            exit 1
           fi
+          missing=0
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::Missing GitHub Environment secret HF_STAGING_TOKEN."
+            missing=1
+          fi
+          if [ -z "$HF_SPACE_ID" ]; then
+            echo "::error::Missing GitHub Environment variable HF_STAGING_SPACE_ID."
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Stage & upload runtime bundle to the confirmed staging Space
+        run: |
+          set -euo pipefail
           python -m pip install --quiet huggingface_hub
           mkdir -p /tmp/hf_stage
           cp deploy/hf_app.py /tmp/hf_stage/app.py
@@ -45,7 +70,7 @@ jobs:
               folder_path="/tmp/hf_stage",
               repo_id=space_id,
               repo_type="space",
-              commit_message="Deploy Wasla AI production bundle (free Gradio SDK + FastAPI + LoRA checkpoints)",
+              commit_message="Deploy Wasla AI staging bundle",
               delete_patterns=["*.py", "*.txt", "*.md", "ai_service/**", "backend/**", "dashboard/**", "menu/**", "scripts/**", "training/**", "Dockerfile"],
           )
           print(f"Uploaded cleanly to Hugging Face Space: https://huggingface.co/spaces/{space_id}")

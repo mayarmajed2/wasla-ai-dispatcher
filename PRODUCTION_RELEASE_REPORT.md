@@ -28,10 +28,24 @@ GitHub Actions run [45511002675](https://github.com/mayarmajed2/wasla-ai-dispatc
 
 The earlier Hugging Face deployment workflow reported that it skipped upload because its required deployment configuration was unavailable at that run. No deployment was performed as part of this correction.
 
+## Staging workflow preparation
+
+The deployment workflow is `.github/workflows/deploy-hf-space.yml`. It now targets only a manually dispatched Hugging Face staging deployment, requires an explicit staging confirmation, uses GitHub Environment `env`, and no longer deploys automatically on pushes to `main`. The staging upload credentials are deliberately distinct from repository-level deployment credentials:
+
+- Add GitHub Environment secret `HF_STAGING_TOKEN`.
+- Add GitHub Environment variable `HF_STAGING_SPACE_ID` with the non-production staging Space identifier.
+- Add GitHub Environment secret `META_APP_SECRET` for the app's production-mode webhook signature requirement.
+
+The current Environment `env` inventory does not include those three names. Generic `HF_TOKEN` and `HF_SPACE_ID` names exist at repository scope, but the workflow intentionally does not use them: their target and suitability for staging are not established. The environment also has names for `DATABASE_URL`, `AUTH_SECRET_KEY`, and `BOOTSTRAP_ADMIN_PASSWORD`; their values and staging suitability have not been verified. `APP_ENV` exists as a variable; set the staging runtime to `production` mode to enable the app's production safety gates.
+
+The GitHub Actions Environment applies to the workflow job; it does **not** copy application secrets or variables into the Hugging Face Space. The current workflow uploads application files only. The runtime must separately receive `APP_ENV`, `DATABASE_URL`, `AUTH_SECRET_KEY`, `BOOTSTRAP_ADMIN_PASSWORD`, and `META_APP_SECRET` through that staging Space's own authorized Variables and Secrets settings. Configure any provider integrations there as well (for example `GEMINI_API_KEY`, `GROQ_API_KEY`, `META_ACCESS_TOKEN`, `META_VERIFY_TOKEN`, `META_PHONE_NUMBER_ID`, or Telegram settings as needed). No provider configuration or credentials were transmitted by this task.
+
+Repository workflow inventory: `ci.yml` runs CI for pushes to `main` and pull requests; `deploy-hf-space.yml` is now manual-only; `scheduler-cron.yml` periodically calls the configured scheduler endpoint and also supports manual dispatch; `telegram-cloud-probe.yml` is manual-only and can send test messages when explicitly selected. The staging deployment workflow was not dispatched. The pushed branch's PR CI is separate and does not run the deployment, scheduler, or Telegram workflows.
+
 ## Production blockers and integration status
 
-All credential values previously pasted into chat are treated as compromised. They were not read from files, used for tests, sent to providers, or included in this report. Revoke and rotate them before any use; enter replacements directly in the authorized provider or GitHub secret manager, never in chat or source control.
+All credential values previously pasted in chat remain treated as compromised. They were not read from files, used for tests, sent to providers, or included in this report. Rotate them before use; secret names alone do not prove that the configured values are valid, rotated, or staging-only.
 
-The GitHub repository's secret-name inventory at inspection time showed Telegram, Hugging Face, scheduler, and public-URL secret names, but no names for Gemini, Groq, Meta access/app secrets, the production database URL, or the backend service API key. A secret name alone does not establish that its value is valid, uncompromised, or usable. No live Gemini, Groq, Meta/WhatsApp, Telegram, production PostgreSQL, or customer-flow verification was performed. No courier/tracking provider is configured or verified; stored order states must not be presented as courier location or ETA.
+No live Gemini, Groq, Meta/WhatsApp, Telegram, Hugging Face runtime, production PostgreSQL, or customer-flow verification was performed. No courier/tracking provider is configured or verified; stored order states must not be presented as courier location or ETA.
 
-**Next release gate:** rotate every exposed credential, configure required replacements directly in the relevant authorized secret managers, and then perform separately authorized live integration checks before deploying. Until then, the verified result is CI and Docker readiness only, not production readiness.
+**Next release gate:** add the staging-only GitHub Environment entries listed above; configure the app's runtime variables/secrets directly in the staging Hugging Face Space; verify those values are staging-only and rotated; then separately authorize and run the staging deployment and live connectivity checks. Until those steps are completed, this is safe workflow preparation only—not a staging deployment or production readiness sign-off.
