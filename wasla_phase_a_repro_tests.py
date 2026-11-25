@@ -118,7 +118,7 @@ async def test_dispatcher_skips_incompatible_finetuned_intent_classifier():
     parsed, model_used = await dispatcher._run_nlu("السلام عليكم")
     assert calls == [], "Incompatible classifier must not route application intents"
     assert parsed["intent"] == "greeting"
-    assert model_used == "offline_rules"
+    assert model_used == "offline_egyptian_nlu"
 
 
 def test_gemini_function_declarations_are_in_client_payload():
