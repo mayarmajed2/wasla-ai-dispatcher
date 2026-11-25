@@ -67,7 +67,7 @@
 | Verification Run | Command | Actual Output |
 | :--- | :--- | :--- |
 | **Phase A Baseline (Before Fixes)** | `py -m pytest -q wasla_phase_a_repro_tests.py` | **7 failed in 1.19s** |
-| **Historical Phase B Suite (24 Nov 2026)** | `$env:GEMINI_API_KEY="disabled"; $env:GROQ_API_KEY="disabled"; py -m pytest -v wasla_phase_a_repro_tests.py tests/ backend/test_cart_calculator.py --tb=short` | **61 passed in 143.59s (0:02:23)** at that earlier checkpoint; this is not the current task's test result. See the current [`FINAL_ENGINEERING_REPORT.md`](../FINAL_ENGINEERING_REPORT.md). |
+| **Historical Phase B Suite (24 Nov 2026)** | `$env:GEMINI_API_KEY="disabled"; $env:GROQ_API_KEY="disabled"; py -m pytest -v wasla_phase_a_repro_tests.py tests/ backend/test_cart_calculator.py --tb=short` | **61 passed in 143.59s (0:02:23)** at that earlier checkpoint; this is not the current task's test result. See [`FINAL_RELEASE_VERIFICATION.md`](../FINAL_RELEASE_VERIFICATION.md) for current release status. |
 | **5-Way Scientific Eval (`2026-11-24T19:21:18Z`)** | `py training/scripts/evaluate_phase_b_scientific.py` | Held-Out `test_unseen_106`: Base **39.62%** -> LoRA v1 **79.25%** -> LoRA v2 **82.08%** -> Hybrid **83.02%** (`Macro-P 0.9694`, `Macro-F1 0.7470`); Independent 204: LoRA v2 **60.29%** (`Macro-F1 0.5890`), Gemini 24-sample probe **83.33%**; MOKA Typo 154: **100.00%** intent / **97.52%** exact item / **0.0%** nonexistent FP |
 
 *(Detailed confusion matrices and per-intent metrics are recorded in [`docs/MODEL_INFERENCE_REPORT.md`](docs/MODEL_INFERENCE_REPORT.md) and [`training/reports/phase_b_scientific_evaluation.json`](training/reports/phase_b_scientific_evaluation.json).)*
@@ -84,4 +84,4 @@
 ## 5. Historical GitHub & Deployment Checkpoint
 - **GitHub Repository:** `https://github.com/mayarmajed2/wasla-ai-dispatcher` (default branch `main`)
 - **Prior Phase B Commit:** `2e45722` (`2e457228a5ef081e90746435b4cb55fd03701497`)
-- **Cloud deployment claims:** A configured `/api/ready` response or CI/Docker check is not equivalent to a live customer/provider end-to-end test. Current-task branch, commit, tests, and limitations are documented in [`FINAL_ENGINEERING_REPORT.md`](../FINAL_ENGINEERING_REPORT.md).
+- **Cloud deployment claims:** A configured `/api/ready` response or CI/Docker check is not equivalent to a live customer/provider end-to-end test. Current-task branch, commit, tests, and limitations are documented in [`FINAL_RELEASE_VERIFICATION.md`](../FINAL_RELEASE_VERIFICATION.md).
