@@ -42,6 +42,8 @@ The GitHub Actions Environment applies to the workflow job; it does **not** copy
 
 Repository workflow inventory: `ci.yml` runs CI for pushes to `main` and pull requests; `deploy-hf-space.yml` is now manual-only; `scheduler-cron.yml` periodically calls the configured scheduler endpoint and also supports manual dispatch; `telegram-cloud-probe.yml` is manual-only and can send test messages when explicitly selected. The staging deployment workflow was not dispatched. The pushed branch's PR CI is separate and does not run the deployment, scheduler, or Telegram workflows.
 
+The staging workflow YAML was statically parsed and checked for the manual-only trigger, `env` binding, staging-scoped secret/variable references, and default-off confirmation. Commit `d989d987d422ff1036cd91422f7aaf0a8f6e1c0e` passed both PR CI jobs in [run 45517095649](https://github.com/mayarmajed2/wasla-ai-dispatcher/actions/runs/45517095649). No staging upload or provider connectivity test was run.
+
 ## Production blockers and integration status
 
 All credential values previously pasted in chat remain treated as compromised. They were not read from files, used for tests, sent to providers, or included in this report. Rotate them before use; secret names alone do not prove that the configured values are valid, rotated, or staging-only.
