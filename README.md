@@ -1,93 +1,116 @@
-# Wasla AI — Commercial Restaurant AI Dispatcher (MOKA Pilot)
+# Wasla AI — Restaurant AI Dispatcher (MOKA Pilot)
 
-**Wasla AI** is a production-oriented, Egyptian Arabic Voice-First AI Ordering & Cashier Operations platform engineered for restaurants and cafes, piloted with **MOKA Restaurant & Cafe** (145 confirmed menu items across 23 categories).
+Wasla AI is an Egyptian Arabic ordering and cashier-operations application piloted with MOKA Restaurant & Cafe. The repository includes a FastAPI backend, a restaurant operations dashboard, menu-grounded AI/NLU, and optional external-service integrations.
 
----
+> **Readiness:** The code, CI tests, PostgreSQL service checks, and Docker image have passed the repository's automated checks. This is not evidence of a live staging deployment, provider connectivity, customer traffic, or production readiness. Do not put credentials in this README, source control, or chat.
 
-## Core Capabilities
+## What it includes
 
-- **AI Runtime (`ai_service/`):** Optional Gemini Function Calling and deterministic Egyptian Arabic NLU. The checked-in 12-label LoRA checkpoints do not match the application intent taxonomy and are excluded from routing. Category questions use category-filtered menu data; availability questions, product rejection, cart removal, and customer-reported stock issues have distinct intents. Order-status lookups are phone-scoped and return only recognized stored status; no courier ETA is invented.
-- **Fine-Tuned Egyptian Arabic Intent Models (`training/`):** Preserves the Apache-2.0 CAMeLBERT-Mix PEFT LoRA v1/v2 artifacts. Previously published independent-benchmark metrics are invalidated: the dataset contained an exact train/evaluation overlap that has been removed. Re-evaluation on the corrected 203-row challenge set is required before reporting model performance.
-- **Durable PostgreSQL State, Live Menu Sync & Inbound Debouncing (`backend/`):** 14-field PostgreSQL/SQLite `ChatSession` rehydration across restarts & workers (`SELECT ... FOR UPDATE`), `SESSION_TTL_SECONDS` cleanup, per-customer `asyncio.Lock` + immutable `TurnExecutionContext`, idempotent confirmation keys, DB-backed 3-second `InboundMessageBuffer` crash recovery (`0004_phase_b_durable_ai_state`) with 0ms urgent complaint bypass, and instant `MenuIndex` synchronization after dashboard price/availability edits.
-- **Deterministic Business Safety & Audio Pipeline:** Exact `Decimal` pricing (`backend/app/cart_calculator.py`), `confirmed_by_customer=True`, HMAC-SHA256 webhook verification, hybrid `audio/ogg` transcription (Gemini + optional Groq Whisper fallback) without fabricated confidence, full order lifecycle states, Telegram cashier group & owner urgent escalation, and scheduled post-delivery reviews.
-- **Commercial Arabic RTL Operations Console (`dashboard/`):** Admin/Cashier RBAC, live WebSocket order & complaint alerts (`/ws/cashier`), 145-item inventory & live pricing controls, and honest runtime AI/DB telemetry (`/api/ready`).
+- **Menu-grounded ordering:** Egyptian Arabic NLU, optional Gemini function calling, menu-backed item matching, deterministic `Decimal` totals, and explicit confirmation before order submission.
+- **Safe fallback behavior:** The checked-in LoRA checkpoints use labels incompatible with the application's `CustomerIntent` taxonomy and are excluded from intent routing. Order status responses use stored restaurant order state and phone-scoped lookups; no courier location or ETA is fabricated.
+- **Backend and persistence:** FastAPI, SQLAlchemy, Alembic migrations, PostgreSQL or local SQLite, durable sessions and inbound-message debouncing.
+- **Operations dashboard:** Arabic RTL cashier interface, staff authentication, order operations, inventory controls, WebSocket notifications, and runtime readiness reporting.
+- **Optional integrations:** Gemini, Groq audio transcription, Meta WhatsApp, Telegram, and scheduled jobs. Local mocks and automated tests do not establish live provider connectivity.
 
----
-
-## Repository Structure
+## Repository layout
 
 ```text
-wasla-ai-dispatcher/
-├── ai_service/                     # Repaired Hybrid AI Layer (LoRA + Gemini Tools + Egyptian NLU)
-│   ├── adapters/                   # Backend abstractions + MockBackendAdapter (14-field TTL parity)
-│   ├── audio/                      # Option C Hybrid OGG/Opus audio pipeline
-│   ├── dispatcher/                 # WaslaAIDispatcher (per-phone locks, TurnExecutionContext), MessageDebouncer
-│   ├── models/                     # FineTunedIntentClassifier (_MODEL_CACHE) + GeminiLLMClient (Function Calling)
-│   ├── schemas/                    # Strict Pydantic v2 DTOs & SessionState / TurnExecutionContext
-│   ├── security/                   # PII log redaction, prompt-injection guardrails, audio validation
-│   ├── tools/                      # 9 Function Calling tools & deduplicated ToolExecutor
-│   └── understanding/              # Live DB-synced 145-item MenuIndex & Egyptian Arabic dialect/gibberish NLU
-├── backend/                        # FastAPI + SQLAlchemy + Alembic (0001..0005) + WebSockets Backend
-│   ├── app/                        # main.py (/api/ready, webhook debouncer, DB bridge), models.py, cart_calculator.py
-│   └── migrations/versions/        # 0001..0005 (durable debouncing and unique order idempotency)
-├── dashboard/                      # Commercial Arabic RTL Cashier Console
-├── menu/                           # Canonical MOKA Menu (145 products, 23 categories, 7 extras)
-├── training/                       # PEFT LoRA v1 & v2 checkpoints, data splits, scientific eval & reports
-├── datasets/                       # Grounded MOKA typo/challenge eval cases + HF Egyptian audio loader
-├── docs/                           # Phase B Architecture, Model Inference, Regression, Readiness & Ops Docs
-├── tests/                          # Unit, AI Eval, Real-Backend E2E, and Phase B Hardening suites
-├── WASLA_AI_PHASE_A_AUDIT_REPORT.md
-├── wasla_phase_a_repro_tests.py    # 7 Phase A bug reproductions (now 7/7 passing)
-└── requirements.txt
+ai_service/       AI dispatcher, NLU, models, audio, tools, adapters
+backend/          FastAPI application, persistence, migrations, auth
+dashboard/        Arabic RTL cashier and operations dashboard
+menu/             Canonical MOKA menu data
+training/         LoRA checkpoints, datasets, and evaluation scripts
+datasets/         Evaluation data
+tests/            Unit, integration, and regression tests
+deploy/           Hugging Face Space entry point and deployment assets
+docs/             Architecture, operations, integration, and release docs
+.github/workflows/ CI, staging deployment, scheduler, and manual probe workflows
 ```
 
----
+## Local setup
 
-## Quick Start (Local Development)
-
-### 1. Install Dependencies
+Use Python 3.12, then install the repository dependencies:
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
-*(Windows Smart App Control may block native wheels even after a clean dependency install. This host blocks `pydantic_core` during clean-environment test collection and `regex._regex` during LoRA loading; use an allowed Linux runtime for those checks. A pure-Python SQLAlchemy install does not resolve these unrelated extensions.)*
-
-### 2. Configure Environment & Run Database Migrations
-
-Copy `.env.example` to `.env` (never commit `.env`), apply all migrations through the current Alembic head (`0005_order_idempotency`), and start Uvicorn:
+For local development, copy `.env.example` to `.env`, review every setting, and keep `.env` out of version control:
 
 ```bash
 cp .env.example .env
+```
+
+The example file is a template, not a credential source. Values shown as examples or defaults are **not working credentials**. For local tests, leave external provider credentials unset unless you are intentionally configuring a test account. Never use exposed or production credentials for staging.
+
+Apply the current Alembic migrations and start the backend from the repository root:
+
+```bash
 alembic -c backend/alembic.ini upgrade head
 uvicorn app.main:app --app-dir backend --reload --port 8000
 ```
 
-Open **http://localhost:8000** for the **Wasla Commercial Operations Console** and **http://localhost:8000/api/ready** for honest AI model & PostgreSQL readiness telemetry.
+Open `http://localhost:8000` for the dashboard and `http://localhost:8000/api/ready` for application readiness information. A local SQLite setup is suitable for development only; production-mode startup requires PostgreSQL, a strong authentication key, a changed bootstrap-admin password, and Meta webhook signature configuration.
 
-### 3. Run Automated Tests & Scientific Evaluation
+## Tests and CI
 
-```bash
-pytest -v wasla_phase_a_repro_tests.py tests/ backend/test_cart_calculator.py
-python training/scripts/evaluate_phase_b_scientific.py
+The same pytest selection used in GitHub Actions can be run locally from PowerShell:
+
+```powershell
+$env:PYTHONPATH = ".;backend"
+$env:APP_ENV = "development"
+$env:GEMINI_API_KEY = ""
+$env:GROQ_API_KEY = ""
+$env:META_ACCESS_TOKEN = ""
+py -m pytest -v tests/ wasla_phase_a_repro_tests.py backend/test_cart_calculator.py
 ```
 
-The test and provider results for the current task are recorded in [the final engineering report](FINAL_ENGINEERING_REPORT.md) and [regression report](docs/REGRESSION_TEST_REPORT.md). Provider stubs and mocked HTTP tests verify fallback behavior only; they are not live Gemini, Telegram, or production integrations.
+The GitHub Actions `test-and-verify` job also checks committed-secret hygiene, menu/model artifacts, frontend syntax, and migrations/persistence against an isolated PostgreSQL 16 service. The separate `docker-production-verify` job builds and boots the production Docker image against its own isolated test database and verifies restart behavior. These CI jobs use test configuration; they are not live production or provider integration tests.
 
----
+The merged CI correction and staging-workflow configuration passed both jobs on the merge commit `01bf8a9`. The PostgreSQL CI backup/restore round-trip passed; native `pg_dump` was not verified. See [the production release report](PRODUCTION_RELEASE_REPORT.md) for the recorded evidence and limitations.
 
-## Documentation
+## Hugging Face staging deployment
 
-- [Phase B Implementation Report](docs/PHASE_B_IMPLEMENTATION_REPORT.md)
-- [Engineering Reference & Release Report](docs/ENGINEERING_REFERENCE.md)
-- [Final Engineering QA Report](FINAL_ENGINEERING_REPORT.md)
-- [Phase B Repaired AI Architecture](docs/AI_ARCHITECTURE.md)
-- [Model & Inference Scientific Evaluation Report (Phase B)](docs/MODEL_INFERENCE_REPORT.md)
-- [Phase B Regression Test Report](docs/REGRESSION_TEST_REPORT.md)
-- [Production Deployment Readiness & `/api/ready` Contract](docs/DEPLOYMENT_READINESS.md)
-- [Phase A AI Audit Report](WASLA_AI_PHASE_A_AUDIT_REPORT.md)
-- [Sales Assistant, Notifications, Reviews & Owner Escalation Guide](docs/CUSTOMER_EXPERIENCE_AND_OPS.md)
-- [Model Card (CAMeLBERT-Mix LoRA v2 — Apache-2.0)](docs/MODEL_CARD.md)
-- [Commercial Production Deployment & Zero-Cost Hosting Guide](docs/PRODUCTION_DEPLOYMENT.md)
-- [Verified Backend & Dashboard Integration Contract](docs/INTEGRATION_CONTRACT.md)
-- [MOKA Menu Extraction Report](menu/extraction_report.md)
+`.github/workflows/deploy-hf-space.yml` uploads the application bundle to Hugging Face Spaces. It is **manual-only**; pushing to `main` does not deploy. The job uses the GitHub Actions Environment named `env` and requires explicit confirmation that the selected Space is staging.
+
+Before dispatching **Deploy Wasla AI to Hugging Face Staging Space**, configure these entries in the repository's GitHub Environment named `env`:
+
+| Environment entry | Type | Purpose |
+|---|---|---|
+| `HF_STAGING_TOKEN` | Secret | Hugging Face token authorized to deploy to the staging Space |
+| `HF_STAGING_SPACE_ID` | Variable | Non-production Hugging Face Space identifier |
+
+Select `confirm_staging` only after verifying that `HF_STAGING_SPACE_ID` identifies a staging Space. The workflow fails before upload if confirmation or either setting is missing. Do not substitute repository-level or production Hugging Face credentials.
+
+**The workflow uploads files only.** GitHub Environment settings are available to the workflow job; they are not copied into the Hugging Face Space's runtime environment. Configure the application separately in the staging Space's own Variables and Secrets settings. At minimum, production-mode application startup requires:
+
+| Staging Space setting | Type | Purpose |
+|---|---|---|
+| `APP_ENV` | Variable | Set to `production` to enable production safety checks |
+| `DATABASE_URL` | Secret | Staging PostgreSQL connection string |
+| `AUTH_SECRET_KEY` | Secret | Strong staging-only signing key |
+| `BOOTSTRAP_ADMIN_PASSWORD` | Secret | Strong staging-only initial admin password |
+| `META_APP_SECRET` | Secret | Required at startup for webhook signature verification |
+
+Also configure `DASHBOARD_PUBLIC_URL` and `BOOTSTRAP_ADMIN_USERNAME` as appropriate for the staging Space. Add provider settings only if that staging integration is intentionally enabled—for example `GEMINI_API_KEY`, `GROQ_API_KEY`, `META_VERIFY_TOKEN`, `META_ACCESS_TOKEN`, `META_PHONE_NUMBER_ID`, or Telegram configuration. Use rotated, staging-only credentials from their authorized secret managers. Do not use placeholders or previously exposed values.
+
+Successful workflow completion would confirm that files were uploaded; it would **not** by itself verify that the Space booted, connected to the staging database, or reached any external provider. Verify those separately before treating staging as functional. No staging deployment or live provider connectivity is claimed here.
+
+## Other workflows
+
+- `.github/workflows/ci.yml` runs CI for pushes to `main` and pull requests targeting `main`.
+- `.github/workflows/scheduler-cron.yml` periodically calls the configured scheduler endpoint and also supports manual dispatch. It is separate from application deployment.
+- `.github/workflows/telegram-cloud-probe.yml` is manual-only; its optional send-test mode sends live Telegram messages and should be used only with authorized staging/test chats.
+
+## Further documentation
+
+- [Production release report and verified limitations](PRODUCTION_RELEASE_REPORT.md)
+- [Deployment readiness and `/api/ready` contract](docs/DEPLOYMENT_READINESS.md)
+- [Production deployment guide](docs/PRODUCTION_DEPLOYMENT.md)
+- [Integration contract and tracking limitations](docs/INTEGRATION_CONTRACT.md)
+- [Engineering reference](docs/ENGINEERING_REFERENCE.md)
+- [AI architecture](docs/AI_ARCHITECTURE.md)
+- [Regression test report](docs/REGRESSION_TEST_REPORT.md)
+- [Customer experience and operations guide](docs/CUSTOMER_EXPERIENCE_AND_OPS.md)
+- [Model card](docs/MODEL_CARD.md)
+- [MOKA menu extraction report](menu/extraction_report.md)
